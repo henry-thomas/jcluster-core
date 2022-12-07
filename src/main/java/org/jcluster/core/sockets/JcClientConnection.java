@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcAppDescriptor;
+import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.cluster.ClusterManager;
 import org.jcluster.core.cluster.JcFactory;
 import org.jcluster.core.messages.JcMessage;
@@ -31,7 +32,7 @@ public class JcClientConnection implements Runnable {
     private final ClusterManager manager = JcFactory.getManager();
 
     private final JcAppDescriptor desc;
-    private String connId;
+    private final String connId;
     private final int port;
     private final String hostName;
     private Socket socket;
@@ -42,10 +43,7 @@ public class JcClientConnection implements Runnable {
     private boolean secure;
     private boolean running;
     private final ConnectionType connType;
-    private int txCount = 0;
-    private int rxCount = 0;
-    private int errCount = 0;
-    private int timeoutCount = 0;
+    private final JcConnectionMetrics metrics;
     private long lastSuccessfulSend = 0l;
 
     private final Object writeLock = new Object();
@@ -66,6 +64,7 @@ public class JcClientConnection implements Runnable {
         }
 
         this.connId = desc.getAppName() + "-" + hostName + ":" + port + "-INBOUND";
+        metrics = new JcConnectionMetrics(this.connId);
     }
 
     public JcClientConnection(JcAppDescriptor desc) {
@@ -81,6 +80,7 @@ public class JcClientConnection implements Runnable {
             System.out.println("Number of connections reached: " + paralConnWaterMark);
         }
         this.connId = desc.getAppName() + "-" + hostName + ":" + port + "-OUTBOUND";
+        metrics = new JcConnectionMetrics(this.connId);
     }
 
     private void reconnect() {
@@ -157,7 +157,7 @@ public class JcClientConnection implements Runnable {
 
             long start = System.currentTimeMillis();
 
-            txCount++;
+            metrics.incTxCount();
             reqRespMap.put(msg.getRequestId(), msg);
 
 //            if (reqRespMap.get(msg.getRequestId()) == null) {
@@ -174,7 +174,7 @@ public class JcClientConnection implements Runnable {
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
             if (msg.getResponse() == null) {
                 reqRespMap.remove(msg.getRequestId());
-                timeoutCount++;
+                metrics.incTimeoutCount();
                 LOG.log(Level.WARNING, "Timeout req-resp: {0}ms Message ID:{1} Thread-ID: {2}", new Object[]{System.currentTimeMillis() - start, msg.getRequestId(), Thread.currentThread().getName()});
 
                 throw new JcResponseTimeoutException("No response received, timeout. APP_NAME: ["
@@ -210,7 +210,7 @@ public class JcClientConnection implements Runnable {
         try {
             connect();
         } catch (JcSocketConnectException ex) {
-            errCount++;
+            metrics.incErrCount();
 //            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
 
@@ -237,7 +237,7 @@ public class JcClientConnection implements Runnable {
                     if (socket.isConnected()) {
                         JcMessage request = (JcMessage) ois.readObject();
                         manager.getExecutorService().submit(new MethodExecutor(oos, request));
-                        rxCount++;
+                        metrics.incErrCount();
                     }
                 } catch (IOException ex) {
 //                    reconnect();
@@ -254,7 +254,7 @@ public class JcClientConnection implements Runnable {
         try {
 
             Object readObject = ois.readObject();
-            rxCount++;
+            metrics.incRxCount();
 
             if (readObject instanceof JcMessage) {
 
@@ -273,7 +273,7 @@ public class JcClientConnection implements Runnable {
             }
         } catch (IOException ex) {
 //            running = false;
-            errCount++;
+            metrics.incErrCount();
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -314,6 +314,10 @@ public class JcClientConnection implements Runnable {
 
     public long getLastSuccessfulSend() {
         return lastSuccessfulSend;
+    }
+
+    public JcConnectionMetrics getMetrics() {
+        return metrics;
     }
 
 }

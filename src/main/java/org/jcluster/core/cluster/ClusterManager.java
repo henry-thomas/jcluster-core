@@ -16,7 +16,6 @@ import javax.annotation.PreDestroy;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.naming.NamingException;
 import org.jcluster.core.ServiceLookup;
-import org.jcluster.core.bean.JcAppCluster;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcAppInstanceData;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
@@ -50,7 +49,6 @@ public final class ClusterManager {
     private static final ClusterManager INSTANCE = new ClusterManager();
     private boolean running = false;
     private boolean configDone = false;
-    private String bindAddress;
     private JcServerEndpoint server;
     private ManagedExecutorService executorService = null;
 
@@ -116,7 +114,7 @@ public final class ClusterManager {
                 LOG.warning("JCLUSTER -- App instance is not configured, using default settings. Consider calling JcFactory.initManager(appName, ipAddress, port)");
             }
             LOG.info("JCLUSTER -- Startup...");
-            bindAddress = "tcp://" + thisDescriptor.getIpAddress() + ":" + thisDescriptor.getIpPort();
+//            bindAddress = "tcp://" + thisDescriptor.getIpAddress() + ":" + thisDescriptor.getIpPort();
             server = new JcServerEndpoint();
             executorService.submit(server);
 
@@ -147,6 +145,7 @@ public final class ClusterManager {
                     JcAppDescriptor desc = conn.getDesc();
 
                     JcAppInstanceData.getInstance().getOuboundConnections().remove(conn.getConnId());
+                    JcAppInstanceData.getInstance().incrReconnectCount();
                     onMemberLeave(desc);
                     onNewMemberJoin(desc);
 

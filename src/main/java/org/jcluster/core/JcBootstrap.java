@@ -64,7 +64,7 @@ public class JcBootstrap implements Extension {
         long scanStart = System.currentTimeMillis();
         
         
-        List<Class> jcRemoteInterfaceList = getAllJcRemoteClasses("com.mypower24.test2.interfaces");
+        List<Class> jcRemoteInterfaceList = getAllJcRemoteClasses(scanPackageName);
 
         long scanEnd = System.currentTimeMillis();
         LOG.log(Level.INFO, "JcBootstrap Scan for JcRemote annotation in {0}ms, found: {1}", new Object[]{scanEnd - scanStart, jcRemoteInterfaceList.size()});

@@ -11,7 +11,6 @@ import java.util.Map;
 import org.jcluster.annotation.JcInstanceFilter;
 import org.jcluster.annotation.JcRemote;
 
-
 /**
  *
  * @author henry

@@ -5,7 +5,9 @@
 package org.jcluster.core.bean;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.jcluster.core.sockets.JcClientConnection;
 
@@ -21,6 +23,7 @@ public class JcAppInstanceData implements Serializable {
     private final Map<String, JcClientConnection> ouboundConnections = new HashMap<>();
     private final Map<String, JcClientConnection> inboundConnections = new HashMap<>();
     private static JcAppInstanceData INSTANCE;
+    private int totalReconnects = 0;
 
     public static JcAppInstanceData getInstance() {
         if (INSTANCE == null) {
@@ -31,6 +34,44 @@ public class JcAppInstanceData implements Serializable {
 
     private JcAppInstanceData() {
 //        this.desc = desc;
+    }
+
+    public List<JcConnectionMetrics> getInboundMetrics() {
+        List<JcConnectionMetrics> metrics = new ArrayList<>();
+        for (Map.Entry<String, JcClientConnection> entry : inboundConnections.entrySet()) {
+            JcClientConnection conn = entry.getValue();
+
+            metrics.add(conn.getMetrics());
+        }
+        return metrics;
+    }
+
+    public List<JcConnectionMetrics> getOutboundMetrics() {
+        List<JcConnectionMetrics> metrics = new ArrayList<>();
+        for (Map.Entry<String, JcClientConnection> entry : ouboundConnections.entrySet()) {
+            JcClientConnection conn = entry.getValue();
+
+            metrics.add(conn.getMetrics());
+        }
+        return metrics;
+    }
+
+    public List<JcConnectionMetrics> getAllMetrics() {
+        List<JcConnectionMetrics> metrics = getInboundMetrics();
+        metrics.addAll(getOutboundMetrics());
+        return metrics;
+    }
+
+    public int getTotalOutboundConnections() {
+        return ouboundConnections.size();
+    }
+
+    public int getTotalInboundConnections() {
+        return inboundConnections.size();
+    }
+
+    public void incrReconnectCount() {
+        ++totalReconnects;
     }
 
     public void addOutboundConnection(JcClientConnection conn) {
@@ -53,6 +94,10 @@ public class JcAppInstanceData implements Serializable {
 
     public Map<String, JcClientConnection> getInboundConnections() {
         return inboundConnections;
+    }
+
+    public int getTotalReconnects() {
+        return totalReconnects;
     }
 
 }
