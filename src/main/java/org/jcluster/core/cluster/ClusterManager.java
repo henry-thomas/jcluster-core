@@ -221,15 +221,13 @@ public final class ClusterManager {
         //Logic to send to correct app
 
         JcAppCluster cluster = clusterMap.get(proxyMethod.getAppName());
+        
         if (cluster == null) {
             //ex   
-            return new JcClusterNotFoundException("Cluster not found for " + proxyMethod.getAppName());
+            throw new JcClusterNotFoundException("Cluster not found for " + proxyMethod.getAppName());
         }
 
-        if (!proxyMethod.isInstanceFilter()) {
-            return cluster.broadcast(proxyMethod, args);
-        } else {
-
+        if (proxyMethod.isInstanceFilter()) {
             Map<String, JcAppDescriptor> idDescMap = getIdDescMap(cluster);
 
             Map<String, Integer> paramNameIdxMap = proxyMethod.getParamNameIdxMap();
@@ -242,7 +240,39 @@ public final class ClusterManager {
             }
 
             return cluster.send(proxyMethod, args, sendInstanceId);
+        } else if (proxyMethod.isBroadcast()) {
+
+            return cluster.broadcast(proxyMethod, args);
+
+        } else {
+
+            return cluster.sendWithLoadBalancing(proxyMethod, args);
+
         }
+
+//        if (!proxyMethod.isInstanceFilter() && !proxyMethod.isBroadcast()) {
+//
+//            return cluster.sendWithLoadBalancing(proxyMethod, args);
+//
+//        } else if (!proxyMethod.isInstanceFilter() && proxyMethod.isBroadcast()) {
+//
+//            return cluster.broadcast(proxyMethod, args);
+//
+//        } else {
+//
+//            Map<String, JcAppDescriptor> idDescMap = getIdDescMap(cluster);
+//
+//            Map<String, Integer> paramNameIdxMap = proxyMethod.getParamNameIdxMap();
+//
+//            String sendInstanceId = getSendInstance(idDescMap, paramNameIdxMap, args);
+//
+//            if (sendInstanceId == null) {
+//                //ex
+//                throw new JcInstanceNotFoundException("Instance not found for [" + proxyMethod.getMethodName() + "] with params: [" + Arrays.toString(args) + "]");
+//            }
+//
+//            return cluster.send(proxyMethod, args, sendInstanceId);
+//        }
 
     }
 

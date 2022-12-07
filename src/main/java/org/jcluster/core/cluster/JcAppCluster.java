@@ -4,7 +4,9 @@
  */
 package org.jcluster.core.cluster;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcAppDescriptor;
@@ -22,19 +24,11 @@ public class JcAppCluster {
 
     private final String jcAppName;
     private final Map<String, JcClientConnection> instanceMap = new HashMap<>(); //connections for this app
+    private int lastSendAppIndex = 0;
 //    private final Map<Integer, JcMessage> jcMsgMap = new ConcurrentHashMap<>();
 
     public JcAppCluster(String jcAppName) {
         this.jcAppName = jcAppName;
-    }
-
-    public Object send(JcProxyMethod proxyMethod, Object[] args, String sendInstanceId) {
-        JcMessage msg = new JcMessage(proxyMethod.getMethodName(), proxyMethod.getClassName(), args);
-//        return null;
-        if (!instanceMap.get(sendInstanceId).isRunning()) {
-            LOG.warning("We have an instance that is not running");
-        }
-        return instanceMap.get(sendInstanceId).send(msg).getData();
     }
 
     public boolean removeConnection(JcAppDescriptor instance) {
@@ -48,6 +42,15 @@ public class JcAppCluster {
         return remove != null;
     }
 
+    public Object send(JcProxyMethod proxyMethod, Object[] args, String sendInstanceId) {
+        JcMessage msg = new JcMessage(proxyMethod.getMethodName(), proxyMethod.getClassName(), args);
+//        return null;
+        if (!instanceMap.get(sendInstanceId).isRunning()) {
+            LOG.warning("We have an instance that is not running");
+        }
+        return instanceMap.get(sendInstanceId).send(msg).getData();
+    }
+
     public boolean broadcast(JcProxyMethod proxyMethod, Object[] args) {
         //if broadcast to 0 instances, fail. Otherwise return true
         for (Map.Entry<String, JcClientConnection> entry : instanceMap.entrySet()) {
@@ -58,6 +61,23 @@ public class JcAppCluster {
             instance.send(msg);
         }
         return true;
+    }
+
+    public Object sendWithLoadBalancing(JcProxyMethod proxyMethod, Object[] args) {
+        int size = instanceMap.size();
+
+        List<JcClientConnection> connList = new ArrayList<>();
+        for (JcClientConnection jcClientConnection : connList) {
+            connList.add(jcClientConnection);
+        }
+
+        String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
+
+        if (size < lastSendAppIndex) {
+            lastSendAppIndex++;
+        }
+
+        return send(proxyMethod, args, instanceId);
     }
 
     public void addConnection(JcClientConnection conn) {

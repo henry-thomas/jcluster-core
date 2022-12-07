@@ -18,9 +18,9 @@ import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
-import org.jcluster.annotation.JcRemote;
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.proxy.JcRemoteExecutionHandler;
+import org.jcluster.lib.annotation.JcRemote;
 
 /**
  *
