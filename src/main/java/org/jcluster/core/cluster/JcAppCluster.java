@@ -73,8 +73,10 @@ public class JcAppCluster {
 
         String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
 
-        if (size < lastSendAppIndex) {
+        if (lastSendAppIndex < size) {
             lastSendAppIndex++;
+        } else {
+            lastSendAppIndex = 0;
         }
 
         return send(proxyMethod, args, instanceId);
