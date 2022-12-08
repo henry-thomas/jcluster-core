@@ -5,6 +5,7 @@
 package org.jcluster.core;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.Map;
 import javax.naming.InitialContext;
@@ -42,17 +43,24 @@ public class ServiceLookup {
         return serviceObj;
     }
 
-    public Method getMethod(Object service, String methodName) {
+    public Method getMethod(Object service, String methodSignature) {
         Map<String, Method> methodMap = serviceMethodsMap.get(service.getClass().getName());
 
         if (methodMap == null) {
             methodMap = new HashMap<>();
+
             for (Method method : service.getClass().getMethods()) {
-                methodMap.put(method.getName(), method);
+
+                String ms = method.getName();
+                for (Parameter parameter : method.getParameters()) {
+                    ms += "," + parameter.getType().getSimpleName();
+                }
+                methodMap.put(ms, method);
             }
+            
             serviceMethodsMap.put(service.getClass().getName(), methodMap);
         }
-        return methodMap.get(methodName);
+        return methodMap.get(methodSignature);
     }
 
 }

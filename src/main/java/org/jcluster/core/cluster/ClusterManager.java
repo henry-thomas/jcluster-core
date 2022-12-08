@@ -95,12 +95,17 @@ public final class ClusterManager {
         LOG.log(Level.INFO, "Removed filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
     }
 
-    protected ClusterManager initConfig(String appName, String ipAddress, Integer port) {
+    protected ClusterManager initConfig() {
+        Integer port = JcAppConfig.getINSTANCE().getPort();
+        String hostName = JcAppConfig.getINSTANCE().getHostName();
+        String appName = JcAppConfig.getINSTANCE().getAppName();
+
         if (!running) {
             thisDescriptor.setAppName(appName);
             thisDescriptor.setIpPort(port);
-            thisDescriptor.setIpAddress(ipAddress);
+            thisDescriptor.setIpAddress(hostName);
             configDone = true;
+            LOG.log(Level.INFO, "ClusterManager: initConfig() HOSTNAME: {0} PORT: {1} APPNAME: {2}", new Object[]{hostName, port, appName});
             init();
         } else {
             LOG.log(Level.WARNING, "Cannot set JC App instance config, already running! instance ID: {0}", thisDescriptor.getInstanceId());
@@ -221,7 +226,7 @@ public final class ClusterManager {
         //Logic to send to correct app
 
         JcAppCluster cluster = clusterMap.get(proxyMethod.getAppName());
-        
+
         if (cluster == null) {
             //ex   
             throw new JcClusterNotFoundException("Cluster not found for " + proxyMethod.getAppName());
@@ -236,7 +241,7 @@ public final class ClusterManager {
 
             if (sendInstanceId == null) {
                 //ex
-                throw new JcInstanceNotFoundException("Instance not found for [" + proxyMethod.getMethodName() + "] with params: [" + Arrays.toString(args) + "]");
+                throw new JcInstanceNotFoundException("Instance not found for [" + proxyMethod.getMethodSignature() + "] with params: [" + Arrays.toString(args) + "]");
             }
 
             return cluster.send(proxyMethod, args, sendInstanceId);
@@ -273,7 +278,6 @@ public final class ClusterManager {
 //
 //            return cluster.send(proxyMethod, args, sendInstanceId);
 //        }
-
     }
 
     private Map<String, JcAppDescriptor> getIdDescMap(JcAppCluster cluster) {

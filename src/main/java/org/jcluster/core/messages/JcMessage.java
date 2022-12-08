@@ -16,7 +16,7 @@ public class JcMessage implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final long requestId;
-    private final String methodName;
+    private final String methodSignature;
     private final String className;
     private final Object[] args; //arguments for method execution
     private JcMsgResponse response;
@@ -24,8 +24,8 @@ public class JcMessage implements Serializable {
 
     private static final AtomicLong MSG_ID_INCR = new AtomicLong();
 
-    public JcMessage(String methodName, String className, Object[] args) {
-        this.methodName = methodName;
+    public JcMessage(String methodSignature, String className, Object[] args) {
+        this.methodSignature = methodSignature;
         this.className = className;
         this.args = args;
         this.requestId = MSG_ID_INCR.getAndIncrement();
@@ -46,8 +46,8 @@ public class JcMessage implements Serializable {
         return requestId;
     }
 
-    public String getMethodName() {
-        return methodName;
+    public String getMethodSignature() {
+        return methodSignature;
     }
 
     public String getClassName() {

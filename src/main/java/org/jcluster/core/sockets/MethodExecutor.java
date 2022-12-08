@@ -48,7 +48,7 @@ public class MethodExecutor implements Runnable {
         JcMsgResponse response;
         String jndiName;
         try {
-            if (request.getMethodName().equals("ping")) {
+            if (request.getMethodSignature().equals("ping")) {
                 handlePing();
                 return;
             }
@@ -66,7 +66,7 @@ public class MethodExecutor implements Runnable {
                 return;
             }
 
-            Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodName());
+            Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
             Object result = method.invoke(service, request.getArgs());
 
             //Do work, then assign response here

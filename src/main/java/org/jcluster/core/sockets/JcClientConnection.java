@@ -180,7 +180,7 @@ public class JcClientConnection implements Runnable {
                 throw new JcResponseTimeoutException("No response received, timeout. APP_NAME: ["
                         + desc.getAppName() + "] ADDRESS: ["
                         + desc.getIpAddress() + ":" + String.valueOf(desc.getIpPort())
-                        + "] METHOD: [" + msg.getMethodName()
+                        + "] METHOD: [" + msg.getMethodSignature()
                         + "] INSTANCE_ID: [" + desc.getInstanceId() + "]", msg);
             }
             lastSuccessfulSend = System.currentTimeMillis();
@@ -237,11 +237,11 @@ public class JcClientConnection implements Runnable {
                     if (socket.isConnected()) {
                         JcMessage request = (JcMessage) ois.readObject();
                         manager.getExecutorService().submit(new MethodExecutor(oos, request));
-                        metrics.incErrCount();
                     }
                 } catch (IOException ex) {
 //                    reconnect();
 //                    Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
+                    metrics.incErrCount();
                 } catch (ClassNotFoundException ex) {
                     Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
                 }

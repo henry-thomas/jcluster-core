@@ -20,17 +20,21 @@ public class JcProxyMethod {
 
     private final String appName;
     private final String className;
-    private final String methodName;
+    private final String methodSignature;
     private boolean instanceFilter;
     private final boolean broadcast;
     private final Map<String, Integer> paramNameIdxMap = new HashMap<>(); //<>
     private final Class<?> returnType;
 
-    private JcProxyMethod(String appName, String remoteJndiName, String methodName, Class<?> returnType, boolean broadcast) {
+    private JcProxyMethod(String appName, Method method, boolean broadcast) {
         this.appName = appName;
-        this.className = remoteJndiName;
-        this.methodName = methodName;
-        this.returnType = returnType;
+        this.className = method.getDeclaringClass().getName();
+        String ms = method.getName();
+        for (Parameter parameter : method.getParameters()) {
+            ms += "," + parameter.getType().getSimpleName();
+        }
+        this.methodSignature = ms;
+        this.returnType = method.getReturnType();
         this.broadcast = broadcast;
     }
 
@@ -59,8 +63,8 @@ public class JcProxyMethod {
         return className;
     }
 
-    public String getMethodName() {
-        return methodName;
+    public String getMethodSignature() {
+        return methodSignature;
     }
 
     public boolean isBroadcast() {
@@ -69,8 +73,6 @@ public class JcProxyMethod {
 
     public static JcProxyMethod initProxyMethod(Method method, Object[] args) {
 
-        Class<?> returnType = method.getReturnType();
-//        proxyMethod.returnType = returnType;
         boolean broadcast = false;
         JcBroadcast broadcastAnn = method.getAnnotation(JcBroadcast.class);
         if (broadcastAnn != null) {
@@ -83,9 +85,7 @@ public class JcProxyMethod {
             appName = jcRemoteAnn.appName();
         }
 
-        String className = method.getDeclaringClass().getName();
-
-        JcProxyMethod proxyMethod = new JcProxyMethod(appName, className, method.getName(), returnType, broadcast);
+        JcProxyMethod proxyMethod = new JcProxyMethod(appName, method, broadcast);
 
         Parameter[] parameters = method.getParameters();
         JcInstanceFilter instanceFilter = null;
