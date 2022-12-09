@@ -10,10 +10,13 @@ import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.jcluster.core.bean.ConnectionParam;
 import org.jcluster.core.bean.JcAppDescriptor;
+import org.jcluster.core.bean.JcAppInstanceData;
 import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.cluster.ClusterManager;
 import org.jcluster.core.cluster.JcFactory;
@@ -30,9 +33,10 @@ public class JcClientConnection implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(JcClientConnection.class.getName());
     private final ClusterManager manager = JcFactory.getManager();
+    private static int inboundConnCount = 0;
 
     private final JcAppDescriptor desc;
-    private final String connId;
+    private String connId;
     private final int port;
     private final String hostName;
     private Socket socket;
@@ -45,12 +49,14 @@ public class JcClientConnection implements Runnable {
     private final ConnectionType connType;
     private final JcConnectionMetrics metrics;
     private long lastSuccessfulSend = 0l;
+    private boolean accepted = false;
 
     private final Object writeLock = new Object();
 
     private final ConcurrentHashMap<Long, JcMessage> reqRespMap = new ConcurrentHashMap<>();
 
     public JcClientConnection(Socket sock) {
+
         this.desc = JcFactory.getManager().getThisDescriptor();
         this.connType = ConnectionType.INBOUND;
         this.socket = sock;
@@ -63,7 +69,7 @@ public class JcClientConnection implements Runnable {
             System.out.println("Number of connections reached: " + paralConnWaterMark);
         }
 
-        this.connId = desc.getAppName() + "-" + hostName + ":" + port + "-INBOUND";
+        this.connId = desc.getAppName() + "-" + hostName + ":" + port + "-INBOUND-" + (++inboundConnCount);
         metrics = new JcConnectionMetrics(this.connId);
     }
 
@@ -123,36 +129,37 @@ public class JcClientConnection implements Runnable {
         return true;
     }
 
-    private boolean initHandshake() {
+    public void initHandshake() {
 
-//        try {
-//            Map<String, String> connInitMsg = new HashMap<>();
-//
-//            connInitMsg.put("connInit", hostName);
-//            oos.writeObject(connInitMsg);
-//
-//            ConnectionParam connParam = (ConnectionParam) ois.readObject();
-//
-//            if (HzController.getInstance().getMap().containsKey(connParam.getAppId())) {
-//                ConnectionParam connectionParam = new ConnectionParam(secure, manager.getThisDescriptor().getInstanceId());
-//                oos.writeObject(connectionParam);
-//                return true;
-//            } else {
-//                return false;
-//            }
-//
-//        } catch (IOException | ClassNotFoundException ex) {
-//            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-        return false;
+        Thread hsThread = new Thread(this::getResponse);
+        hsThread.start();
+
+        JcMessage jcMessage = new JcMessage("handshake", null, new Object[]{desc});
+        JcMsgResponse send = null;
+
+        try {
+            send = send(jcMessage);
+        } catch (IOException ex) {
+            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        if (send != null) {
+            ConnectionParam connectionParam = (ConnectionParam) send.getData();
+            if (connectionParam.isAccepted()) {
+                accepted = true;
+            } else {
+                LOG.severe("Handshake failed");
+            }
+        }
+
     }
 
     //Called from Client Thread
-    public JcMsgResponse send(JcMessage msg) {
+    public JcMsgResponse send(JcMessage msg) throws IOException {
         return send(msg, 2000);
     }
 
-    public JcMsgResponse send(JcMessage msg, int timeoutMs) {
+    public JcMsgResponse send(JcMessage msg, int timeoutMs) throws IOException {
         try {
 
             long start = System.currentTimeMillis();
@@ -186,7 +193,7 @@ public class JcClientConnection implements Runnable {
             lastSuccessfulSend = System.currentTimeMillis();
             return msg.getResponse();
 
-        } catch (IOException | InterruptedException ex) {
+        } catch (InterruptedException ex) {
             Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
             JcMsgResponse resp = new JcMsgResponse(msg.getRequestId(), ex);
             msg.setResponse(resp);
@@ -221,31 +228,32 @@ public class JcClientConnection implements Runnable {
         } catch (IOException ex) {
 //            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
-        //Handshake
-//            if (!initHandshake()) {
-//                LOG.severe("Handshake failed!");
-//                return;
-//            }
-
         if (this.connType == ConnectionType.OUTBOUND) {
+            //Handshake
+            initHandshake();
+
             while (running) {
                 getResponse();
             }
+
         } else {
             while (running) {
                 try {
                     if (socket.isConnected()) {
                         JcMessage request = (JcMessage) ois.readObject();
+                        metrics.incRxCount();
                         manager.getExecutorService().submit(new MethodExecutor(oos, request));
                     }
                 } catch (IOException ex) {
 //                    reconnect();
+                    running = false;
 //                    Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
                     metrics.incErrCount();
                 } catch (ClassNotFoundException ex) {
                     Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+            JcAppInstanceData.getInstance().getInboundConnections().remove(connId);
         }
 
     }

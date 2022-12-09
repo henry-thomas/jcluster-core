@@ -12,46 +12,37 @@ import org.apache.commons.lang3.RandomStringUtils;
 
 /**
  *
- * @author henry 
- * 
+ * @author henry
+ *
  * Created by JcManager for each instance
- * 
+ *
  */
 public class JcAppDescriptor implements Serializable {
     //add whatever we need to represent our instances
 
-    private String appName = "APP_INSTANCE";
-    private String instanceId;
-    private String ipAddress;
-    private int ipPort;
+    private final String appName;
+    private final String instanceId;
+    private final String ipAddress;
+    private final int ipPort;
     private final Map<String, HashSet<Object>> filterMap = new HashMap<>();
 
-    public JcAppDescriptor() {
+    public JcAppDescriptor(String ipAddress, int ipPort, String appName) {
         this.instanceId = RandomStringUtils.random(16, true, true);
+        this.ipAddress = ipAddress;
+        this.ipPort = ipPort;
+        this.appName = appName;
     }
 
     public String getInstanceId() {
         return instanceId;
     }
 
-    public void setInstanceId(String instanceId) {
-        this.instanceId = instanceId;
-    }
-
     public String getIpAddress() {
         return ipAddress;
     }
 
-    public void setIpAddress(String ipAddress) {
-        this.ipAddress = ipAddress;
-    }
-
     public int getIpPort() {
         return ipPort;
-    }
-
-    public void setIpPort(int ipPort) {
-        this.ipPort = ipPort;
     }
 
     public Map<String, HashSet<Object>> getFilterMap() {
@@ -60,10 +51,6 @@ public class JcAppDescriptor implements Serializable {
 
     public String getAppName() {
         return appName;
-    }
-
-    public void setAppName(String appName) {
-        this.appName = appName;
     }
 
 }

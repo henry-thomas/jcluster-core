@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jcluster.core.sockets.JcClientConnection;
 
 /**
@@ -20,8 +21,8 @@ public class JcAppInstanceData implements Serializable {
     private final String serialVersionUID = "-1455291844074901991";
 
     private JcAppDescriptor desc;
-    private final Map<String, JcClientConnection> ouboundConnections = new HashMap<>();
-    private final Map<String, JcClientConnection> inboundConnections = new HashMap<>();
+    private final Map<String, JcClientConnection> ouboundConnections = new ConcurrentHashMap<>();
+    private final Map<String, JcClientConnection> inboundConnections = new ConcurrentHashMap<>();
     private static JcAppInstanceData INSTANCE;
     private int totalReconnects = 0;
 

@@ -12,6 +12,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.naming.NamingException;
 import org.jcluster.core.ServiceLookup;
+import org.jcluster.core.bean.ConnectionParam;
+import org.jcluster.core.bean.JcAppDescriptor;
+import org.jcluster.core.bean.JcAppInstanceData;
 import org.jcluster.core.exception.sockets.JcMethodNotFoundException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
@@ -52,6 +55,10 @@ public class MethodExecutor implements Runnable {
                 handlePing();
                 return;
             }
+            if (request.getMethodSignature().equals("handshake")) {
+                handleHandshake();//
+                return;
+            }
 
             jndiName = request.getClassName() + "#" + request.getClassName();
             Object service;
@@ -82,6 +89,21 @@ public class MethodExecutor implements Runnable {
 
     private void handlePing() {
         JcMsgResponse response = new JcMsgResponse(request.getRequestId(), "pong");
+        request.setResponse(response);
+        sendAck(request);
+    }
+
+    private void handleHandshake() {
+        Object[] args = request.getArgs();
+        JcAppDescriptor desc = (JcAppDescriptor) args[0];
+        desc.getAppName();
+
+        LOG.log(Level.INFO, "Handshake for: {0}", desc.getAppName());
+        String id = desc.getAppName() + "-" + desc.getIpAddress() + ":" + desc.getIpPort() + "-INBOUND";
+        ConnectionParam connectionParam = new ConnectionParam(id, true);
+        
+        
+        JcMsgResponse response = new JcMsgResponse(request.getRequestId(), connectionParam);
         request.setResponse(response);
         sendAck(request);
     }

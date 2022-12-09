@@ -6,6 +6,7 @@ package org.jcluster.core.cluster.hzUtils;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
+import com.hazelcast.config.cp.CPSubsystemConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
@@ -28,6 +29,8 @@ public class HzController {
     private HzController() {
         hzConfig.setClusterName("hz-jc-cluster");
         setDiscoveryConfig();
+        
+//        hzConfig.getCPSubsystemConfig().setCPMemberCount(3);
 
         hz = Hazelcast.newHazelcastInstance(hzConfig);
 

@@ -25,8 +25,8 @@ public class JcLifeCycleHooks {
     @PostConstruct
     public void init() {
         //Initialize J-Cluster for this app
-        JcFactory.initManager();
         LOG.log(Level.INFO, "JcLifeCycleHooks: init()");
+        JcFactory.initManager();
     }
 
     @PreDestroy
