@@ -129,9 +129,9 @@ public final class ClusterManager {
             //which is visible to all other apps in the Hazelcast Cluster
             appMap.put(thisDescriptor.getInstanceId(), thisDescriptor);
 
-//            executorService.submit(this::initConnectionChecker);
-            Thread t = new Thread(this::initConnectionChecker);
-            t.start();
+            executorService.submit(this::initConnectionChecker);
+//            Thread t = new Thread(this::initConnectionChecker);
+//            t.start();
             running = true;
         }
     }
@@ -260,6 +260,7 @@ public final class ClusterManager {
         try {
 
             if (proxyMethod.isInstanceFilter()) {
+                LOG.info("Sending to single instance");
                 Map<String, JcAppDescriptor> idDescMap = getIdDescMap(cluster);
 
                 Map<String, Integer> paramNameIdxMap = proxyMethod.getParamNameIdxMap();
@@ -274,10 +275,12 @@ public final class ClusterManager {
                 return cluster.send(proxyMethod, args, sendInstanceId);
             } else if (proxyMethod.isBroadcast()) {
 
+                LOG.info("Sending broadcast");
                 return cluster.broadcast(proxyMethod, args);
 
             } else {
 
+                LOG.info("Sending loadbalancing");
                 return cluster.sendWithLoadBalancing(proxyMethod, args);
 
             }

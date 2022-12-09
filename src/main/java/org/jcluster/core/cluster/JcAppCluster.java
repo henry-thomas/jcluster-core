@@ -69,11 +69,15 @@ public class JcAppCluster {
         int size = instanceMap.size();
 
         List<JcClientConnection> connList = new ArrayList<>();
-        for (JcClientConnection jcClientConnection : connList) {
-            connList.add(jcClientConnection);
+        for (Map.Entry<String, JcClientConnection> entry : instanceMap.entrySet()) {
+            String id = entry.getKey();
+            JcClientConnection val = entry.getValue();
+
+            connList.add(val);
         }
 
         String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
+        LOG.info("sending to:" + instanceId);
 
         if (lastSendAppIndex < size - 1) {
             lastSendAppIndex++;
