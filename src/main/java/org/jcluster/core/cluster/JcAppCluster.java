@@ -6,9 +6,11 @@ package org.jcluster.core.cluster;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcAppInstanceData;
@@ -76,16 +78,21 @@ public class JcAppCluster {
             connList.add(val);
         }
 
-        String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
-        LOG.info("sending to:" + instanceId);
+        if (size > 0) {
+            String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
+            LOG.log(Level.INFO, "SENDING to:{0} METHOD: {1} PARAMS: {2}", new Object[]{proxyMethod.getAppName(), proxyMethod.getMethodSignature(), Arrays.toString(args)});
 
-        if (lastSendAppIndex < size - 1) {
-            lastSendAppIndex++;
+            if (lastSendAppIndex < size - 1) {
+                lastSendAppIndex++;
+            } else {
+                lastSendAppIndex = 0;
+            }
+
+            return send(proxyMethod, args, instanceId);
         } else {
-            lastSendAppIndex = 0;
+            LOG.severe("InstanceMap size is 0!");
+            return null;
         }
-
-        return send(proxyMethod, args, instanceId);
     }
 
     public void addConnection(JcClientConnection conn) {

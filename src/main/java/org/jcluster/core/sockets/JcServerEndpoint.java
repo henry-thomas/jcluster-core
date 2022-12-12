@@ -45,7 +45,7 @@ public class JcServerEndpoint implements Runnable {
 //                //remove old connections, recreate them.
 //                if (conn != null) {
 //                    conn.destroy();
-//                    connMap.remove(connId);
+//                    connMap.removeFilter(connId);
 //                }
 
                 JcClientConnection jcClientConnection = new JcClientConnection(sock);

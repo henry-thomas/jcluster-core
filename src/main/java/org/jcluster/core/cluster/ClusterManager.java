@@ -91,7 +91,7 @@ public final class ClusterManager {
         LOG.log(Level.INFO, "Added filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
     }
 
-    public void remove(String filterName, Object value) {
+    public void removeFilter(String filterName, Object value) {
         HashSet<Object> filterSet = thisDescriptor.getFilterMap().get(filterName);
         if (filterSet == null) {
             LOG.log(Level.INFO, "Filter does not exist: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
