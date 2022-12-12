@@ -260,7 +260,7 @@ public final class ClusterManager {
         try {
 
             if (proxyMethod.isInstanceFilter()) {
-                LOG.info("Sending to single instance");
+                LOG.log(Level.INFO, "Sending to single instance: {0}", proxyMethod.getMethodSignature());
                 Map<String, JcAppDescriptor> idDescMap = getIdDescMap(cluster);
 
                 Map<String, Integer> paramNameIdxMap = proxyMethod.getParamNameIdxMap();
@@ -275,12 +275,12 @@ public final class ClusterManager {
                 return cluster.send(proxyMethod, args, sendInstanceId);
             } else if (proxyMethod.isBroadcast()) {
 
-                LOG.info("Sending broadcast");
+                LOG.log(Level.INFO, "Sending broadcast: {0}", proxyMethod.getMethodSignature());
                 return cluster.broadcast(proxyMethod, args);
 
             } else {
 
-                LOG.info("Sending loadbalancing");
+                LOG.log(Level.INFO, "Sending loadbalancing: {0}", proxyMethod.getMethodSignature());
                 return cluster.sendWithLoadBalancing(proxyMethod, args);
 
             }

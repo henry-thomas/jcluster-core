@@ -69,6 +69,7 @@ public class MethodExecutor implements Runnable {
                 response = new JcMsgResponse(request.getRequestId(), (JcMethodNotFoundException) ex);
                 request.setResponse(response);
                 sendAck(request);
+                LOG.log(Level.SEVERE, "Lookup failed for: {0}", jndiName);
                 Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
                 return;
             }
