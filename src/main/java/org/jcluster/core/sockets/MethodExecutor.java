@@ -14,7 +14,6 @@ import javax.naming.NamingException;
 import org.jcluster.core.ServiceLookup;
 import org.jcluster.core.bean.ConnectionParam;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.bean.JcAppInstanceData;
 import org.jcluster.core.exception.sockets.JcMethodNotFoundException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
@@ -80,7 +79,6 @@ public class MethodExecutor implements Runnable {
             //Do work, then assign response here
             response = new JcMsgResponse(request.getRequestId(), result);
             request.setResponse(response);
-//            LOG.info("Sending response...");
             sendAck(request);
 
         } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
