@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.PreDestroy;
 import javax.enterprise.concurrent.ManagedExecutorService;
+import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
 import org.jcluster.core.ServiceLookup;
 import org.jcluster.core.bean.JcAppDescriptor;
@@ -52,6 +53,7 @@ public final class ClusterManager {
     private boolean configDone = false;
     private JcServerEndpoint server;
     private ManagedExecutorService executorService = null;
+    private ManagedThreadFactory threadFactory = null;
 
     private ClusterManager() {
         Integer port = JcAppConfig.getINSTANCE().getPort();
@@ -63,7 +65,9 @@ public final class ClusterManager {
         appMap = hzController.getMap();
         try {
             executorService = (ManagedExecutorService) ServiceLookup.getService("concurrent/__defaultManagedExecutorService");
-            LOG.info("executorService found");
+            LOG.log(Level.INFO, "executorService found {0}", executorService.getClass().getSimpleName());
+            threadFactory = (ManagedThreadFactory) ServiceLookup.getService("concurrent/__defaultManagedThreadFactory");
+            LOG.log(Level.INFO, "executorService found {0}", threadFactory.getClass().getSimpleName());
         } catch (NamingException ex) {
             Logger.getLogger(ClusterManager.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -130,6 +134,8 @@ public final class ClusterManager {
             appMap.put(thisDescriptor.getInstanceId(), thisDescriptor);
 
             executorService.submit(this::initConnectionChecker);
+            Thread newThread = threadFactory.newThread(this::initConnectionChecker);
+            newThread.start();
 //            Thread t = new Thread(this::initConnectionChecker);
 //            t.start();
             running = true;
@@ -219,8 +225,9 @@ public final class ClusterManager {
             //Creating an outbound connection as soon as a new member joins.
             JcClientConnection jcClientConnection = new JcClientConnection(desc);
 //            executorService.submit(jcClientConnection);
-            Thread t = new Thread(jcClientConnection);
-            t.start();
+//            Thread t = new Thread(jcClientConnection);
+//            t.start();
+            threadFactory.newThread(jcClientConnection).start();
 
             JcAppInstanceData.getInstance().addOutboundConnection(jcClientConnection);
             cluster.addConnection(jcClientConnection);

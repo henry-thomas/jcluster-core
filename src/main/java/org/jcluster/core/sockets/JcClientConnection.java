@@ -156,7 +156,7 @@ public class JcClientConnection implements Runnable {
 
     //Called from Client Thread
     public JcMsgResponse send(JcMessage msg) throws IOException {
-        return send(msg, 2000);
+        return send(msg, 5000);
     }
 
     public JcMsgResponse send(JcMessage msg, int timeoutMs) throws IOException {
