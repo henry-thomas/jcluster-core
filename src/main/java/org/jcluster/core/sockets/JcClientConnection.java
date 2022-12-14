@@ -113,7 +113,7 @@ public class JcClientConnection implements Runnable {
                 //try connect with timeout of 2000ms
                 socket.connect(socketAddress, 2000);
 
-                LOG.log(Level.INFO, "Connected to: {0}:{1}", new Object[]{this.hostName, this.port});
+                LOG.log(Level.INFO, "Connected to: {0} at {1}:{2}", new Object[]{this.desc.getAppName(), this.hostName, this.port});
 
             } catch (IOException ex) {
 //                Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);

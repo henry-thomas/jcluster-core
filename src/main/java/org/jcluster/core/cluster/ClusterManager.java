@@ -35,8 +35,12 @@ import org.jcluster.core.sockets.JcServerEndpoint;
  *
  * @author henry
  *
- * Keeps record of all connected apps. Also has the logic for sending to the
- * correct app.
+ * Keeps record of all connected apps.
+ *
+ * Also has the logic for sending to the correct app.
+ *
+ * Also checks connections to apps in different clusters.
+ *
  */
 public final class ClusterManager {
 
@@ -197,12 +201,6 @@ public final class ClusterManager {
 
             if (desc == null || desc.getIpAddress() == null || Objects.equals(desc.getIpAddress(), "null")) {
                 LOG.severe("NULL value in HZ distributed map!");
-//                try {
-//                    Thread.sleep(500);
-//                } catch (InterruptedException ex) {
-//                    Logger.getLogger(ClusterManager.class.getName()).log(Level.SEVERE, null, ex);
-//                }
-//                onNewMemberJoin(appDesc);
                 continue;
             }
 
@@ -224,14 +222,14 @@ public final class ClusterManager {
 
             //Creating an outbound connection as soon as a new member joins.
             JcClientConnection jcClientConnection = new JcClientConnection(desc);
-//            executorService.submit(jcClientConnection);
-//            Thread t = new Thread(jcClientConnection);
-//            t.start();
             threadFactory.newThread(jcClientConnection).start();
 
             JcAppInstanceData.getInstance().addOutboundConnection(jcClientConnection);
             cluster.addConnection(jcClientConnection);
-            JcClientConnection putIfAbsent = cluster.getInstanceMap().putIfAbsent(id, jcClientConnection);
+            JcClientConnection oldApp = cluster.getInstanceMap().put(id, jcClientConnection);
+//            if (oldApp != null) {
+//                oldApp.destroy();
+//            }
         }
 
     }
