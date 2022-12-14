@@ -226,7 +226,7 @@ public class JcClientConnection implements Runnable {
             oos = new ObjectOutputStream(socket.getOutputStream());
             ois = new ObjectInputStream(socket.getInputStream());
         } catch (IOException ex) {
-//            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
         if (this.connType == ConnectionType.OUTBOUND) {
             //Handshake

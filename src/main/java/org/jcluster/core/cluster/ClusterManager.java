@@ -313,7 +313,7 @@ public final class ClusterManager {
         return idDescMap;
     }
 
-    private String getSendInstance(Map<String, JcAppDescriptor> idDescMap, Map<String, Integer> paramNameIdxMap, Object[] args) throws JcFilterNotFoundException {
+    private String getSendInstance(Map<String, JcAppDescriptor> idDescMap, Map<String, Integer> paramNameIdxMap, Object[] args) {
         for (Map.Entry<String, JcAppDescriptor> entry : idDescMap.entrySet()) {
             String descId = entry.getKey();
             JcAppDescriptor desc = entry.getValue();
@@ -331,12 +331,14 @@ public final class ClusterManager {
                         return descId;
                     }
 
-                } else {
-                    throw new JcFilterNotFoundException("Filter does not exist in map... filterName: [" + filterName + "] Argument: [" + args[idx] + "]");
                 }
+//                else {
+//                    throw new JcFilterNotFoundException("Filter does not exist in map... filterName: [" + filterName + "] Argument: [" + args[idx] + "]");
+//                }
 
             }
         }
+//        throw new JcFilterNotFoundException("No Instance found that contains value for arguments: " + Arrays.toString(args));
         return null;
     }
 
