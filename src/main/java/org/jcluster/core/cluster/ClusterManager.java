@@ -131,7 +131,8 @@ public final class ClusterManager {
             LOG.info("JCLUSTER -- Startup...");
 //            bindAddress = "tcp://" + thisDescriptor.getIpAddress() + ":" + thisDescriptor.getIpPort();
             server = new JcServerEndpoint();
-            executorService.submit(server);
+            threadFactory.newThread(server).start();
+//            executorService.submit(server);
 
             //adding this app to the shared appMap, 
             //which is visible to all other apps in the Hazelcast Cluster
@@ -162,18 +163,19 @@ public final class ClusterManager {
 
                     JcMessage req = new JcMessage("ping", null, null);
                     JcMsgResponse resp = null;
+                    LOG.log(Level.INFO, "pinging to: {0} {1}:{2}", new Object[]{conn.getConnId()});
                     try {
                         resp = conn.send(req, 1000);
                     } catch (IOException ex) {
+                        LOG.log(Level.SEVERE, "Destroying dead connection: {0} {1}:{2}", new Object[]{conn.getConnId()});
                         conn.destroy();
                     }
-                    LOG.log(Level.INFO, "pinging to: {0} {1}:{2}", new Object[]{conn.getConnId()});
                     if (resp == null || resp.getData() == null || !resp.getData().equals("pong")) {
                         JcAppDescriptor desc = conn.getDesc();
 
                         JcAppInstanceData.getInstance().getOuboundConnections().remove(conn.getConnId());
                         JcAppInstanceData.getInstance().incrReconnectCount();
-                        conn.destroy();
+                        LOG.log(Level.SEVERE, "Destroying dead connection: {0} {1}:{2}", new Object[]{conn.getConnId()});
                         onMemberLeave(desc);
                         onNewMemberJoin(desc);
 

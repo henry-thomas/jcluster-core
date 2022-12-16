@@ -79,6 +79,11 @@ public class JcAppCluster {
         }
 
         if (size > 0) {
+            //this is a case where an app left the cluster when last sent was at the size of the previous map size
+            if (lastSendAppIndex >= size) {
+                lastSendAppIndex = 0;
+            }
+            
             String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
             LOG.log(Level.INFO, "SENDING to:{0} METHOD: {1} PARAMS: {2}", new Object[]{proxyMethod.getAppName(), proxyMethod.getMethodSignature(), Arrays.toString(args)});
 
