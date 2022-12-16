@@ -175,7 +175,7 @@ public final class ClusterManager {
 
                         JcAppInstanceData.getInstance().getOuboundConnections().remove(conn.getConnId());
                         JcAppInstanceData.getInstance().incrReconnectCount();
-                        LOG.log(Level.SEVERE, "Destroying dead connection: {0} {1}:{2}", new Object[]{conn.getConnId()});
+                        LOG.log(Level.SEVERE, "Recreating connection: {0} {1}:{2}", new Object[]{conn.getConnId()});
                         onMemberLeave(desc);
                         onNewMemberJoin(desc);
 
