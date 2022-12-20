@@ -179,6 +179,9 @@ public class JcClientConnection implements Runnable {
             }
 
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
+            metrics.setReqRespMapSize(reqRespMap.size());
+            LOG.log(Level.INFO, "ReqResp Map Size for: {0} is [{1}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
+            
             if (msg.getResponse() == null) {
                 reqRespMap.remove(msg.getRequestId());
                 metrics.incTimeoutCount();
@@ -194,6 +197,7 @@ public class JcClientConnection implements Runnable {
             return msg.getResponse();
 
         } catch (InterruptedException ex) {
+            reqRespMap.remove(msg.getRequestId());
             Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
             JcMsgResponse resp = new JcMsgResponse(msg.getRequestId(), ex);
             msg.setResponse(resp);
@@ -201,6 +205,7 @@ public class JcClientConnection implements Runnable {
             return resp;
         } catch (JcResponseTimeoutException ex) {
             //Forwarding the exception to whoever was calling this method.
+            reqRespMap.remove(msg.getRequestId());
             JcMsgResponse resp = new JcMsgResponse(msg.getRequestId(), ex);
             msg.setResponse(resp);
 

@@ -15,6 +15,7 @@ public class JcConnectionMetrics {
     private int rxCount = 0;
     private int errCount = 0;
     private int timeoutCount = 0;
+    private int reqRespMapSize = 0;
 
     public JcConnectionMetrics(String connId) {
         this.connId = connId;
@@ -54,6 +55,14 @@ public class JcConnectionMetrics {
 
     public String getConnId() {
         return connId;
+    }
+
+    public int getReqRespMapSize() {
+        return reqRespMapSize;
+    }
+
+    public void setReqRespMapSize(int reqRespMapSize) {
+        this.reqRespMapSize = reqRespMapSize;
     }
 
 }
