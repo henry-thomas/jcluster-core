@@ -31,24 +31,36 @@ public class JcBootstrap implements Extension {
 
     private static final Logger LOG = Logger.getLogger(JcBootstrap.class.getName());
 
-    private List<Class> getAllJcRemoteClasses(String pkg) {
+    private Class<?> filterPackageClass(String className, List<String> pkgList) {
+        for (String pkg : pkgList) {
+
+            if (className.startsWith(pkg)) {
+                try {
+                    Class<?> forName = Class.forName(className);
+                    if (forName.isInterface() && forName.getAnnotation(JcRemote.class) != null) {
+//                        System.out.println("JcRemote Class: " + forName.getName() + " implementation loaded");
+                        return forName;
+                    }
+
+                } catch (Throwable ex) {
+//                    LOG.severe(ex.getMessage());
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<Class> getAllJcRemoteClasses(List<String> pkgList) {
         List<Class> classList = new ArrayList<>();
         try {
             ClassPath classPath = ClassPath.from(JcBootstrap.class.getClassLoader());
             Set<ClassInfo> classes = classPath.getAllClasses();
             for (ClassInfo c : classes) {
-                if (c.getName().startsWith(pkg)) {
-                    try {
-                        Class<?> forName = Class.forName(c.getName());
-                        if (forName.isInterface() && forName.getAnnotation(JcRemote.class) != null) {
-//                        System.out.println("JcRemote Class: " + forName.getName() + " implementation loaded");
-                            classList.add(forName);
-                        }
-
-                    } catch (Throwable ex) {
-//                    LOG.severe(ex.getMessage());
-                    }
+                Class<?> clazz = filterPackageClass(c.getName(), pkgList);
+                if (clazz != null) {
+                    classList.add(clazz);
                 }
+
             }
 
         } catch (IOException ex) {
@@ -59,12 +71,11 @@ public class JcBootstrap implements Extension {
     public void afterBeanDiscovery(@Observes AfterBeanDiscovery event, BeanManager manager) {
         LOG.info("JcBootstrap afterBeanDiscovery()");
 
-        String scanPackageName = JcAppConfig.getINSTANCE().getScanPackageName();
-        
+        List<String> pkgFilterList = JcAppConfig.getINSTANCE().getPkgFilterList();
+
         long scanStart = System.currentTimeMillis();
-        
-        
-        List<Class> jcRemoteInterfaceList = getAllJcRemoteClasses(scanPackageName);
+
+        List<Class> jcRemoteInterfaceList = getAllJcRemoteClasses(pkgFilterList);
 
         long scanEnd = System.currentTimeMillis();
         LOG.log(Level.INFO, "JcBootstrap Scan for JcRemote annotation in {0}ms, found: {1}", new Object[]{scanEnd - scanStart, jcRemoteInterfaceList.size()});
