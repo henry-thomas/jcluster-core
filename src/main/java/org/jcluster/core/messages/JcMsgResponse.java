@@ -15,6 +15,12 @@ public class JcMsgResponse implements Serializable {
     private final long requestId;
     private final Object data;
 
+    public static JcMsgResponse createResponseMsg(JcMessage request, Object data) {
+        JcMsgResponse response = new JcMsgResponse(request.getRequestId(), data);
+        request.setResponse(response);
+        return response;
+    }
+
     public JcMsgResponse(long requestId, Object data) {
         this.requestId = requestId;
         this.data = data;

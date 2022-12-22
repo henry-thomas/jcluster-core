@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.bean.JcAppInstanceData;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.proxy.JcProxyMethod;
 import org.jcluster.core.sockets.JcClientConnection;
@@ -84,7 +83,7 @@ public class JcAppCluster {
                 lastSendAppIndex = 0;
             }
             
-            String instanceId = connList.get(lastSendAppIndex).getDesc().getInstanceId();
+            String instanceId = connList.get(lastSendAppIndex).getRemoteAppDesc().getInstanceId();
             LOG.log(Level.INFO, "SENDING to:{0} METHOD: {1} PARAMS: {2}", new Object[]{proxyMethod.getAppName(), proxyMethod.getMethodSignature(), Arrays.toString(args)});
 
             if (lastSendAppIndex < size - 1) {
@@ -101,7 +100,7 @@ public class JcAppCluster {
     }
 
     public void addConnection(JcClientConnection conn) {
-        instanceMap.put(conn.getDesc().getInstanceId(), conn);
+        instanceMap.put(conn.getRemoteAppDesc().getInstanceId(), conn);
     }
 
     public String getJcAppName() {

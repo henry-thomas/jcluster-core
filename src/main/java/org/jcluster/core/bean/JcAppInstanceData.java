@@ -20,7 +20,7 @@ public class JcAppInstanceData implements Serializable {
 
     private final String serialVersionUID = "-1455291844074901991";
 
-    private JcAppDescriptor desc;
+//    private JcAppDescriptor desc;
     private final Map<String, JcClientConnection> ouboundConnections = new ConcurrentHashMap<>();
     private final Map<String, JcClientConnection> inboundConnections = new ConcurrentHashMap<>();
     private static JcAppInstanceData INSTANCE;
@@ -85,9 +85,9 @@ public class JcAppInstanceData implements Serializable {
         inboundConnections.put(conn.getConnId(), conn);
     }
 
-    public JcAppDescriptor getDesc() {
-        return desc;
-    }
+//    public JcAppDescriptor getDesc() {
+//        return desc;
+//    }
 
     public Map<String, JcClientConnection> getOuboundConnections() {
         return ouboundConnections;

@@ -17,4 +17,8 @@ public class JcFactory {
     public static ClusterManager getManager() {
         return ClusterManager.getInstance();
     }
+
+    public static void destroyManager() {
+        ClusterManager.getInstance().destroy();
+    }
 }

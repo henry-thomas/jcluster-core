@@ -10,15 +10,36 @@ package org.jcluster.core.bean;
  */
 public class JcConnectionMetrics {
 
-    private final String connId;
+    private String instanceId;
+    private final String ipAddress;
+    private final String appName;
     private int txCount = 0;
     private int rxCount = 0;
     private int errCount = 0;
     private int timeoutCount = 0;
     private int reqRespMapSize = 0;
+    private long lastConnAttempt = 0;
 
-    public JcConnectionMetrics(String connId) {
-        this.connId = connId;
+    public JcConnectionMetrics(String appName, String instanceId, String ipAddress) {
+        this.ipAddress = ipAddress;
+        this.appName = appName;
+        this.instanceId = instanceId;
+    }
+
+    public String getInstanceId() {
+        return instanceId;
+    }
+
+    public void changeInstanceId(String instanceId) {
+        this.instanceId = instanceId;
+    }
+
+    public long getLastConnAttempt() {
+        return lastConnAttempt;
+    }
+
+    public void updateLastConnAttempt() {
+        this.lastConnAttempt = System.currentTimeMillis();
     }
 
     public void incTxCount() {
@@ -53,8 +74,12 @@ public class JcConnectionMetrics {
         return timeoutCount;
     }
 
-    public String getConnId() {
-        return connId;
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
+    public String getAppName() {
+        return appName;
     }
 
     public int getReqRespMapSize() {

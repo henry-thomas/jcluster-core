@@ -85,6 +85,11 @@ public class JcBootstrap implements Extension {
             event.addBean().types(jcRClass).createWith(e -> newProxyInstance);
             LOG.log(Level.INFO, "JcBootstrap add Remote interface implementation for: [{0}]", new Object[]{jcRClass.getName()});
         }
+        
+//        try {
+//            JcFactory.initManager();
+//        } catch (Exception e) {
+//        }
 
     }
 

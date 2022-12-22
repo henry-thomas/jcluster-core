@@ -20,9 +20,12 @@ public class JcMessage implements Serializable {
     private final String className;
     private final Object[] args; //arguments for method execution
     private JcMsgResponse response;
-//    private final Object lock = new Object(); //Sync on lock
 
     private static final AtomicLong MSG_ID_INCR = new AtomicLong();
+
+    public JcMessage(String methodSignature, Object[] args) {
+        this(methodSignature, null, args);
+    }
 
     public JcMessage(String methodSignature, String className, Object[] args) {
         this.methodSignature = methodSignature;
@@ -39,11 +42,12 @@ public class JcMessage implements Serializable {
         this.response = response;
     }
 
-//    public static long getSerialVersionUID() {
-//        return serialVersionUID;
-//    }
     public long getRequestId() {
         return requestId;
+    }
+
+    public String getJndiName() {
+        return className + "#" + className;
     }
 
     public String getMethodSignature() {
@@ -58,7 +62,4 @@ public class JcMessage implements Serializable {
         return args;
     }
 
-//    public Object getLock() {
-//        return lock;
-//    }
 }

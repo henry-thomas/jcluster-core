@@ -28,6 +28,7 @@ public class JcAppConfig {
     private final String jcHzPrimaryMember;
     private final Integer port;
     private final String hostName;
+    private final boolean isolated;
     private final String appName;
     private final List<String> pkgFilterList = new ArrayList<>();
     private final Long jcLastSendMaxTimeout;
@@ -39,6 +40,7 @@ public class JcAppConfig {
         this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
         this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
         this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
+        this.isolated = readProp("JC_ISOLATED", false);
 
         this.jcLastSendMaxTimeout = Long.valueOf(readProp("JC_LAST_SEND_MAX_TIMEOUT", "5000"));
 
@@ -68,6 +70,11 @@ public class JcAppConfig {
         return readProp(propName, null);
     }
 
+    private boolean readProp(String propName, boolean defaultValue) {
+        String readProp = readProp(propName, String.valueOf(defaultValue));
+        return Boolean.parseBoolean(readProp);
+    }
+
     private String readProp(String propName, String defaultValue) {
         String prop = System.getProperty(propName);
         if (prop == null) {
@@ -75,6 +82,10 @@ public class JcAppConfig {
             return defaultValue;
         }
         return prop;
+    }
+
+    public boolean isIsolated() {
+        return isolated;
     }
 
     public static JcAppConfig getINSTANCE() {

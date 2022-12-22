@@ -6,15 +6,20 @@ package org.jcluster.core.cluster.hzUtils;
 
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleListener;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
  * @author henry
  */
-public class HzLifeCycleListener implements LifecycleListener{
+public class HzLifeCycleListener implements LifecycleListener {
+
+    private static final Logger LOG = Logger.getLogger(HzLifeCycleListener.class.getName());
 
     @Override
     public void stateChanged(LifecycleEvent event) {
+        LOG.log(Level.INFO, "====================== Hazelcast event: {0}", event.getState().name());
         LifecycleEvent.LifecycleState state = event.getState();
         switch (state) {
             case CLIENT_CONNECTED:
@@ -51,5 +56,5 @@ public class HzLifeCycleListener implements LifecycleListener{
                 throw new AssertionError();
         }
     }
-    
+
 }

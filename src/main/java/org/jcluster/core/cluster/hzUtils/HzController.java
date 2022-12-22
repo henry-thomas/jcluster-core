@@ -4,6 +4,7 @@
  */
 package org.jcluster.core.cluster.hzUtils;
 
+import org.jcluster.core.cluster.JcHzConnectionListener;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.config.cp.CPSubsystemConfig;
@@ -36,7 +37,7 @@ public class HzController {
 
         map = hz.getMap("jc-app-map");
 
-        map.addEntryListener(new ConnectionCallback(), true);
+        map.addEntryListener(new JcHzConnectionListener(), true);
     }
 
     private void setDiscoveryConfig() {

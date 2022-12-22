@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.jcluster.core.config.JcAppConfig;
 
 /**
  *
@@ -20,17 +21,24 @@ import org.apache.commons.lang3.RandomStringUtils;
 public class JcAppDescriptor implements Serializable {
     //add whatever we need to represent our instances
 
+    private final boolean isolated;
     private final String appName;
     private final String instanceId;
     private final String ipAddress;
     private final int ipPort;
     private final Map<String, HashSet<Object>> filterMap = new HashMap<>();
 
-    public JcAppDescriptor(String ipAddress, int ipPort, String appName) {
+    public JcAppDescriptor() {
+        this.ipPort = JcAppConfig.getINSTANCE().getPort();
+        this.ipAddress = JcAppConfig.getINSTANCE().getHostName();
+        this.appName = JcAppConfig.getINSTANCE().getAppName();
+
         this.instanceId = RandomStringUtils.random(16, true, true);
-        this.ipAddress = ipAddress;
-        this.ipPort = ipPort;
-        this.appName = appName;
+        this.isolated = JcAppConfig.getINSTANCE().isIsolated();
+    }
+
+    public boolean isIsolated() {
+        return isolated;
     }
 
     public String getInstanceId() {

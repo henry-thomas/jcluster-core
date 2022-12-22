@@ -10,5 +10,12 @@ package org.jcluster.core.sockets;
  */
 public enum ConnectionType {
     INBOUND,
-    OUTBOUND
+    OUTBOUND;
+
+    public ConnectionType getOpposite() {
+        if (this == INBOUND) {
+            return OUTBOUND;
+        }
+        return INBOUND;
+    }
 }
