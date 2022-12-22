@@ -92,9 +92,9 @@ public class JcClientConnection implements Runnable {
         }
     }
 
-    public JcMsgResponse send(JcMessage msg) throws IOException {
-        return send(msg, null);
-    }
+//    public JcMsgResponse send(JcMessage msg) throws IOException {
+//        return send(msg, null);
+//    }
 
     public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
         if (timeoutMs == null) {

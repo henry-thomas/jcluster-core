@@ -104,7 +104,7 @@ public class JcProxyMethod {
             }
         }
 
-        JcTimeout jcTimeout = method.getDeclaringClass().getAnnotation(JcTimeout.class);
+        JcTimeout jcTimeout = method.getAnnotation(JcTimeout.class);
 
         if (jcTimeout != null) {
             proxyMethod.timeout = jcTimeout.timeout();

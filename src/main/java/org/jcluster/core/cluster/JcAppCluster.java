@@ -51,7 +51,7 @@ public class JcAppCluster {
         if (!instanceMap.get(sendInstanceId).isRunning()) {
             LOG.warning("We have an instance that is not running");
         }
-        return instanceMap.get(sendInstanceId).send(msg).getData();
+        return instanceMap.get(sendInstanceId).send(msg, proxyMethod.getTimeout()).getData();
     }
 
     public boolean broadcast(JcProxyMethod proxyMethod, Object[] args) throws IOException {
