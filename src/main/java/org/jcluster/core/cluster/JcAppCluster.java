@@ -61,7 +61,7 @@ public class JcAppCluster {
             JcClientConnection instance = entry.getValue();
 
             JcMessage msg = new JcMessage(proxyMethod.getMethodSignature(), proxyMethod.getClassName(), args);
-            instance.send(msg);
+            instance.send(msg, proxyMethod.getTimeout());
         }
         return true;
     }
@@ -82,7 +82,7 @@ public class JcAppCluster {
             if (lastSendAppIndex >= size) {
                 lastSendAppIndex = 0;
             }
-            
+
             String instanceId = connList.get(lastSendAppIndex).getRemoteAppDesc().getInstanceId();
             LOG.log(Level.INFO, "SENDING to:{0} METHOD: {1} PARAMS: {2}", new Object[]{proxyMethod.getAppName(), proxyMethod.getMethodSignature(), Arrays.toString(args)});
 

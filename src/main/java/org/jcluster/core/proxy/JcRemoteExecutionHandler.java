@@ -43,7 +43,6 @@ public class JcRemoteExecutionHandler implements InvocationHandler, Serializable
             throw ((Exception) response);
         }
 
-//        return proxyMethod.getReturnType().cast(response);
         return response;
 
     }

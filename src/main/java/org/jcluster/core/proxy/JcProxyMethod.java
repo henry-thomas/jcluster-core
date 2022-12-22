@@ -11,6 +11,7 @@ import java.util.Map;
 import org.jcluster.lib.annotation.JcBroadcast;
 import org.jcluster.lib.annotation.JcInstanceFilter;
 import org.jcluster.lib.annotation.JcRemote;
+import org.jcluster.lib.annotation.JcTimeout;
 
 /**
  *
@@ -22,6 +23,7 @@ public class JcProxyMethod {
     private final String className;
     private final String methodSignature;
     private boolean instanceFilter;
+    private Integer timeout = null;
     private final boolean broadcast;
     private final Map<String, Integer> paramNameIdxMap = new HashMap<>(); //<>
     private final Class<?> returnType;
@@ -71,11 +73,14 @@ public class JcProxyMethod {
         return broadcast;
     }
 
+    public Integer getTimeout() {
+        return timeout;
+    }
+
     public static JcProxyMethod initProxyMethod(Method method, Object[] args) {
 
         boolean broadcast = false;
-        JcBroadcast broadcastAnn = method.getAnnotation(JcBroadcast.class);
-        if (broadcastAnn != null) {
+        if (method.getAnnotation(JcBroadcast.class) != null) {
             broadcast = true;
         }
 
@@ -97,6 +102,12 @@ public class JcProxyMethod {
             if (instanceFilter != null) {
                 proxyMethod.addInstanceFilterParam(instanceFilter.filterName(), i);
             }
+        }
+
+        JcTimeout jcTimeout = method.getDeclaringClass().getAnnotation(JcTimeout.class);
+
+        if (jcTimeout != null) {
+            proxyMethod.timeout = jcTimeout.timeout();
         }
 
         return proxyMethod;

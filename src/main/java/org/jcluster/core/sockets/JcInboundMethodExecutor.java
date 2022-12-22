@@ -11,9 +11,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.naming.NamingException;
 import org.jcluster.core.ServiceLookup;
-import org.jcluster.core.bean.JcHandhsakeFrame;
-import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.cluster.JcFactory;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 
@@ -56,11 +53,14 @@ public class JcInboundMethodExecutor implements Runnable {
                     Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
 
                     //Do work, then assign response here
-                    Object result = method.invoke(service, request.getArgs());
-                    if (!method.getReturnType().equals(Void.TYPE)) {
-                        JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);
-                        sendResponse(response);
-                    }
+                    Object result = method.invoke(service, request.getArgs()); //if method return type is void then result will be null,
+//                    if (!method.getReturnType().equals(Void.TYPE)) {
+//                    }else{
+//                        
+//                    }
+                    //send back result or null for ACK
+                    JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);
+                    sendResponse(response);
             }
         } catch (NamingException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
             Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);

@@ -8,9 +8,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import static java.lang.System.currentTimeMillis;
-import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,7 +21,6 @@ import org.jcluster.core.cluster.JcFactory;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
-import org.jcluster.core.exception.sockets.JcSocketConnectException;
 
 /**
  *
@@ -96,14 +93,16 @@ public class JcClientConnection implements Runnable {
     }
 
     public JcMsgResponse send(JcMessage msg) throws IOException {
-        return send(msg, 5000);
+        return send(msg, null);
     }
 
-    public JcMsgResponse send(JcMessage msg, int timeoutMs) throws IOException {
+    public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
+        if (timeoutMs == null) {
+            timeoutMs = 5000;
+        }
         try {
             long start = System.currentTimeMillis();
 
-            metrics.incTxCount();
             reqRespMap.put(msg.getRequestId(), msg);
 
             writeAndFlushToOOS(msg);
