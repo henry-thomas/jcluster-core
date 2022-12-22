@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcAppDescriptor;
+import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.proxy.JcProxyMethod;
 import org.jcluster.core.sockets.JcClientConnection;
@@ -94,8 +95,7 @@ public class JcAppCluster {
 
             return send(proxyMethod, args, instanceId);
         } else {
-            LOG.severe("InstanceMap size is 0!");
-            return null;
+            throw new JcClusterNotFoundException("No cluster instance available for: " + proxyMethod.getAppName());
         }
     }
 
