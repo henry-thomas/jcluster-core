@@ -104,6 +104,7 @@ public class JcClientConnection implements Runnable {
             long start = System.currentTimeMillis();
 
             reqRespMap.put(msg.getRequestId(), msg);
+            metrics.setReqRespMapSize(reqRespMap.size());
 
             writeAndFlushToOOS(msg);
 
@@ -112,7 +113,6 @@ public class JcClientConnection implements Runnable {
             }
 
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
-            metrics.setReqRespMapSize(reqRespMap.size());
             LOG.log(Level.INFO, "ReqResp Map Size for: {0} is [{1}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
 
             if (msg.getResponse() == null) {

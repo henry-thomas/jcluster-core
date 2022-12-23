@@ -350,8 +350,13 @@ public class ClusterManager {
                 String sendInstanceId = getSendInstance(idDescMap, paramNameIdxMap, args);
 
                 if (sendInstanceId == null) {
+                    String filters = "[ ";
+                    for (Map.Entry<String, Integer> entry : proxyMethod.getParamNameIdxMap().entrySet()) {
+                        filters += "(" + entry.getKey() + "=" + args[entry.getValue()] + ") ";
+                    }
+                    filters += "]";
                     //ex
-                    throw new JcInstanceNotFoundException("No remote instance available for cluster [" + proxyMethod.getAppName() + "]!");
+                    throw new JcInstanceNotFoundException("No remote instance available for cluster [" + proxyMethod.getAppName() + "] with Filters: " + filters);
                 }
 
                 return cluster.send(proxyMethod, args, sendInstanceId);
@@ -400,17 +405,12 @@ public class ClusterManager {
 
                 HashSet<Object> filterSet = desc.getFilterMap().get(filterName);
                 if (filterSet != null) {
-
                     if (filterSet.contains(args[idx])) {
 //                        LOG.log(Level.INFO, "FOUND WHO HAS [{0}] {1}", new Object[]{filterName, args[idx]});
                         return descId;
                     }
 
                 }
-//                else {
-//                    throw new JcFilterNotFoundException("Filter does not exist in map... filterName: [" + filterName + "] Argument: [" + args[idx] + "]");
-//                }
-
             }
         }
 //        throw new JcFilterNotFoundException("No Instance found that contains value for arguments: " + Arrays.toString(args));

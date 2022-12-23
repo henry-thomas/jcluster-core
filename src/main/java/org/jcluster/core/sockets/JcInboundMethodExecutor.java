@@ -54,17 +54,14 @@ public class JcInboundMethodExecutor implements Runnable {
 
                     //Do work, then assign response here
                     Object result = method.invoke(service, request.getArgs()); //if method return type is void then result will be null,
-//                    if (!method.getReturnType().equals(Void.TYPE)) {
-//                    }else{
-//                        
-//                    }
+
                     //send back result or null for ACK
                     JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);
                     sendResponse(response);
             }
         } catch (NamingException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
-            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex);
+            LOG.log(Level.SEVERE, null, ex.getCause());
+            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
             sendResponse(response);
         }
     }
