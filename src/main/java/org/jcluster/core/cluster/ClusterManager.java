@@ -421,12 +421,30 @@ public class ClusterManager {
         return appDescriptor;
     }
 
-    public void socketStopTest() {
-        Map<String, JcClientConnection> ouboundConnections = JcAppInstanceData.getInstance().getOuboundConnections();
-        for (Map.Entry<String, JcClientConnection> entry : ouboundConnections.entrySet()) {
+    public int closeOutboundConnections(String instanceId) {
+        int totalClosed = 0;
+        Map<String, JcClientConnection> obc = JcAppInstanceData.getInstance().getOuboundConnections();
+        for (Map.Entry<String, JcClientConnection> entry : obc.entrySet()) {
             JcClientConnection conn = entry.getValue();
-            conn.destroy();
+            if (conn.getRemoteAppDesc().getInstanceId().equals(instanceId)) {
+                conn.destroy();
+                totalClosed++;
+            }
         }
+        return totalClosed;
+    }
+
+    public int closeInboundConnections(String instanceId) {
+        int totalClosed = 0;
+        Map<String, JcClientConnection> ibc = JcAppInstanceData.getInstance().getInboundConnections();
+        for (Map.Entry<String, JcClientConnection> entry : ibc.entrySet()) {
+            JcClientConnection conn = entry.getValue();
+            if (conn.getRemoteAppDesc().getInstanceId().equals(instanceId)) {
+                conn.destroy();
+                totalClosed++;
+            }
+        }
+        return totalClosed;
     }
 
     public ManagedExecutorService getExecutorService() {
