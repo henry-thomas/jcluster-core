@@ -4,7 +4,7 @@
  */
 package org.jcluster.core.bean;
 
-import org.jcluster.core.cluster.JcConnectionTypeEnum;
+import org.jcluster.core.JcConnectionTypeEnum;
 
 /**
  *

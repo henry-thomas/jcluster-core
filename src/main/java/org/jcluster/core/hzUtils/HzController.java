@@ -2,9 +2,9 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.cluster.hzUtils;
+package org.jcluster.core.hzUtils;
 
-import org.jcluster.core.cluster.JcHzConnectionListener;
+import org.jcluster.core.JcHzConnectionListener;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.config.cp.CPSubsystemConfig;

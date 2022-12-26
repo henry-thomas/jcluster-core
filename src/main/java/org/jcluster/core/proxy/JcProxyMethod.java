@@ -11,9 +11,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.jcluster.lib.annotation.JcBroadcast;
-import org.jcluster.lib.annotation.JcInstanceFilter;
 import org.jcluster.lib.annotation.JcRemote;
 import org.jcluster.lib.annotation.JcTimeout;
+import org.jcluster.lib.annotation.JcFilter;
 
 /**
  *
@@ -111,14 +111,22 @@ public class JcProxyMethod {
         JcProxyMethod proxyMethod = new JcProxyMethod(appName, method, broadcast);
 
         Parameter[] parameters = method.getParameters();
-        JcInstanceFilter instanceFilter = null;
+        JcFilter instanceFilter = null;
 
         for (int i = 0; i < parameters.length; i++) {
             Parameter param = parameters[i];
-            instanceFilter = param.getAnnotation(JcInstanceFilter.class);
 
+            instanceFilter = param.getAnnotation(JcFilter.class);
+            //allow to use filtername from args if anotation does not have value
+            String filterName;
             if (instanceFilter != null) {
-                proxyMethod.addInstanceFilterParam(instanceFilter.filterName(), i);
+                //if anotation has value override filter name
+                if (instanceFilter.filterName().isEmpty()) {
+                    filterName = param.getName();
+                } else {
+                    filterName = instanceFilter.filterName();
+                }
+                proxyMethod.addInstanceFilterParam(filterName, i);
             }
         }
 

@@ -10,7 +10,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
-import org.jcluster.core.cluster.JcFactory;
+import org.jcluster.core.JcFactory;
 
 /**
  *

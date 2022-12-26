@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.cluster;
+package org.jcluster.core;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -11,6 +11,10 @@ import static java.lang.System.currentTimeMillis;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.enterprise.concurrent.ManagedThreadFactory;
@@ -60,6 +64,13 @@ public class JcServerEndpoint implements Runnable {
                     LOG.log(Level.INFO, "JcInstanceConnection connected.  {0}", jcClientConnection);
 
                     JcRemoteInstanceConnectionBean ric = manager.getRemoteInstance(handshakeFrame.getRemoteAppDesc().getInstanceId());
+                    //In case where this instance does not have calls to the socket.accept() calling instance,
+                    //there will be no Remote instance conneciton sincse they are filtered by required app name. 
+                    //In this case we have to create one,
+                    //as long as that instance is available in HZ it will not be destroyed
+                    if (ric == null) {
+                        manager.addRemoteInstanceConnection(handshakeFrame.getRemoteAppDesc());
+                    }
                     ric.addConnection(jcClientConnection);
 
                 } catch (Exception e) {
@@ -77,30 +88,37 @@ public class JcServerEndpoint implements Runnable {
     }
 
     private JcHandhsakeFrame doHandshake(Socket socket) {
-        try {
-            JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcFactory.getManager().getInstanceAppDesc()});
 
-            ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+        FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
+            try {
+                JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcFactory.getManager().getInstanceAppDesc()});
 
-            oos.writeObject(handshakeRequest);
-            long startTime = currentTimeMillis();
-            while (currentTimeMillis() - startTime < 2000) {
-                try {
-                    JcMsgResponse handshakeResponse = (JcMsgResponse) ois.readObject();
-                    if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
-                        return (JcHandhsakeFrame) handshakeResponse.getData();
-                    } else {
-                        LOG.warning("Unknown Message Type on Handshake: " + handshakeResponse.getData().getClass().getName());
-                    }
-                } catch (ClassNotFoundException ex) {
+                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+                ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 
+                oos.writeObject(handshakeRequest);
+                JcMsgResponse handshakeResponse = (JcMsgResponse) ois.readObject();
+                if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
+                    return (JcHandhsakeFrame) handshakeResponse.getData();
+                } else {
+                    LOG.log(Level.WARNING, "Unknown Message Type on Handshake: {0}", handshakeResponse.getData().getClass().getName());
                 }
-            }
 
-        } catch (IOException ex) {
-            throw new JcSocketConnectException(ex.getMessage());
+            } catch (IOException | ClassNotFoundException ex) {
+            }
+            return null;
+
+        });
+        JcManager.getInstance().getExecutorService().execute(futureHanshake);
+        try {
+            JcHandhsakeFrame hf = futureHanshake.get(2, TimeUnit.SECONDS);
+            if (hf != null) {
+                return hf;
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException ex) {
+            Logger.getLogger(JcServerEndpoint.class.getName()).log(Level.SEVERE, null, ex);
         }
+
         throw new JcSocketConnectException("Handshake Timeout!");
     }
 

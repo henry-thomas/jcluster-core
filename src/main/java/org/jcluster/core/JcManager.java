@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.cluster;
+package org.jcluster.core;
 
 import com.hazelcast.map.IMap;
 import static java.lang.System.currentTimeMillis;
@@ -26,7 +26,7 @@ import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.bean.JcMeberEvent;
 import org.jcluster.core.bean.JcMemerEventTypeEnum;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
-import org.jcluster.core.cluster.hzUtils.HzController;
+import org.jcluster.core.hzUtils.HzController;
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcIOException;
@@ -235,6 +235,10 @@ public class JcManager {
         }
     }
 
+    protected void addRemoteInstanceConnection(JcAppDescriptor desc) {
+        remoteInstanceMap.put(desc.getInstanceId(), new JcRemoteInstanceConnectionBean(desc));
+    }
+
     private void resynchronizeHzMap() {
         for (Map.Entry<String, JcAppDescriptor> entry : hzAppDescMap.entrySet()) {
             String instId = entry.getKey();
@@ -351,7 +355,7 @@ public class JcManager {
                 }
             }
         }
-        
+
         throw new JcIOException(
                 "No Instance found App: " + proxyMethod.getAppName() + "  " + proxyMethod.printFilters(args));
     }

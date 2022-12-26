@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.cluster;
+package org.jcluster.core;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -13,6 +13,11 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcAppDescriptor;
@@ -70,8 +75,6 @@ public class JcRemoteInstanceConnectionBean {
         }
     }
 
-    private JcClientConnection tempJcClient = null;
-
     private synchronized JcClientConnection startClientConnection() {
         try {
             SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPort());
@@ -82,12 +85,11 @@ public class JcRemoteInstanceConnectionBean {
                 LOG.log(Level.INFO, "Attempt to connect fail: {0}", this);
                 return null;
             }
-            tempJcClient = null;
 
             //after socket gets connected we have to receive first Handshake from the other site.
             //in case where socket gets broken, ois.readObject can freezes the current thread. This is why handshaking must happen always in separate thread to avoid 
             //JcManager main thread locking!
-            new Thread(() -> {
+            FutureTask<JcClientConnection> futureHanshake = new FutureTask<>(() -> {
                 try {
                     ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                     ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
@@ -96,7 +98,7 @@ public class JcRemoteInstanceConnectionBean {
                         JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
                         if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
                             LOG.log(Level.INFO, "Handshake Response with Invalid for instanceId: " + desc.getInstanceId() + " found: " + handshakeDesc.getInstanceId());
-                            return;
+                            return null;
                         }
 
                         LOG.log(Level.INFO, "Handshake Request from instance: {0}", desc.getAppName());
@@ -107,28 +109,26 @@ public class JcRemoteInstanceConnectionBean {
                         JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
                         oos.writeObject(response);
                         oos.flush();
-                        tempJcClient = new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
-                        synchronized (socket) {
-                            socket.notifyAll();
-                        }
+                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
+
                     }
                 } catch (IOException | ClassNotFoundException ex) {
                     LOG.log(Level.SEVERE, null, ex);
                 }
-            }, "JcConnectionInitializerThread").start();
+                return null;
+            });
 
-            synchronized (socket) {
-                try {
-                    socket.wait(2000);
-                    if (tempJcClient == null) {
-                        socket.close();
-                    } else {
-                        return tempJcClient;
-                    }
-
-                } catch (InterruptedException ex) {
-                    LOG.log(Level.SEVERE, null, ex);
+            JcManager.getInstance().getExecutorService().execute(futureHanshake);
+            try {
+                JcClientConnection conn = futureHanshake.get(2, TimeUnit.SECONDS);
+                if (conn == null) {
+                    socket.close();
+                } else {
+                    return conn;
                 }
+
+            } catch (InterruptedException | ExecutionException | TimeoutException ex) {
+                Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName()).log(Level.SEVERE, null, ex);
             }
 
         } catch (IOException ex) {
