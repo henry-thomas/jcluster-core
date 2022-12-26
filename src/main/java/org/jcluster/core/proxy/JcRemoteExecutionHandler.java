@@ -14,7 +14,7 @@ import org.jcluster.core.cluster.JcFactory;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcRemoteExecutionHandler implements InvocationHandler, Serializable {
 
@@ -35,7 +35,6 @@ public class JcRemoteExecutionHandler implements InvocationHandler, Serializable
             proxyMethod = JcProxyMethod.initProxyMethod(method, args);
             methodCache.put(method.getName(), proxyMethod);
         }
-
         Object response = JcFactory.getManager().send(proxyMethod, args);
 
         if (response instanceof Exception) {

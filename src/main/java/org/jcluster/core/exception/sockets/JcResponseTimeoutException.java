@@ -9,7 +9,7 @@ import org.jcluster.core.messages.JcMessage;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcResponseTimeoutException extends JcRuntimeException {
 

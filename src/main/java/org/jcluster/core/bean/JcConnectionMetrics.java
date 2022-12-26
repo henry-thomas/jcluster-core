@@ -4,15 +4,19 @@
  */
 package org.jcluster.core.bean;
 
+import org.jcluster.core.cluster.JcConnectionTypeEnum;
+
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcConnectionMetrics {
 
-    private String instanceId;
+    private final String connId;
+    private final String instanceId;
     private final String ipAddress;
     private final String appName;
+    private final JcConnectionTypeEnum connType;
     private int txCount = 0;
     private int rxCount = 0;
     private int errCount = 0;
@@ -20,18 +24,24 @@ public class JcConnectionMetrics {
     private int reqRespMapSize = 0;
     private long lastConnAttempt = 0;
 
-    public JcConnectionMetrics(String appName, String instanceId, String ipAddress) {
-        this.ipAddress = ipAddress;
-        this.appName = appName;
-        this.instanceId = instanceId;
+    public JcConnectionMetrics(JcAppDescriptor desc, JcConnectionTypeEnum connType, String connId) {
+        this.connId = connId;
+        this.connType = connType;
+        this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPort();
+        this.appName = desc.getAppName();
+        this.instanceId = desc.getInstanceId();
+    }
+
+    public String getConnId() {
+        return connId;
+    }
+
+    public JcConnectionTypeEnum getConnType() {
+        return connType;
     }
 
     public String getInstanceId() {
         return instanceId;
-    }
-
-    public void changeInstanceId(String instanceId) {
-        this.instanceId = instanceId;
     }
 
     public long getLastConnAttempt() {

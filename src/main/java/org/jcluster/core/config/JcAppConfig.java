@@ -11,7 +11,7 @@ import java.util.logging.Logger;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  *
  * These properties should be stored in your server configuration. E.G. in
  * Payara, in DAC, in server-config -> System Properties Add them there. If
@@ -27,6 +27,7 @@ public class JcAppConfig {
 
     private final String jcHzPrimaryMember;
     private final Integer port;
+    private final Integer minConnections;
     private final String hostName;
     private final boolean isolated;
     private final String appName;
@@ -38,6 +39,7 @@ public class JcAppConfig {
     private JcAppConfig() {
         this.jcHzPrimaryMember = readProp("JC_HZ_PRIMARY_MEMBER", "127.0.0.1");
         this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
+        this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "5"));
         this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
         this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
         this.isolated = readProp("JC_ISOLATED", false);
@@ -84,6 +86,10 @@ public class JcAppConfig {
         return prop;
     }
 
+    public Integer getMinConnections() {
+        return minConnections;
+    }
+
     public boolean isIsolated() {
         return isolated;
     }
@@ -106,6 +112,10 @@ public class JcAppConfig {
 
     public String getAppName() {
         return appName;
+    }
+
+    public static Long getConnMaxTimeout() {
+        return INSTANCE.jcLastSendMaxTimeout;
     }
 
     public Long getJcLastSendMaxTimeout() {

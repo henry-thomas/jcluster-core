@@ -8,7 +8,7 @@ import java.io.Serializable;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcMsgResponse implements Serializable {
 

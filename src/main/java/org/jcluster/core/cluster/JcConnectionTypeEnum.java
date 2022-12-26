@@ -2,17 +2,17 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Enum.java to edit this template
  */
-package org.jcluster.core.sockets;
+package org.jcluster.core.cluster;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
-public enum ConnectionType {
+public enum JcConnectionTypeEnum {
     INBOUND,
     OUTBOUND;
 
-    public ConnectionType getOpposite() {
+    public JcConnectionTypeEnum getOpposite() {
         if (this == INBOUND) {
             return OUTBOUND;
         }

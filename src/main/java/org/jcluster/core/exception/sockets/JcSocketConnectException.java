@@ -8,7 +8,7 @@ import org.jcluster.core.exception.JcRuntimeException;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcSocketConnectException extends JcRuntimeException{
 

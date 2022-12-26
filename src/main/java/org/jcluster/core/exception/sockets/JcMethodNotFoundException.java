@@ -6,7 +6,7 @@ package org.jcluster.core.exception.sockets;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcMethodNotFoundException extends JcNamingException{
 

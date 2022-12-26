@@ -5,16 +5,16 @@
 package org.jcluster.core.bean;
 
 import java.io.Serializable;
-import org.jcluster.core.sockets.ConnectionType;
+import org.jcluster.core.cluster.JcConnectionTypeEnum;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcHandhsakeFrame implements Serializable {
 
     private boolean accepted;
-    private ConnectionType requestedConnType = null;
+    private JcConnectionTypeEnum requestedConnType = null;
     private final JcAppDescriptor remoteAppDesc;
 
     public JcHandhsakeFrame(JcAppDescriptor remoteAppDesc) {
@@ -34,11 +34,11 @@ public class JcHandhsakeFrame implements Serializable {
         this.accepted = accepted;
     }
 
-    public ConnectionType getRequestedConnType() {
+    public JcConnectionTypeEnum getRequestedConnType() {
         return requestedConnType;
     }
 
-    public void setRequestedConnType(ConnectionType requestedConnType) {
+    public void setRequestedConnType(JcConnectionTypeEnum requestedConnType) {
         this.requestedConnType = requestedConnType;
     }
 

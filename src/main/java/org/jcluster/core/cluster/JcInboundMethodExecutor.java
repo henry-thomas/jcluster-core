@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.sockets;
+package org.jcluster.core.cluster;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -16,7 +16,7 @@ import org.jcluster.core.messages.JcMsgResponse;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcInboundMethodExecutor implements Runnable {
 
@@ -69,7 +69,8 @@ public class JcInboundMethodExecutor implements Runnable {
     private void onPingRequest() {
         JcMsgResponse response = JcMsgResponse.createResponseMsg(request, "pong");
         sendResponse(response);
-        LOG.log(Level.INFO, "Sending pong msgId: {0}", response.getRequestId());
+
+//        LOG.log(Level.INFO, "Sending pong msgId: {0}", response.getRequestId());
     }
 
 }

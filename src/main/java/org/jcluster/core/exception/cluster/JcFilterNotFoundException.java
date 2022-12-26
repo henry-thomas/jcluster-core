@@ -8,9 +8,9 @@ import org.jcluster.core.exception.JcRuntimeException;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
-public class JcFilterNotFoundException extends JcRuntimeException{
+public class JcFilterNotFoundException extends JcIOException{
 
     /**
      * Creates a new instance of <code>JcFilterNotFoundException</code> without

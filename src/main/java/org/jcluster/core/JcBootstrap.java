@@ -7,6 +7,7 @@ package org.jcluster.core;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,12 +25,14 @@ import org.jcluster.core.proxy.JcRemoteExecutionHandler;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 @LocalBean //required for glassfish
 public class JcBootstrap implements Extension {
 
     private static final Logger LOG = Logger.getLogger(JcBootstrap.class.getName());
+
+    public static final List<String> appNameList = new ArrayList<>();
 
     private Class<?> filterPackageClass(String className, List<String> pkgList) {
         for (String pkg : pkgList) {
@@ -38,7 +41,6 @@ public class JcBootstrap implements Extension {
                 try {
                     Class<?> forName = Class.forName(className);
                     if (forName.isInterface() && forName.getAnnotation(JcRemote.class) != null) {
-//                        System.out.println("JcRemote Class: " + forName.getName() + " implementation loaded");
                         return forName;
                     }
 
@@ -80,16 +82,22 @@ public class JcBootstrap implements Extension {
         long scanEnd = System.currentTimeMillis();
         LOG.log(Level.INFO, "JcBootstrap Scan for JcRemote annotation in {0}ms, found: {1}", new Object[]{scanEnd - scanStart, jcRemoteInterfaceList.size()});
 
+        appNameList.clear();
         for (Class jcRClass : jcRemoteInterfaceList) {
+            JcRemote jcRemoteAnn = (JcRemote) jcRClass.getAnnotation(JcRemote.class);
+            if (jcRemoteAnn != null) {
+                appNameList.add(jcRemoteAnn.appName());
+            }
+
             Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteExecutionHandler());
             event.addBean().types(jcRClass).createWith(e -> newProxyInstance);
             LOG.log(Level.INFO, "JcBootstrap add Remote interface implementation for: [{0}]", new Object[]{jcRClass.getName()});
         }
-        
-//        try {
-//            JcFactory.initManager();
-//        } catch (Exception e) {
-//        }
+        String allApps = "";
+        for (String appName : appNameList) {
+            allApps += appName + " ";
+        }
+        LOG.log(Level.INFO, "JcBootstrap Found Total Required APP: {0} =>  [ {1}]", new Object[]{appNameList.size(), allApps});
 
     }
 

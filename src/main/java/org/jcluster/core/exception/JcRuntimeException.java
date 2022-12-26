@@ -6,7 +6,7 @@ package org.jcluster.core.exception;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcRuntimeException extends RuntimeException{
 

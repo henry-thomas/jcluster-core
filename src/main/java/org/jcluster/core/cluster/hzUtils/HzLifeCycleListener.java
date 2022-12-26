@@ -11,7 +11,7 @@ import java.util.logging.Logger;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class HzLifeCycleListener implements LifecycleListener {
 

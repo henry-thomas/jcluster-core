@@ -6,19 +6,19 @@ package org.jcluster.core.cluster;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcFactory {
 
-    public static ClusterManager initManager() {
-        return ClusterManager.getInstance().initConfig();
+    public static JcManager initManager() {
+        return JcManager.getInstance().startManager();
     }
 
-    public static ClusterManager getManager() {
-        return ClusterManager.getInstance();
+    public static JcManager getManager() {
+        return JcManager.getInstance();
     }
 
     public static void destroyManager() {
-        ClusterManager.getInstance().destroy();
+        JcManager.getInstance().destroy();
     }
 }

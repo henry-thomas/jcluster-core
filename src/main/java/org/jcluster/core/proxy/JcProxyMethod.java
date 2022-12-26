@@ -6,7 +6,9 @@ package org.jcluster.core.proxy;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.jcluster.lib.annotation.JcBroadcast;
 import org.jcluster.lib.annotation.JcInstanceFilter;
@@ -15,7 +17,7 @@ import org.jcluster.lib.annotation.JcTimeout;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcProxyMethod {
 
@@ -27,6 +29,8 @@ public class JcProxyMethod {
     private final boolean broadcast;
     private final Map<String, Integer> paramNameIdxMap = new HashMap<>(); //<>
     private final Class<?> returnType;
+
+    private static final List<String> appList = new ArrayList<>();
 
     private JcProxyMethod(String appName, Method method, boolean broadcast) {
         this.appName = appName;
@@ -52,7 +56,7 @@ public class JcProxyMethod {
         return returnType;
     }
 
-    public void addInstanceFilterParam(String paramName, Integer idx) {
+    private void addInstanceFilterParam(String paramName, Integer idx) {
         paramNameIdxMap.put(paramName, idx);
         instanceFilter = true;
     }
@@ -75,6 +79,20 @@ public class JcProxyMethod {
 
     public Integer getTimeout() {
         return timeout;
+    }
+
+    public String printFilters(Object args[]) {
+        StringBuilder sb = new StringBuilder("Filters[ ");
+        for (Map.Entry<String, Integer> entry : paramNameIdxMap.entrySet()) {
+            sb
+                    .append("{")
+                    .append(entry.getKey())
+                    .append("=")
+                    .append(args[entry.getValue()])
+                    .append("} ");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     public static JcProxyMethod initProxyMethod(Method method, Object[] args) {

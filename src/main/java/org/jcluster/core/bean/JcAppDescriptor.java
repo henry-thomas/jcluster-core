@@ -13,7 +13,7 @@ import org.jcluster.core.config.JcAppConfig;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  *
  * Created by JcManager for each instance
  *
@@ -26,6 +26,8 @@ public class JcAppDescriptor implements Serializable {
     private final String instanceId;
     private final String ipAddress;
     private final int ipPort;
+    //use this to detect dead instances somehow left unclean in the map
+    private long lastAlive;
     private final Map<String, HashSet<Object>> filterMap = new HashMap<>();
 
     public JcAppDescriptor() {
@@ -35,6 +37,14 @@ public class JcAppDescriptor implements Serializable {
 
         this.instanceId = RandomStringUtils.random(16, true, true);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
+    }
+
+    public void updateTimestamp() {
+        lastAlive = System.currentTimeMillis();
+    }
+
+    public long getLastAlive() {
+        return lastAlive;
     }
 
     public boolean isIsolated() {
@@ -59,6 +69,11 @@ public class JcAppDescriptor implements Serializable {
 
     public String getAppName() {
         return appName;
+    }
+
+    @Override
+    public String toString() {
+        return "JcAppDescriptor{" + "appName=" + appName + ", instanceId=" + instanceId + ", address=" + ipAddress + ":" + ipPort + '}';
     }
 
 }

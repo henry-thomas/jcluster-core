@@ -8,7 +8,7 @@ import javax.naming.NamingException;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcNamingException extends NamingException{
 

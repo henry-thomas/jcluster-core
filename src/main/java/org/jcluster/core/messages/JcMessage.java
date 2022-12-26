@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcMessage implements Serializable {
 
@@ -32,6 +32,10 @@ public class JcMessage implements Serializable {
         this.className = className;
         this.args = args;
         this.requestId = MSG_ID_INCR.getAndIncrement();
+    }
+
+    public static JcMessage createPingMsg() {
+        return new JcMessage("ping", null, null);
     }
 
     public JcMsgResponse getResponse() {

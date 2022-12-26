@@ -17,7 +17,7 @@ import org.jcluster.core.config.JcAppConfig;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class HzController {
 

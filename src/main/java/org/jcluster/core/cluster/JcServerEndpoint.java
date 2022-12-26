@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.sockets;
+package org.jcluster.core.cluster;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -11,30 +11,31 @@ import static java.lang.System.currentTimeMillis;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.enterprise.concurrent.ManagedThreadFactory;
 import org.jcluster.core.bean.JcHandhsakeFrame;
-import org.jcluster.core.bean.JcAppInstanceData;
-import org.jcluster.core.cluster.ClusterManager;
-import org.jcluster.core.cluster.JcFactory;
 import org.jcluster.core.exception.sockets.JcSocketConnectException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcServerEndpoint implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(JcServerEndpoint.class.getName());
 
-    private final ClusterManager manager = JcFactory.getManager();
-    private final Map<String, JcClientConnection> connMap = new HashMap<>();
+    private final JcManager manager = JcFactory.getManager();
     private boolean running;
     ServerSocket server;
+
+    private final ManagedThreadFactory threadFactory;
+
+    public JcServerEndpoint(ManagedThreadFactory threadFactory) {
+        this.threadFactory = threadFactory;
+    }
 
     @Override
     public void run() {
@@ -42,7 +43,7 @@ public class JcServerEndpoint implements Runnable {
             server = new ServerSocket();
             server.setReuseAddress(true);
 
-            InetSocketAddress address = new InetSocketAddress(manager.getAppDescriptor().getIpPort());
+            InetSocketAddress address = new InetSocketAddress(manager.getInstanceAppDesc().getIpPort());
             server.bind(address);
             running = true;
             while (running) {
@@ -54,15 +55,14 @@ public class JcServerEndpoint implements Runnable {
                     LOG.log(Level.INFO, "New Connection Hanshaking Complete: {0}", handshakeFrame);
 
                     JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame);
-                    manager.getThreadFactory().newThread(jcClientConnection).start();
+                    threadFactory.newThread(jcClientConnection).start();
 
-                    LOG.log(Level.INFO, "New ConnectionThread started type: {0}", jcClientConnection.getConnType());
-                    if (jcClientConnection.getConnType() == ConnectionType.OUTBOUND) {
-                        JcAppInstanceData.getInstance().addOutboundConnection(jcClientConnection);
-                    } else {
-                        JcAppInstanceData.getInstance().addInboundConnection(jcClientConnection);
-                    }
-                } catch (JcSocketConnectException e) {
+                    LOG.log(Level.INFO, "JcInstanceConnection connected.  {0}", jcClientConnection);
+
+                    JcRemoteInstanceConnectionBean ric = manager.getRemoteInstance(handshakeFrame.getRemoteAppDesc().getInstanceId());
+                    ric.addConnection(jcClientConnection);
+
+                } catch (Exception e) {
                     Logger.getLogger(JcServerEndpoint.class.getSimpleName()).log(Level.SEVERE, null, e);
                     sock.close();
                 }
@@ -78,7 +78,7 @@ public class JcServerEndpoint implements Runnable {
 
     private JcHandhsakeFrame doHandshake(Socket socket) {
         try {
-            JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcFactory.getManager().getAppDescriptor()});
+            JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcFactory.getManager().getInstanceAppDesc()});
 
             ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
@@ -106,12 +106,6 @@ public class JcServerEndpoint implements Runnable {
 
     public void destroy() {
         try {
-            for (Map.Entry<String, JcClientConnection> entry : connMap.entrySet()) {
-                JcClientConnection conn = entry.getValue();
-                conn.destroy();
-            }
-            JcAppInstanceData.getInstance().getInboundConnections().clear();
-            connMap.clear();
             running = false;
             server.close();
         } catch (IOException ex) {

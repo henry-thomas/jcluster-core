@@ -2,36 +2,35 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.sockets;
+package org.jcluster.core.cluster;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import static java.lang.System.currentTimeMillis;
 import java.net.Socket;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.bean.JcAppInstanceData;
 import org.jcluster.core.bean.JcConnectionMetrics;
-import org.jcluster.core.cluster.ClusterManager;
-import org.jcluster.core.cluster.JcFactory;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
 public class JcClientConnection implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(JcClientConnection.class.getName());
-    private final ClusterManager manager = JcFactory.getManager();
-    private static int inboundConnCount = 0;
-    private static int outboundConnCount = 0;
+    private final JcManager manager = JcFactory.getManager();
+    private static int conIdUniqueCounter = 0;
+//    private static int outboundConnCount = 0;
 
     private final JcAppDescriptor remoteAppDesc;
     private String connId;
@@ -41,13 +40,10 @@ public class JcClientConnection implements Runnable {
     private ObjectOutputStream oos;
     private ObjectInputStream ois;
 
-    private static int parallelConnectionCount = 0;
-    private int paralConnWaterMark = 0;
-
     private boolean running = true;
-    private final ConnectionType connType;
+    private final JcConnectionTypeEnum connType;
     private final JcConnectionMetrics metrics;
-    private long lastResponseReceivedTimestamp = currentTimeMillis();
+    protected long lastDataTimestamp = currentTimeMillis();
 
     private final Object writeLock = new Object();
 
@@ -57,7 +53,7 @@ public class JcClientConnection implements Runnable {
         this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType());
     }
 
-    public JcClientConnection(Socket sock, JcAppDescriptor desc, ConnectionType conType) throws IOException {
+    public JcClientConnection(Socket sock, JcAppDescriptor desc, JcConnectionTypeEnum conType) throws IOException {
 
         this.socket = sock;
         oos = new ObjectOutputStream(socket.getOutputStream());
@@ -69,32 +65,46 @@ public class JcClientConnection implements Runnable {
         this.port = this.remoteAppDesc.getIpPort();
         this.hostName = this.remoteAppDesc.getIpAddress();
 
-        metrics = new JcConnectionMetrics(desc.getAppName(), desc.getInstanceId(), hostName + ":" + port);
-
         this.connId = remoteAppDesc.getAppName()
                 + "-" + hostName + ":" + port
-                + "-" + (this.connType == ConnectionType.INBOUND ? "INBOUND" : "OUTBOUND")
-                + "-" + (this.connType == ConnectionType.INBOUND ? (++inboundConnCount) : (++outboundConnCount));
+                + "-" + (this.connType == JcConnectionTypeEnum.INBOUND ? "INBOUND" : "OUTBOUND")
+                + "-" + (conIdUniqueCounter++);
 
-        //        parallelConnectionCount++;
-//        if (parallelConnectionCount > paralConnWaterMark) {
-//            paralConnWaterMark = parallelConnectionCount;
-//            System.out.println("Number of connections reached: " + paralConnWaterMark);
-//        }
+        metrics = new JcConnectionMetrics(desc, this.connType, connId);
+
     }
 
     //Called from Client Thread
     protected void writeAndFlushToOOS(Object msg) throws IOException {
+//        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+//        ObjectOutputStream out = new ObjectOutputStream(bos);
+//        synchronized (writeLock) {
+//            out.writeObject(msg);
+//            out.flush();
+//            out.reset();
+//            bos.size();
+//            bos.writeTo(socket.getOutputStream());
+//        }
         synchronized (writeLock) {
             oos.writeObject(msg);
             oos.flush();
-            metrics.incTxCount();
+            oos.reset();
         }
+        metrics.incTxCount();
     }
 
-//    public JcMsgResponse send(JcMessage msg) throws IOException {
-//        return send(msg, null);
-//    }
+    public boolean sendPing() {
+//        LOG.log(Level.WARNING, "Sending ping message: {0}ms Message ID:{1} Thread-ID: {2}");
+        JcMsgResponse resp;
+        metrics.setReqRespMapSize(reqRespMap.size());
+        try {
+
+            resp = send(JcMessage.createPingMsg(), 1000);
+            return resp == null || resp.getData() == null || !resp.getData().equals("pong");
+        } catch (IOException ex) {
+        }
+        return false;
+    }
 
     public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
         if (timeoutMs == null) {
@@ -104,7 +114,6 @@ public class JcClientConnection implements Runnable {
             long start = System.currentTimeMillis();
 
             reqRespMap.put(msg.getRequestId(), msg);
-            metrics.setReqRespMapSize(reqRespMap.size());
 
             writeAndFlushToOOS(msg);
 
@@ -113,8 +122,7 @@ public class JcClientConnection implements Runnable {
             }
 
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
-            LOG.log(Level.INFO, "ReqResp Map Size for: {0} is [{1}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
-
+//            LOG.log(Level.FINE, "ReqResp Map Size for: {0} is [{1}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
             if (msg.getResponse() == null) {
                 reqRespMap.remove(msg.getRequestId());
                 metrics.incTimeoutCount();
@@ -127,13 +135,13 @@ public class JcClientConnection implements Runnable {
                         + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", msg);
 
             } else {
-                lastResponseReceivedTimestamp = System.currentTimeMillis();
+                lastDataTimestamp = System.currentTimeMillis();
                 return msg.getResponse();
             }
 
         } catch (InterruptedException ex) {
             reqRespMap.remove(msg.getRequestId());
-            Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.log(Level.SEVERE, null, ex);
             JcMsgResponse resp = new JcMsgResponse(msg.getRequestId(), ex);
             msg.setResponse(resp);
 //            reconnect();
@@ -145,11 +153,10 @@ public class JcClientConnection implements Runnable {
             msg.setResponse(resp);
 
             return resp;
-
         }
     }
 
-    public ConnectionType getConnType() {
+    public JcConnectionTypeEnum getConnType() {
         return connType;
     }
 
@@ -157,40 +164,48 @@ public class JcClientConnection implements Runnable {
     public void run() {
         Thread.currentThread().setName(this.connId);
 
-        if (this.connType == ConnectionType.OUTBOUND) {
+        if (this.connType == JcConnectionTypeEnum.OUTBOUND) {
             startOutboundReader();
         } else {
             startInboundReader();
         }
+
+        destroy();
     }
 
     private void startOutboundReader() {
         while (running) {
-
             try {
-                if (ois == null) {
-                    return;
-                }
-                Object readObject = ois.readObject();
-                metrics.incRxCount();
 
-                JcMsgResponse response = (JcMsgResponse) readObject;
-
-                JcMessage request = reqRespMap.remove(response.getRequestId());
-                if (request != null) {
-                    synchronized (request) {
-                        request.setResponse(response);
-                        request.notifyAll();
+                try {
+                    if (ois == null) {
+                        return;
                     }
-                } else {
-                    LOG.log(Level.WARNING, "Request is not in Map: {0}", response.getRequestId());
-                }
+                    lastDataTimestamp = currentTimeMillis();
 
-            } catch (IOException ex) {
-                metrics.incErrCount();
-                destroy();
-            } catch (ClassNotFoundException ex) {
-                Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
+                    Object readObject = ois.readObject();
+                    metrics.incRxCount();
+
+                    JcMsgResponse response = (JcMsgResponse) readObject;
+
+                    JcMessage request = reqRespMap.remove(response.getRequestId());
+                    if (request != null) {
+                        synchronized (request) {
+                            request.setResponse(response);
+                            request.notifyAll();
+                        }
+                    } else {
+                        LOG.log(Level.WARNING, "Request is not in Map: {0}", response.getRequestId());
+                    }
+
+                } catch (IOException ex) {
+                    metrics.incErrCount();
+                    destroy();
+                } catch (ClassNotFoundException ex) {
+                    LOG.log(Level.SEVERE, null, ex);
+                }
+            } catch (Exception e) {
+                LOG.log(Level.SEVERE, null, e);
             }
         }
 
@@ -202,25 +217,24 @@ public class JcClientConnection implements Runnable {
                 if (socket.isConnected()) {
                     JcMessage request = (JcMessage) ois.readObject();
                     metrics.incRxCount();
+                    lastDataTimestamp = currentTimeMillis();
                     manager.getExecutorService().submit(new JcInboundMethodExecutor(request, this));
                 }
             } catch (IOException ex) {
                 destroy();
                 running = false;
-//                    Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
+//                    LOG.log(Level.SEVERE, null, ex);
                 metrics.incErrCount();
 
             } catch (ClassNotFoundException ex) {
-                Logger.getLogger(JcClientConnection.class
-                        .getName()).log(Level.SEVERE, null, ex);
+                LOG.log(Level.SEVERE, null, ex);
             }
         }
-        JcAppInstanceData.getInstance().getInboundConnections().remove(connId);
+
     }
 
     public void destroy() {
         running = false;
-        parallelConnectionCount--;
         try {
             socket.close();
         } catch (IOException e) {
@@ -240,12 +254,31 @@ public class JcClientConnection implements Runnable {
         return running;
     }
 
-    public long getLastSuccessfulSend() {
-        return lastResponseReceivedTimestamp;
+    public long getLastDataTimestamp() {
+        return lastDataTimestamp;
     }
 
     public JcConnectionMetrics getMetrics() {
         return metrics;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (!(obj instanceof JcClientConnection)) {
+            return false;
+        }
+        JcClientConnection c = (JcClientConnection) obj;
+        return Objects.equals(this.connId, c.connId);
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 5;
+        hash = 23 * hash + Objects.hashCode(this.connId);
+        return hash;
     }
 
 }

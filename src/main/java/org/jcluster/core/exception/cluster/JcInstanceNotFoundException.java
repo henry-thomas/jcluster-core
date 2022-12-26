@@ -8,9 +8,9 @@ import org.jcluster.core.exception.JcRuntimeException;
 
 /**
  *
- * @author henry
+ * @autor Henry Thomas
  */
-public class JcInstanceNotFoundException extends JcRuntimeException{
+public class JcInstanceNotFoundException extends JcIOException{
 
     /**
      * Creates a new instance of <code>JcInstanceNotFoundException</code>
