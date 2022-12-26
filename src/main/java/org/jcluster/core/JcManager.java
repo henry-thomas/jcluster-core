@@ -19,8 +19,6 @@ import java.util.logging.Logger;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
-import org.jcluster.core.JcBootstrap;
-import org.jcluster.core.ServiceLookup;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.bean.JcMeberEvent;
@@ -320,6 +318,7 @@ public class JcManager {
 
     private Object filteredSend(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
         //find all instances by filter
+        int successs = 0;
         instanceLoop:
         for (Map.Entry<String, JcAppDescriptor> entry : hzAppDescMap.entrySet()) {
             String remInstanceId = entry.getKey();
@@ -351,13 +350,21 @@ public class JcManager {
                     if (ri == null) {
                         throw new JcIOException("Instance  [" + proxyMethod.getAppName() + "." + remInstanceId + "] not connected.");
                     }
-                    return ri.send(proxyMethod, args);
+                    if (proxyMethod.isBroadcast()) {
+                        ri.send(proxyMethod, args);
+                        successs++;
+                    } else {
+                        return ri.send(proxyMethod, args);
+                    }
                 }
             }
         }
 
-        throw new JcIOException(
-                "No Instance found App: " + proxyMethod.getAppName() + "  " + proxyMethod.printFilters(args));
+        if (successs == 0) {
+            throw new JcIOException(
+                    "No Instance found App: " + proxyMethod.getAppName() + "  " + proxyMethod.printFilters(args));
+        }
+        return successs;
     }
 
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcRuntimeException {
