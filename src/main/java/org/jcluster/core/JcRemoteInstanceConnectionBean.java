@@ -120,7 +120,7 @@ public class JcRemoteInstanceConnectionBean {
 
             JcManager.getInstance().getExecutorService().execute(futureHanshake);
             try {
-                JcClientConnection conn = futureHanshake.get(2, TimeUnit.SECONDS);
+                JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
                 if (conn == null) {
                     socket.close();
                 } else {

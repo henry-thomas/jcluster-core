@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -61,7 +62,7 @@ public class JcManager {
 
     private long lastUpdateHzDesc = 0l;
     private long lastPingTimestamp = 0l;
-    private final List<String> appNameList;
+    private final Set<String> appNameList;
 //    private final List<String> onlineInstanceIdList = new ArrayList<>();
 
     private JcManager() {

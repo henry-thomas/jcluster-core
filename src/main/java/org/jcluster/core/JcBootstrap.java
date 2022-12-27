@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
@@ -32,7 +33,7 @@ public class JcBootstrap implements Extension {
 
     private static final Logger LOG = Logger.getLogger(JcBootstrap.class.getName());
 
-    public static final List<String> appNameList = new ArrayList<>();
+    public static final Set<String> appNameList = new HashSet<>();
 
     private Class<?> filterPackageClass(String className, List<String> pkgList) {
         for (String pkg : pkgList) {

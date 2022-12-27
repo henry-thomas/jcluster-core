@@ -111,7 +111,7 @@ public class JcServerEndpoint implements Runnable {
         });
         JcManager.getInstance().getExecutorService().execute(futureHanshake);
         try {
-            JcHandhsakeFrame hf = futureHanshake.get(2, TimeUnit.SECONDS);
+            JcHandhsakeFrame hf = futureHanshake.get(5, TimeUnit.SECONDS);
             if (hf != null) {
                 return hf;
             }
