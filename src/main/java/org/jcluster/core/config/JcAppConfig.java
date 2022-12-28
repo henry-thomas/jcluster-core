@@ -39,7 +39,7 @@ public class JcAppConfig {
     private JcAppConfig() {
         this.jcHzPrimaryMember = readProp("JC_HZ_PRIMARY_MEMBER", "127.0.0.1");
         this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
-        this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "5"));
+        this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "2"));
         this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
         this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
         this.isolated = readProp("JC_ISOLATED", false);

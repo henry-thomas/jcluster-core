@@ -36,16 +36,27 @@ import org.jcluster.core.proxy.JcProxyMethod;
  */
 public class JcRemoteInstanceConnectionBean {
 
+    private static final Logger LOG = Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName());
+
     //all connections must contain same instance as inbound + outbound
     private final List<JcClientConnection> allConnections = new ArrayList<>();
     //contains pointers only to outbound connection for quick access
     private final RingConcurentList<JcClientConnection> outboundList = new RingConcurentList<>();
     private final JcAppDescriptor desc;
+    private boolean outboundEnabled = true;
 
-    private static final Logger LOG = Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName());
+    public JcRemoteInstanceConnectionBean(JcAppDescriptor desc, boolean outboundEnabled) {
+        this.desc = desc;
+        this.outboundEnabled = outboundEnabled;
+    }
 
     public JcRemoteInstanceConnectionBean(JcAppDescriptor desc) {
         this.desc = desc;
+        this.outboundEnabled = true;
+    }
+
+    public boolean isOutboundEnabled() {
+        return outboundEnabled;
     }
 
     public List<JcConnectionMetrics> getAllMetrics() {
@@ -61,6 +72,9 @@ public class JcRemoteInstanceConnectionBean {
     }
 
     protected void validateOutboundConnectionCount(int minCount) {
+        if (!outboundEnabled) {
+            return;
+        }
         int actualCount = outboundList.size();
         if (actualCount < minCount) {
             for (int i = 0; i < (minCount - actualCount); i++) {
@@ -93,6 +107,7 @@ public class JcRemoteInstanceConnectionBean {
                 try {
                     ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                     ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+                 
                     JcMessage request = (JcMessage) ois.readObject();
                     if (request.getMethodSignature().equals("handshake")) {
                         JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];

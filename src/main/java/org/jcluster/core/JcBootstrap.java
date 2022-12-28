@@ -7,7 +7,6 @@ package org.jcluster.core;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -98,7 +97,7 @@ public class JcBootstrap implements Extension {
         for (String appName : appNameList) {
             allApps += appName + " ";
         }
-        LOG.log(Level.INFO, "JcBootstrap Found Total Required APP: {0} =>  [ {1}]", new Object[]{appNameList.size(), allApps});
+        LOG.log(Level.INFO, "JcBootstrap Found Total Required APP: {0} =>  [ {1}] complete in {2}ms", new Object[]{appNameList.size(), allApps, System.currentTimeMillis() - scanStart});
 
     }
 

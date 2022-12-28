@@ -57,8 +57,8 @@ public class JcManager {
     private static final JcManager INSTANCE = new JcManager();
     private static boolean running = false;
     private JcServerEndpoint serverEndpoint;
-    private ManagedExecutorService executorService = null;
-    private ManagedThreadFactory threadFactory = null;
+    private final ManagedExecutorService executorService;
+    private final ManagedThreadFactory threadFactory;
 
     private long lastUpdateHzDesc = 0l;
     private long lastPingTimestamp = 0l;
@@ -68,15 +68,20 @@ public class JcManager {
     private JcManager() {
         HzController hzController = HzController.getInstance();
         hzAppDescMap = hzController.getMap();
+        ManagedExecutorService exs = null;
+        ManagedThreadFactory th = null;
+
         try {
-            executorService = (ManagedExecutorService) ServiceLookup.getService("concurrent/__defaultManagedExecutorService");
-            threadFactory = (ManagedThreadFactory) ServiceLookup.getService("concurrent/__defaultManagedThreadFactory");
+            exs = (ManagedExecutorService) ServiceLookup.getService("concurrent/__defaultManagedExecutorService");
+            th = (ManagedThreadFactory) ServiceLookup.getService("concurrent/__defaultManagedThreadFactory");
         } catch (NamingException ex) {
-            Logger.getLogger(JcManager.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.log(Level.SEVERE, null, ex);
         }
+        executorService = exs;
+        threadFactory = th;
 
         appNameList = JcBootstrap.appNameList;
-        LOG.log(Level.INFO, "ClusterManager: initConfig() {0}", instanceDesc);
+//        LOG.log(Level.INFO, "ClusterManager: initConfig() {0}", instanceDesc);
     }
 
     protected static JcManager getInstance() {
@@ -143,9 +148,44 @@ public class JcManager {
         }
     }
 
+    private void jcMainThreadExecution() {
+        LOG.info("JCLUSTER Health Checker Startup...");
+        Thread.currentThread().setName("J-CLUSTER_Health_Checker_Thread");
+        while (running) {
+            long beginCycle = System.currentTimeMillis();
+            //LOG.info("JCluster Health_Checker cycle");
+
+            try {
+                //execute event in current thread to avoid synchronization in the map
+                synchronized (memberEventQueue) {
+                    JcMeberEvent ev;
+                    while ((ev = memberEventQueue.poll()) != null) {
+                        proccessNewEvent(ev);
+                    }
+                }
+            } catch (Exception e) {
+            }
+
+            try {
+                mainLoop();
+            } catch (Exception e) {
+                LOG.log(Level.INFO, null, e);
+            }
+            if (System.currentTimeMillis() - beginCycle < 500) {
+                try {
+                    synchronized (JcManager.this) {
+                        JcManager.this.wait(500 - (System.currentTimeMillis() - beginCycle));
+                    }
+                } catch (InterruptedException ex) {
+                }
+            }
+        }
+        LOG.info("Shutting down J-CLUSTER_Health_Checker_Thread");
+    }
+
     protected synchronized JcManager startManager() {
         if (!running) {
-            LOG.info("JCLUSTER -- Startup...");
+            LOG.log(Level.INFO, "JCLUSTER --- STARTUP. AppName: {0} InstanceId: {1}", new Object[]{instanceDesc.getAppName(), instanceDesc.getInstanceId()});
             serverEndpoint = new JcServerEndpoint(threadFactory);
             Thread serverThread = threadFactory.newThread(serverEndpoint);
             serverThread.setName("JcServerEndpoint");
@@ -156,44 +196,8 @@ public class JcManager {
             updateThisHzDescriptor();
 
             running = true;
-
-            executorService.submit(new Runnable() {
-                @Override
-                public void run() {
-                    LOG.info("JCLUSTER Health Checker Startup...");
-                    Thread.currentThread().setName("J-CLUSTER_Health_Checker_Thread");
-                    while (running) {
-                        long beginCycle = System.currentTimeMillis();
-                        //LOG.info("JCluster Health_Checker cycle");
-
-                        try {
-                            //execute event in current thread to avoid synchronization in the map
-                            synchronized (memberEventQueue) {
-                                JcMeberEvent ev;
-                                while ((ev = memberEventQueue.poll()) != null) {
-                                    proccessNewEvent(ev);
-                                }
-                            }
-                        } catch (Exception e) {
-                        }
-
-                        try {
-                            mainLoop();
-                        } catch (Exception e) {
-                            LOG.log(Level.INFO, null, e);
-                        }
-                        if (System.currentTimeMillis() - beginCycle < 500) {
-                            try {
-                                synchronized (JcManager.this) {
-                                    JcManager.this.wait(500 - (System.currentTimeMillis() - beginCycle));
-                                }
-                            } catch (InterruptedException ex) {
-                            }
-                        }
-                    }
-                    LOG.info("Shutting down J-CLUSTER_Health_Checker_Thread");
-                }
-            });
+            Thread jcManagerThread = threadFactory.newThread(this::jcMainThreadExecution);
+            jcManagerThread.start();
         }
         return INSTANCE;
     }
@@ -234,8 +238,10 @@ public class JcManager {
         }
     }
 
-    protected void addRemoteInstanceConnection(JcAppDescriptor desc) {
-        remoteInstanceMap.put(desc.getInstanceId(), new JcRemoteInstanceConnectionBean(desc));
+    protected JcRemoteInstanceConnectionBean addRemoteInstanceConnection(JcAppDescriptor desc) {
+        boolean outboundEnabled = appNameList.contains(desc.getAppName());
+        JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), new JcRemoteInstanceConnectionBean(desc, outboundEnabled));
+        return ric;
     }
 
     private void resynchronizeHzMap() {
@@ -424,7 +430,9 @@ public class JcManager {
 
         //remove self from hzCast
         hzAppDescMap.remove(instanceDesc.getInstanceId());
-        serverEndpoint.destroy();
+        if (serverEndpoint != null) {
+            serverEndpoint.destroy();
+        }
         running = false;
         HzController.getInstance().destroy();
     }

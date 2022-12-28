@@ -7,7 +7,6 @@ package org.jcluster.core;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import static java.lang.System.currentTimeMillis;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -69,7 +68,7 @@ public class JcServerEndpoint implements Runnable {
                     //In this case we have to create one,
                     //as long as that instance is available in HZ it will not be destroyed
                     if (ric == null) {
-                        manager.addRemoteInstanceConnection(handshakeFrame.getRemoteAppDesc());
+                        ric = manager.addRemoteInstanceConnection(handshakeFrame.getRemoteAppDesc());
                     }
                     ric.addConnection(jcClientConnection);
 

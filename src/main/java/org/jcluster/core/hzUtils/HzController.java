@@ -7,7 +7,6 @@ package org.jcluster.core.hzUtils;
 import org.jcluster.core.JcHzConnectionListener;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
-import com.hazelcast.config.cp.CPSubsystemConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
@@ -41,11 +40,12 @@ public class HzController {
     }
 
     private void setDiscoveryConfig() {
+        String primaryMemAddress = JcAppConfig.getINSTANCE().getJcHzPrimaryMember();
+        
         JoinConfig join = new JoinConfig();
         join.getMulticastConfig().setEnabled(false);
         join.getTcpIpConfig().setEnabled(true);
-
-        join.getTcpIpConfig().getMembers().add(JcAppConfig.getINSTANCE().getJcHzPrimaryMember());
+        join.getTcpIpConfig().getMembers().add(primaryMemAddress);
         hzConfig.getNetworkConfig().setJoin(join);
     }
 
