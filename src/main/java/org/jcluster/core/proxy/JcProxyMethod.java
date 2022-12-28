@@ -118,15 +118,8 @@ public class JcProxyMethod {
 
             instanceFilter = param.getAnnotation(JcFilter.class);
             //allow to use filtername from args if anotation does not have value
-            String filterName;
             if (instanceFilter != null) {
-                //if anotation has value override filter name
-                if (instanceFilter.filterName().isEmpty()) {
-                    filterName = param.getName();
-                } else {
-                    filterName = instanceFilter.filterName();
-                }
-                proxyMethod.addInstanceFilterParam(filterName, i);
+                proxyMethod.addInstanceFilterParam(instanceFilter.filterName(), i);
             }
         }
 
