@@ -5,6 +5,8 @@
 package org.jcluster.core;
 
 import com.hazelcast.map.IMap;
+import javax.enterprise.concurrent.ManagedExecutorService;
+import javax.enterprise.concurrent.ManagedThreadFactory;
 import static java.lang.System.currentTimeMillis;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -17,8 +19,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.enterprise.concurrent.ManagedExecutorService;
-import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcConnectionMetrics;
@@ -63,11 +63,12 @@ public class JcManager {
     private long lastUpdateHzDesc = 0l;
     private long lastPingTimestamp = 0l;
     private final Set<String> appNameList;
+    private final HzController hzController;
 //    private final List<String> onlineInstanceIdList = new ArrayList<>();
 
     private JcManager() {
-        HzController hzController = HzController.getInstance();
-        hzAppDescMap = hzController.getMap();
+        hzController = HzController.getInstance();
+        hzAppDescMap = hzController.getInstanceDescriptorMap();
         ManagedExecutorService exs = null;
         ManagedThreadFactory th = null;
 
@@ -81,7 +82,7 @@ public class JcManager {
         threadFactory = th;
 
         appNameList = JcBootstrap.appNameList;
-//        LOG.log(Level.INFO, "ClusterManager: initConfig() {0}", instanceDesc);
+
     }
 
     protected static JcManager getInstance() {
@@ -421,6 +422,10 @@ public class JcManager {
         return threadFactory;
     }
 
+    public <K, V> IMap<K, V> getDistributedMap(String mapId) {
+        return hzController.getMap(mapId);
+    }
+
     public void destroy() {
         for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
             entry.getValue().destroy();
@@ -429,7 +434,7 @@ public class JcManager {
         appNameList.clear();
 
         //remove self from hzCast
-        hzAppDescMap.remove(instanceDesc.getInstanceId());
+        hzAppDescMap.delete(instanceDesc.getInstanceId());
         if (serverEndpoint != null) {
             serverEndpoint.destroy();
         }

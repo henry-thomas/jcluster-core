@@ -7,6 +7,7 @@ package org.jcluster.core.hzUtils;
 import org.jcluster.core.JcHzConnectionListener;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.JoinConfig;
+import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
@@ -27,29 +28,41 @@ public class HzController {
     private static HzController INSTANCE = null;
 
     private HzController() {
-        hzConfig.setClusterName("hz-jc-cluster");
-        setDiscoveryConfig();
-        
-//        hzConfig.getCPSubsystemConfig().setCPMemberCount(3);
+
+        boolean userClusterName = JcAppConfig.getINSTANCE().readProp("HZ_USECLUSTERNAME", false);
+        if (userClusterName) {
+            hzConfig.setClusterName("hz-jc-cluster");
+        }
+
+        //        hzConfig.getCPSubsystemConfig().setCPMemberCount(3);
+        String primaryMemAddress = JcAppConfig.getINSTANCE().getJcHzPrimaryMember();
+
+        JoinConfig join = new JoinConfig();
+
+        join.getMulticastConfig()
+                .setEnabled(false);
+
+        join.getTcpIpConfig()
+                .setEnabled(true)
+                .setConnectionTimeoutSeconds(5)
+                .getMembers().add(primaryMemAddress);
+
+        hzConfig.getNetworkConfig()
+                .setPortAutoIncrement(true)
+                .setPortCount(5)
+                .setJoin(join);
 
         hz = Hazelcast.newHazelcastInstance(hzConfig);
+
+        MapConfig noBackupsMap = new MapConfig("jc-app-map").setBackupCount(0);
+        hz.getConfig().addMapConfig(noBackupsMap);
 
         map = hz.getMap("jc-app-map");
 
         map.addEntryListener(new JcHzConnectionListener(), true);
     }
 
-    private void setDiscoveryConfig() {
-        String primaryMemAddress = JcAppConfig.getINSTANCE().getJcHzPrimaryMember();
-        
-        JoinConfig join = new JoinConfig();
-        join.getMulticastConfig().setEnabled(false);
-        join.getTcpIpConfig().setEnabled(true);
-        join.getTcpIpConfig().getMembers().add(primaryMemAddress);
-        hzConfig.getNetworkConfig().setJoin(join);
-    }
-
-    public static HzController getInstance() {
+    public synchronized static HzController getInstance() {
 
         if (INSTANCE == null) {
             INSTANCE = new HzController();
@@ -58,7 +71,11 @@ public class HzController {
         return INSTANCE;
     }
 
-    public IMap<String, JcAppDescriptor> getMap() {
+    public <K, V> IMap<K, V> getMap(String mapName) {
+        return hz.getMap(mapName);
+    }
+
+    public IMap<String, JcAppDescriptor> getInstanceDescriptorMap() {
         return map;
     }
 

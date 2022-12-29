@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import javax.enterprise.concurrent.ManagedThreadFactory;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -16,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.enterprise.concurrent.ManagedThreadFactory;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.exception.sockets.JcSocketConnectException;
 import org.jcluster.core.messages.JcMessage;

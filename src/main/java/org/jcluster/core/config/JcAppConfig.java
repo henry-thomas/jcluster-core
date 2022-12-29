@@ -68,16 +68,16 @@ public class JcAppConfig {
         }
     }
 
-    private String readProp(String propName) {
+    public String readProp(String propName) {
         return readProp(propName, null);
     }
 
-    private boolean readProp(String propName, boolean defaultValue) {
+    public boolean readProp(String propName, boolean defaultValue) {
         String readProp = readProp(propName, String.valueOf(defaultValue));
         return Boolean.parseBoolean(readProp);
     }
 
-    private String readProp(String propName, String defaultValue) {
+    public String readProp(String propName, String defaultValue) {
         String prop = System.getProperty(propName);
         if (prop == null) {
             LOG.log(Level.SEVERE, "{0} property not set!", propName);
