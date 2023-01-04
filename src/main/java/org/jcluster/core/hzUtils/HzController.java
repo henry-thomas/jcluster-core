@@ -34,7 +34,6 @@ public class HzController {
             hzConfig.setClusterName("hz-jc-cluster");
         }
 
-        //        hzConfig.getCPSubsystemConfig().setCPMemberCount(3);
         String primaryMemAddress = JcAppConfig.getINSTANCE().getJcHzPrimaryMember();
 
         JoinConfig join = new JoinConfig();
