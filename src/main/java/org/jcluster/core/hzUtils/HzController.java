@@ -6,6 +6,7 @@ package org.jcluster.core.hzUtils;
 
 import org.jcluster.core.JcHzConnectionListener;
 import com.hazelcast.config.Config;
+import com.hazelcast.config.InMemoryFormat;
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.Hazelcast;
@@ -53,7 +54,7 @@ public class HzController {
 
         hz = Hazelcast.newHazelcastInstance(hzConfig);
 
-        MapConfig noBackupsMap = new MapConfig("jc-app-map").setBackupCount(0);
+        MapConfig noBackupsMap = new MapConfig("*").setBackupCount(0).setInMemoryFormat(InMemoryFormat.OBJECT);
         hz.getConfig().addMapConfig(noBackupsMap);
 
         map = hz.getMap("jc-app-map");
