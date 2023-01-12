@@ -104,6 +104,7 @@ public class JcServerEndpoint implements Runnable {
                 }
 
             } catch (IOException | ClassNotFoundException ex) {
+//                LOG.log(Level.SEVERE, "Could not handshake", ex);
             }
             return null;
 

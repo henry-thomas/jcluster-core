@@ -49,7 +49,7 @@ public class HzController {
 
         hzConfig.getNetworkConfig()
                 .setPortAutoIncrement(true)
-                .setPortCount(5)
+                .setPortCount(100)
                 .setJoin(join);
 
         hz = Hazelcast.newHazelcastInstance(hzConfig);

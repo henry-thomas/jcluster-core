@@ -107,7 +107,7 @@ public class JcRemoteInstanceConnectionBean {
                 try {
                     ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                     ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-                 
+
                     JcMessage request = (JcMessage) ois.readObject();
                     if (request.getMethodSignature().equals("handshake")) {
                         JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
@@ -181,6 +181,8 @@ public class JcRemoteInstanceConnectionBean {
                 if (conn.getConnType() == JcConnectionTypeEnum.OUTBOUND) {
                     outboundList.remove(conn);
                 }
+                
+                conn.destroy();
                 return true;
             }
             return false;
@@ -202,8 +204,16 @@ public class JcRemoteInstanceConnectionBean {
 
     public void pingAllOutbound() {
         synchronized (this) {
+            List<JcClientConnection> toRemove = new ArrayList<>();
             for (JcClientConnection conn : outboundList) {
-                conn.sendPing();
+                if (!conn.sendPing()) {
+                    toRemove.add(conn);
+                }
+            }
+
+            for (JcClientConnection jcClientConnection : toRemove) {
+                
+                removeConnection(jcClientConnection);
             }
         }
     }
@@ -240,6 +250,7 @@ public class JcRemoteInstanceConnectionBean {
             JcMessage msg = new JcMessage(proxyMethod.getMethodSignature(), proxyMethod.getClassName(), args);
             return conn.send(msg, proxyMethod.getTimeout()).getData();
         } catch (IOException ex) {
+            removeConnection(conn);
             throw new JcIOException(ex.getMessage());
         }
     }
