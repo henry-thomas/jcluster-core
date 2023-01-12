@@ -99,7 +99,7 @@ public class JcClientConnection implements Runnable {
         try {
 
             resp = send(JcMessage.createPingMsg(), 1000);
-            return resp == null || resp.getData() == null || !resp.getData().equals("pong");
+            return !(resp == null || resp.getData() == null || !resp.getData().equals("pong"));
         } catch (IOException ex) {
         }
         return false;
@@ -127,7 +127,7 @@ public class JcClientConnection implements Runnable {
                 metrics.incTimeoutCount();
                 LOG.log(Level.WARNING, "Timeout req-resp: {0}ms Message ID:{1} Thread-ID: {2}", new Object[]{System.currentTimeMillis() - start, msg.getRequestId(), Thread.currentThread().getName()});
 
-                throw new JcResponseTimeoutException("No response received, timeout. APP_NAME: ["
+                throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
                         + remoteAppDesc.getAppName() + "] ADDRESS: ["
                         + remoteAppDesc.getIpAddress() + ":" + String.valueOf(remoteAppDesc.getIpPort())
                         + "] METHOD: [" + msg.getMethodSignature()
