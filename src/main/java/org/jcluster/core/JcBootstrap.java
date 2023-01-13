@@ -34,6 +34,7 @@ public class JcBootstrap implements Extension {
     private static final Logger LOG = Logger.getLogger(JcBootstrap.class.getName());
 
     public static final Set<String> appNameList = new HashSet<>();
+    public static final Set<String> topicNameList = new HashSet<>();
 
     private Class<?> filterPackageClass(String className, List<String> pkgList) {
         for (String pkg : pkgList) {
@@ -86,19 +87,38 @@ public class JcBootstrap implements Extension {
         appNameList.clear();
         for (Class jcRClass : jcRemoteInterfaceList) {
             JcRemote jcRemoteAnn = (JcRemote) jcRClass.getAnnotation(JcRemote.class);
-            if (jcRemoteAnn != null) {
+
+            if (!jcRemoteAnn.topic().isEmpty()) {
+                topicNameList.add(jcRemoteAnn.topic());
+            } else if (!jcRemoteAnn.appName().isEmpty()) {
                 appNameList.add(jcRemoteAnn.appName());
+            } else {
+                LOG.log(Level.WARNING, "JcRemote annotation found without appName|topic specified: {0}", jcRClass.getName());
+                continue;
             }
 
             Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteExecutionHandler());
             event.addBean().types(jcRClass).createWith(e -> newProxyInstance);
             LOG.log(Level.INFO, "JcBootstrap add Remote interface implementation for: [{0}]", new Object[]{jcRClass.getName()});
         }
+
         String allApps = "";
         for (String appName : appNameList) {
             allApps += appName + " ";
         }
-        LOG.log(Level.INFO, "JcBootstrap Found Total Required APP: {0} =>  [ {1}] complete in {2}ms", new Object[]{appNameList.size(), allApps, System.currentTimeMillis() - scanStart});
+
+        String allTopics = "";
+        for (String topicName : topicNameList) {
+            allTopics += topicName + " ";
+        }
+
+        LOG.log(Level.INFO, "JcBootstrap Found Total Required APP: {0} =>  [ {1}] complete in {2}ms",
+                new Object[]{appNameList.size(), allApps, System.currentTimeMillis() - scanStart});
+        
+        if (!allTopics.isEmpty()) {
+            LOG.log(Level.INFO, "JcBootstrap Found Total Required TOPICS: {0} =>  [ {1}] complete",
+                    new Object[]{topicNameList.size(), allTopics});
+        }
 
     }
 

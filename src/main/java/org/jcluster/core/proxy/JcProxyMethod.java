@@ -22,6 +22,7 @@ import org.jcluster.lib.annotation.JcFilter;
 public class JcProxyMethod {
 
     private final String appName;
+    private final String topicName;
     private final String className;
     private final String methodSignature;
     private boolean instanceFilter;
@@ -33,6 +34,10 @@ public class JcProxyMethod {
     private static final List<String> appList = new ArrayList<>();
 
     private JcProxyMethod(String appName, Method method, boolean broadcast) {
+        this(appName, method, broadcast, null);
+    }
+
+    private JcProxyMethod(String appName, Method method, boolean broadcast, String topicName) {
         this.appName = appName;
         this.className = method.getDeclaringClass().getName();
         String ms = method.getName();
@@ -42,6 +47,7 @@ public class JcProxyMethod {
         this.methodSignature = ms;
         this.returnType = method.getReturnType();
         this.broadcast = broadcast;
+        this.topicName = topicName;
     }
 
     public String getAppName() {
@@ -50,6 +56,10 @@ public class JcProxyMethod {
 
     public boolean isInstanceFilter() {
         return instanceFilter;
+    }
+
+    public boolean isTopic() {
+        return topicName != null;
     }
 
     public Class<?> getReturnType() {
@@ -81,6 +91,10 @@ public class JcProxyMethod {
         return timeout;
     }
 
+    public String getTopicName() {
+        return topicName;
+    }
+
     public String printFilters(Object args[]) {
         StringBuilder sb = new StringBuilder("Filters[ ");
         for (Map.Entry<String, Integer> entry : paramNameIdxMap.entrySet()) {
@@ -103,12 +117,18 @@ public class JcProxyMethod {
         }
 
         JcRemote jcRemoteAnn = method.getDeclaringClass().getAnnotation(JcRemote.class);
-        String appName = "unknown";
-        if (jcRemoteAnn != null) {
-            appName = jcRemoteAnn.appName();
-        }
 
-        JcProxyMethod proxyMethod = new JcProxyMethod(appName, method, broadcast);
+        String appName = jcRemoteAnn.appName();
+        String topicName = jcRemoteAnn.topic();
+
+        JcProxyMethod proxyMethod;
+        if (!appName.isEmpty()) {
+            proxyMethod = new JcProxyMethod(appName, method, broadcast);
+        } else if (!topicName.isEmpty()) {
+            proxyMethod = new JcProxyMethod(null, method, broadcast, topicName);
+        } else {
+            return null;
+        }
 
         Parameter[] parameters = method.getParameters();
         JcFilter instanceFilter = null;

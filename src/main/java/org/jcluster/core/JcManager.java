@@ -82,6 +82,7 @@ public class JcManager {
         threadFactory = th;
 
         appNameList = JcBootstrap.appNameList;
+        appNameList.addAll(JcBootstrap.topicNameList);
 
     }
 
@@ -313,12 +314,19 @@ public class JcManager {
         int instanceBroadcastedTo = 0;
         for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
             JcRemoteInstanceConnectionBean ri = entry.getValue();
-            if (ri.getAppName().equals(proxyMethod.getAppName())) {
-                try {
-                    ri.send(proxyMethod, args);
-                    instanceBroadcastedTo++;
-                } catch (Exception e) {
+
+            if (proxyMethod.isTopic()) {
+                if (!ri.getDesc().getTopicList().contains(proxyMethod.getTopicName())) {
+                    continue;
                 }
+            } else if (!ri.getAppName().equals(proxyMethod.getAppName())) {
+                continue;
+            }
+
+            try {
+                ri.send(proxyMethod, args);
+                instanceBroadcastedTo++;
+            } catch (Exception e) {
             }
         }
         return instanceBroadcastedTo;
@@ -332,7 +340,11 @@ public class JcManager {
             String remInstanceId = entry.getKey();
             JcAppDescriptor rid = entry.getValue();
             //first filter by appname to avoid unnecessary filter matching
-            if (!rid.getAppName().equals(proxyMethod.getAppName())) {
+            if (proxyMethod.isTopic()) {
+                if (!rid.getTopicList().contains(proxyMethod.getTopicName())) {
+                    continue;
+                }
+            } else if (!rid.getAppName().equals(proxyMethod.getAppName())) {
                 continue;
             }
             //skip ourselvse since this instance exist in Hz map
@@ -376,7 +388,15 @@ public class JcManager {
     }
 
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcRuntimeException {
-        if (proxyMethod.isInstanceFilter()) {//no app name needed if send is specific for remote instance
+//        int bcSent = broadcastSend(proxyMethod, args);
+//        if (proxyMethod.isTopic()) {
+//            if (bcSent == 0) {
+//                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + proxyMethod.getAppName());
+//            }
+//            return bcSent;
+//        }
+
+        if (proxyMethod.isInstanceFilter() && !proxyMethod.isBroadcast()) {//no app name needed if send is specific for remote instance
             return filteredSend(proxyMethod, args);
         } else if (proxyMethod.isBroadcast()) {
             int broadcastSend = broadcastSend(proxyMethod, args);
@@ -388,7 +408,15 @@ public class JcManager {
             for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
                 JcRemoteInstanceConnectionBean ri = entry.getValue();
                 //check if this is inside same APP and has output connections
-                if (ri.getAppName().equals(proxyMethod.getAppName()) && ri.isOutboundAvailable()) {
+                if (proxyMethod.isTopic()) {
+                    if (!ri.getDesc().getTopicList().contains(proxyMethod.getTopicName())) {
+                        continue;
+                    }
+                } else if (!ri.getAppName().equals(proxyMethod.getAppName())) {
+                    continue;
+                }
+
+                if (ri.isOutboundAvailable()) {
                     try {
                         return ri.send(proxyMethod, args);
                     } catch (JcIOException e) {

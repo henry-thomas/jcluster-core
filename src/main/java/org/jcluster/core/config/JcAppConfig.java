@@ -32,6 +32,7 @@ public class JcAppConfig {
     private final boolean isolated;
     private final String appName;
     private final List<String> pkgFilterList = new ArrayList<>();
+    private final List<String> topicList = new ArrayList<>();
     private final Long jcLastSendMaxTimeout;
 
     private static final JcAppConfig INSTANCE = new JcAppConfig();
@@ -47,23 +48,56 @@ public class JcAppConfig {
         this.jcLastSendMaxTimeout = Long.valueOf(readProp("JC_LAST_SEND_MAX_TIMEOUT", "5000"));
 
         initPkgFilterList();
+        initTopicList();
     }
 
     private void initPkgFilterList() {
         String pkgFilter = readProp("JC_SCAN_PKG_NAME", "");
         if (pkgFilter.equals("")) {
             pkgFilterList.add("");
-            LOG.warning("JCluster set to scan the entire package, this can slow down application startup. Please set correct package to scan in domain.xml -> configs -> server-config example: <system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
+            LOG.warning("JCluster set to scan the entire package, this can slow down application startup. "
+                    + "Please set correct package to scan in domain.xml -> configs -> server-config example: "
+                    + "<system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
         } else {
-            String[] split;
+            String[] split = null;
             if (pkgFilter.contains(";")) {
                 split = pkgFilter.split(";");
-            } else {
+            } else if (pkgFilter.contains(",")) {
                 split = pkgFilter.split(",");
+            } else if (pkgFilter.contains(" ")) {
+                split = pkgFilter.split(" ");
+            } else {
+                split = new String[]{pkgFilter};
             }
 
-            for (String pkg : split) {
-                pkgFilterList.add(pkg.trim());
+            if (split != null) {
+                for (String pkg : split) {
+                    pkgFilterList.add(pkg.trim());
+                }
+            }
+        }
+    }
+
+    private void initTopicList() {
+        String topics = readProp("JC_TOPICS", "");
+        if (topics.equals("")) {
+            topicList.add("");
+        } else {
+            String[] split = null;
+            if (topics.contains(";")) {
+                split = topics.split(";");
+            } else if (topics.contains(",")) {
+                split = topics.split(",");
+            } else if (topics.contains(" ")) {
+                split = topics.split(" ");
+            } else {
+                split = new String[]{topics};
+            }
+
+            if (split != null) {
+                for (String pkg : split) {
+                    topicList.add(pkg.trim());
+                }
             }
         }
     }
@@ -124,6 +158,10 @@ public class JcAppConfig {
 
     public List<String> getPkgFilterList() {
         return pkgFilterList;
+    }
+
+    public List<String> getTopicList() {
+        return topicList;
     }
 
 }

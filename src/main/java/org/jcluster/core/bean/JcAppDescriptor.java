@@ -5,8 +5,10 @@
 package org.jcluster.core.bean;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.config.JcAppConfig;
@@ -23,6 +25,7 @@ public class JcAppDescriptor implements Serializable {
 
     private final boolean isolated;
     private final String appName;
+    private final List<String> topicList = new ArrayList<>();
     private final String instanceId;
     private final String ipAddress;
     private final int ipPort;
@@ -37,6 +40,7 @@ public class JcAppDescriptor implements Serializable {
 
         this.instanceId = RandomStringUtils.random(16, true, true);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
+        this.topicList.addAll(JcAppConfig.getINSTANCE().getTopicList());
     }
 
     public void updateTimestamp() {
@@ -69,6 +73,10 @@ public class JcAppDescriptor implements Serializable {
 
     public String getAppName() {
         return appName;
+    }
+
+    public List<String> getTopicList() {
+        return topicList;
     }
 
     @Override

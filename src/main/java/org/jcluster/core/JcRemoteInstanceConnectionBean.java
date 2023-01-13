@@ -181,7 +181,7 @@ public class JcRemoteInstanceConnectionBean {
                 if (conn.getConnType() == JcConnectionTypeEnum.OUTBOUND) {
                     outboundList.remove(conn);
                 }
-                
+
                 conn.destroy();
                 return true;
             }
@@ -212,7 +212,7 @@ public class JcRemoteInstanceConnectionBean {
             }
 
             for (JcClientConnection jcClientConnection : toRemove) {
-                
+
                 removeConnection(jcClientConnection);
             }
         }
@@ -239,6 +239,10 @@ public class JcRemoteInstanceConnectionBean {
 
     public boolean isOutboundAvailable() {
         return !outboundList.isEmpty();
+    }
+
+    public JcAppDescriptor getDesc() {
+        return desc;
     }
 
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
