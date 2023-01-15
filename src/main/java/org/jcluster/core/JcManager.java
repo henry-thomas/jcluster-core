@@ -396,7 +396,7 @@ public class JcManager {
 //            return bcSent;
 //        }
 
-        if (proxyMethod.isInstanceFilter() && !proxyMethod.isBroadcast()) {//no app name needed if send is specific for remote instance
+        if (proxyMethod.isInstanceFilter()) {//no app name needed if send is specific for remote instance
             return filteredSend(proxyMethod, args);
         } else if (proxyMethod.isBroadcast()) {
             int broadcastSend = broadcastSend(proxyMethod, args);
