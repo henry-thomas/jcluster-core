@@ -33,8 +33,6 @@ public class JcInboundMethodExecutor implements Runnable {
         try {
             clientConn.writeAndFlushToOOS(msg);
         } catch (IOException ex) {
-            //Rely on ping to fail from the other side, and connection will be recreated.
-            clientConn.destroy();
             Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

@@ -27,6 +27,7 @@ public class JcAppDescriptor implements Serializable {
     private final String appName;
     private final List<String> topicList = new ArrayList<>();
     private final String instanceId;
+    private final String serverName;
     private final String ipAddress;
     private final int ipPort;
     //use this to detect dead instances somehow left unclean in the map
@@ -39,8 +40,13 @@ public class JcAppDescriptor implements Serializable {
         this.appName = JcAppConfig.getINSTANCE().getAppName();
 
         this.instanceId = RandomStringUtils.random(16, true, true);
+        this.serverName = JcAppConfig.getINSTANCE().readProp("JC_SERVER_NAME", instanceId);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
         this.topicList.addAll(JcAppConfig.getINSTANCE().getTopicList());
+    }
+
+    public String getServerName() {
+        return serverName;
     }
 
     public void updateTimestamp() {

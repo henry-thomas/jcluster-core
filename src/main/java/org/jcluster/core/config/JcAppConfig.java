@@ -19,7 +19,7 @@ import java.util.logging.Logger;
  *
  * They are read by JcAppConfig, so all accessible from there throughout the
  * project.
- *
+ *add id conf
  */
 public class JcAppConfig {
 

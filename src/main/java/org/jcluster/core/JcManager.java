@@ -10,6 +10,7 @@ import javax.enterprise.concurrent.ManagedThreadFactory;
 import static java.lang.System.currentTimeMillis;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -63,6 +64,7 @@ public class JcManager {
     private long lastUpdateHzDesc = 0l;
     private long lastPingTimestamp = 0l;
     private final Set<String> appNameList;
+    private final Set<String> topicList;
     private final HzController hzController;
 //    private final List<String> onlineInstanceIdList = new ArrayList<>();
 
@@ -82,7 +84,7 @@ public class JcManager {
         threadFactory = th;
 
         appNameList = JcBootstrap.appNameList;
-        appNameList.addAll(JcBootstrap.topicNameList);
+        topicList = JcBootstrap.topicNameList;
 
     }
 
@@ -298,10 +300,13 @@ public class JcManager {
         //validate all instances have correct amount of outbound connections
         for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
             JcRemoteInstanceConnectionBean ri = entry.getValue();
+            
             //we have to check the app name because there is another apps that makes only inboudn connections
-            if (appNameList.contains(ri.getAppName())) {
+            if (appNameList.contains(ri.getAppName())
+                    || !Collections.disjoint(ri.getDesc().getTopicList(), topicList)) {
                 ri.validateOutboundConnectionCount(JcAppConfig.getINSTANCE().getMinConnections());
             }
+
         }
     }
 
