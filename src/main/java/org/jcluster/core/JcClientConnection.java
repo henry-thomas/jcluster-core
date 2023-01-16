@@ -107,7 +107,7 @@ public class JcClientConnection implements Runnable {
 
     public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
         if (timeoutMs == null) {
-            timeoutMs = 5000;
+            timeoutMs = 2000;
         }
         try {
             long start = System.currentTimeMillis();

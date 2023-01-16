@@ -92,7 +92,7 @@ public class JcManager {
 
     private void updateThisHzDescriptor() {
         instanceDesc.updateTimestamp();
-        hzAppDescMap.put(instanceDesc.getInstanceId(), instanceDesc);
+        hzAppDescMap.set(instanceDesc.getInstanceId(), instanceDesc);
     }
 
     public HashMap<String, List<JcConnectionMetrics>> getAllMetrics() {
@@ -115,7 +115,7 @@ public class JcManager {
         filterSet.add(value);
 
         updateThisHzDescriptor();
-        LOG.log(Level.INFO, "Added filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
+//        LOG.log(Level.INFO, "Added filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
     }
 
     public void removeFilter(String filterName, Object value) {
@@ -128,7 +128,7 @@ public class JcManager {
         }
 
         updateThisHzDescriptor();
-        LOG.log(Level.INFO, "Removed filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
+//        LOG.log(Level.INFO, "Removed filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
 
     }
 
