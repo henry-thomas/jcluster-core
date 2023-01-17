@@ -243,7 +243,7 @@ public class JcManager {
     }
 
     protected JcRemoteInstanceConnectionBean addRemoteInstanceConnection(JcAppDescriptor desc) {
-        boolean outboundEnabled = appNameList.contains(desc.getAppName());
+        boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList());
         JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), new JcRemoteInstanceConnectionBean(desc, outboundEnabled));
         return ric;
     }
@@ -306,6 +306,7 @@ public class JcManager {
                     || !Collections.disjoint(ri.getDesc().getTopicList(), topicList)) {
                 ri.validateOutboundConnectionCount(JcAppConfig.getINSTANCE().getMinConnections());
             }
+            
 
         }
     }
