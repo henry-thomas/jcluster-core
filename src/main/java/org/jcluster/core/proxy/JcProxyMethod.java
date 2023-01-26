@@ -26,6 +26,7 @@ public class JcProxyMethod {
     private final String className;
     private final String methodSignature;
     private boolean instanceFilter;
+    private boolean global;
     private Integer timeout = null;
     private final boolean broadcast;
     private final Map<String, Integer> paramNameIdxMap = new HashMap<>(); //<>
@@ -48,6 +49,7 @@ public class JcProxyMethod {
         this.returnType = method.getReturnType();
         this.broadcast = broadcast;
         this.topicName = topicName;
+        this.global = (topicName == null && appName == null);
     }
 
     public String getAppName() {
@@ -95,6 +97,10 @@ public class JcProxyMethod {
         return topicName;
     }
 
+    public boolean isGlobal() {
+        return global;
+    }
+
     public String printFilters(Object args[]) {
         StringBuilder sb = new StringBuilder("Filters[ ");
         for (Map.Entry<String, Integer> entry : paramNameIdxMap.entrySet()) {
@@ -127,7 +133,7 @@ public class JcProxyMethod {
         } else if (!topicName.isEmpty()) {
             proxyMethod = new JcProxyMethod(null, method, broadcast, topicName);
         } else {
-            return null;
+            proxyMethod = new JcProxyMethod(null, method, broadcast, null);
         }
 
         Parameter[] parameters = method.getParameters();

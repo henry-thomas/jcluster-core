@@ -54,7 +54,7 @@ public class HzController {
 
         hz = Hazelcast.newHazelcastInstance(hzConfig);
 
-        MapConfig noBackupsMap = new MapConfig("*").setBackupCount(0).setInMemoryFormat(InMemoryFormat.OBJECT);
+        MapConfig noBackupsMap = new MapConfig("*").setBackupCount(0).setAsyncBackupCount(1).setInMemoryFormat(InMemoryFormat.OBJECT);
         hz.getConfig().addMapConfig(noBackupsMap);
 
         map = hz.getMap("jc-app-map");

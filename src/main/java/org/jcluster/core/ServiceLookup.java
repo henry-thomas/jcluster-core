@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import org.jcluster.core.monitor.AppMetricMonitorInterface;
+import org.jcluster.core.monitor.AppMetricsMonitor;
 
 /**
  *
@@ -29,13 +31,26 @@ public class ServiceLookup {
     }
 
     public static Object getService(String jndiName) throws NamingException {
+        return getService(jndiName, null);
+    }
+
+    public static Object getService(String jndiName, String className) throws NamingException {
 //        Object serviceObj = null;
 
         Object serviceObj = INSTANCE.jndiLookupMap.get(jndiName);
 
         if (serviceObj == null) {
             InitialContext ctx = new InitialContext();
-            serviceObj = ctx.lookup(jndiName);
+
+            try {
+                serviceObj = ctx.lookup(jndiName);
+            } catch (NamingException e) {
+                if (className.equals(AppMetricMonitorInterface.class.getName())) {
+                    serviceObj = AppMetricsMonitor.getInstance();
+                } else {
+                    throw e;
+                }
+            }
 
             INSTANCE.jndiLookupMap.put(jndiName, serviceObj);
         }
@@ -57,7 +72,7 @@ public class ServiceLookup {
                 }
                 methodMap.put(ms, method);
             }
-            
+
             serviceMethodsMap.put(service.getClass().getName(), methodMap);
         }
         return methodMap.get(methodSignature);

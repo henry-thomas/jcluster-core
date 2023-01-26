@@ -4,14 +4,18 @@
  */
 package org.jcluster.core.bean;
 
+import java.io.Serializable;
 import org.jcluster.core.JcConnectionTypeEnum;
+import org.jcluster.core.JcFactory;
 
 /**
  *
  * @autor Henry Thomas
  */
-public class JcConnectionMetrics {
+public class JcConnectionMetrics implements Serializable {
 
+    private final String homeServerName;
+    private final String remoteServerName;
     private final String connId;
     private final String instanceId;
     private final String ipAddress;
@@ -25,6 +29,8 @@ public class JcConnectionMetrics {
     private long lastConnAttempt = 0;
 
     public JcConnectionMetrics(JcAppDescriptor desc, JcConnectionTypeEnum connType, String connId) {
+        this.remoteServerName = desc.getServerName();
+        this.homeServerName = JcFactory.getManager().getInstanceAppDesc().getServerName();
         this.connId = connId;
         this.connType = connType;
         this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPort();
@@ -98,6 +104,14 @@ public class JcConnectionMetrics {
 
     public void setReqRespMapSize(int reqRespMapSize) {
         this.reqRespMapSize = reqRespMapSize;
+    }
+
+    public String getHomeServerName() {
+        return homeServerName;
+    }
+
+    public String getRemoteServerName() {
+        return remoteServerName;
     }
 
 }

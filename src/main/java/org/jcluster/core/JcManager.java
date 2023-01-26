@@ -25,11 +25,14 @@ import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.bean.JcMeberEvent;
 import org.jcluster.core.bean.JcMemerEventTypeEnum;
+import org.jcluster.core.bean.JcMetrics;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.hzUtils.HzController;
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcIOException;
+import static org.jcluster.core.monitor.AppMetricMonitorInterface.JC_INSTANCE_FILTER;
+import org.jcluster.core.monitor.InstanceResMonitorBean;
 import org.jcluster.core.proxy.JcProxyMethod;
 
 /**
@@ -54,7 +57,9 @@ public class JcManager {
 
     //this maps hold object for each remote instance
     private final Map<String, JcRemoteInstanceConnectionBean> remoteInstanceMap = new ConcurrentHashMap<>(); //
+    private final IMap<String, List<JcConnectionMetrics>> jcMetricsMap; //
 
+    //List that contains the instanceId's of remote instances.
     private static final JcManager INSTANCE = new JcManager();
     private static boolean running = false;
     private JcServerEndpoint serverEndpoint;
@@ -66,11 +71,13 @@ public class JcManager {
     private final Set<String> appNameList;
     private final Set<String> topicList;
     private final HzController hzController;
+    private final InstanceResMonitorBean monitorBean;
 //    private final List<String> onlineInstanceIdList = new ArrayList<>();
 
     private JcManager() {
         hzController = HzController.getInstance();
         hzAppDescMap = hzController.getInstanceDescriptorMap();
+        jcMetricsMap = hzController.getMap("jcMetricsMap");
         ManagedExecutorService exs = null;
         ManagedThreadFactory th = null;
 
@@ -84,8 +91,10 @@ public class JcManager {
         threadFactory = th;
 
         appNameList = JcBootstrap.appNameList;
+        instanceDesc.getOutboundAppNameList().addAll(appNameList);
         topicList = JcBootstrap.topicNameList;
 
+        monitorBean = new InstanceResMonitorBean(instanceDesc.getServerName());
     }
 
     protected static JcManager getInstance() {
@@ -97,12 +106,13 @@ public class JcManager {
         hzAppDescMap.set(instanceDesc.getInstanceId(), instanceDesc);
     }
 
-    public HashMap<String, List<JcConnectionMetrics>> getAllMetrics() {
+    public JcMetrics getAllMetrics() {
+//        return jcMetricsMap;
         HashMap<String, List<JcConnectionMetrics>> metricsMap = new HashMap<>();
         for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
             metricsMap.put(entry.getKey(), entry.getValue().getAllMetrics());
         }
-        return metricsMap;
+        return new JcMetrics(metricsMap, monitorBean);
     }
 
     public void addFilter(String filterName, Object value) {
@@ -137,8 +147,8 @@ public class JcManager {
     private void proccessNewEvent(JcMeberEvent ev) {
         JcAppDescriptor remDesc = ev.getAppDescriptor();
         if (ev.getEventType() == JcMemerEventTypeEnum.MEMBER_ADD) {
-            //precess member of appNames that are rquired only
-            if (appNameList.contains(ev.getAppDescriptor().getAppName())) {
+            //precess member of appNames that are required only
+            if (appNameList.contains(ev.getAppDescriptor().getAppName()) && !ev.getAppDescriptor().isIsolated()) {
                 if (!remoteInstanceMap.containsKey(remDesc.getInstanceId())) {
                     JcRemoteInstanceConnectionBean ric = new JcRemoteInstanceConnectionBean(remDesc);
                     remoteInstanceMap.put(ev.getAppDescriptor().getInstanceId(), ric);
@@ -202,6 +212,10 @@ public class JcManager {
             running = true;
             Thread jcManagerThread = threadFactory.newThread(this::jcMainThreadExecution);
             jcManagerThread.start();
+
+            //Adding a filter to this instance with its own id
+            addFilter(JC_INSTANCE_FILTER, instanceDesc.getServerName());
+
         }
         return INSTANCE;
     }
@@ -243,7 +257,8 @@ public class JcManager {
     }
 
     protected JcRemoteInstanceConnectionBean addRemoteInstanceConnection(JcAppDescriptor desc) {
-        boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList());
+        //Here!
+        boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList()) || instanceDesc.isMonitor();
         JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), new JcRemoteInstanceConnectionBean(desc, outboundEnabled));
         return ric;
     }
@@ -253,7 +268,7 @@ public class JcManager {
             String instId = entry.getKey();
             JcAppDescriptor desc = entry.getValue();
             if (!instId.equals(instanceDesc.getInstanceId()) && !remoteInstanceMap.containsKey(instId)) {
-                if (appNameList.contains(desc.getAppName())) {
+                if (appNameList.contains(desc.getAppName()) || !Collections.disjoint(desc.getTopicList(), topicList) || instanceDesc.isMonitor()) {
                     LOG.info("Synchronization between JcManager remote instance map and Hz map found new Instance: " + desc);
                     remoteInstanceMap.put(instId, new JcRemoteInstanceConnectionBean(desc));
                 }
@@ -300,15 +315,31 @@ public class JcManager {
         //validate all instances have correct amount of outbound connections
         for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
             JcRemoteInstanceConnectionBean ri = entry.getValue();
-            
+
             //we have to check the app name because there is another apps that makes only inboudn connections
             if (appNameList.contains(ri.getAppName())
-                    || !Collections.disjoint(ri.getDesc().getTopicList(), topicList)) {
+                    || !Collections.disjoint(ri.getRemoteAppDesc().getTopicList(), topicList) || instanceDesc.isMonitor()) {
                 ri.validateOutboundConnectionCount(JcAppConfig.getINSTANCE().getMinConnections());
             }
-            
 
         }
+
+        //Create INBOUND incase this instance is isolated
+        if (instanceDesc.isIsolated()) {
+            for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
+                JcRemoteInstanceConnectionBean ri = entry.getValue();
+
+                //we have to check the app name because there is another apps that makes only inboudn connections
+                if (ri.getRemoteAppDesc().getOutboundAppNameList().contains(instanceDesc.getAppName())
+                        || !Collections.disjoint(ri.getRemoteAppDesc().getTopicList(), topicList)) {
+
+                    ri.validateInboundConnectionCount(ri.getRemoteAppDesc().getOutBoundMinConnection());
+                }
+
+            }
+        }
+
+        monitorBean.updateServerStatus();
     }
 
     protected JcRemoteInstanceConnectionBean getRemoteInstance(String instanceId) {
@@ -322,7 +353,7 @@ public class JcManager {
             JcRemoteInstanceConnectionBean ri = entry.getValue();
 
             if (proxyMethod.isTopic()) {
-                if (!ri.getDesc().getTopicList().contains(proxyMethod.getTopicName())) {
+                if (!ri.getRemoteAppDesc().getTopicList().contains(proxyMethod.getTopicName())) {
                     continue;
                 }
             } else if (!ri.getAppName().equals(proxyMethod.getAppName())) {
@@ -346,12 +377,14 @@ public class JcManager {
             String remInstanceId = entry.getKey();
             JcAppDescriptor rid = entry.getValue();
             //first filter by appname to avoid unnecessary filter matching
-            if (proxyMethod.isTopic()) {
-                if (!rid.getTopicList().contains(proxyMethod.getTopicName())) {
+            if (!proxyMethod.isGlobal()) {
+                if (proxyMethod.isTopic()) {
+                    if (!rid.getTopicList().contains(proxyMethod.getTopicName())) {
+                        continue;
+                    }
+                } else if (!rid.getAppName().equals(proxyMethod.getAppName())) {
                     continue;
                 }
-            } else if (!rid.getAppName().equals(proxyMethod.getAppName())) {
-                continue;
             }
             //skip ourselvse since this instance exist in Hz map
             if (rid.getInstanceId().equals(instanceDesc.getInstanceId())) {
@@ -394,13 +427,6 @@ public class JcManager {
     }
 
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcRuntimeException {
-//        int bcSent = broadcastSend(proxyMethod, args);
-//        if (proxyMethod.isTopic()) {
-//            if (bcSent == 0) {
-//                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + proxyMethod.getAppName());
-//            }
-//            return bcSent;
-//        }
 
         if (proxyMethod.isInstanceFilter()) {//no app name needed if send is specific for remote instance
             return filteredSend(proxyMethod, args);
@@ -415,7 +441,7 @@ public class JcManager {
                 JcRemoteInstanceConnectionBean ri = entry.getValue();
                 //check if this is inside same APP and has output connections
                 if (proxyMethod.isTopic()) {
-                    if (!ri.getDesc().getTopicList().contains(proxyMethod.getTopicName())) {
+                    if (!ri.getRemoteAppDesc().getTopicList().contains(proxyMethod.getTopicName())) {
                         continue;
                     }
                 } else if (!ri.getAppName().equals(proxyMethod.getAppName())) {
@@ -460,6 +486,26 @@ public class JcManager {
         return hzController.getMap(mapId);
     }
 
+    public HashSet<String> getRemoteAppNameList() {
+        HashSet<String> remoteAppNameList = new HashSet<>();
+        for (Map.Entry<String, JcAppDescriptor> entry : hzAppDescMap.entrySet()) {
+            String key = entry.getKey();
+            JcAppDescriptor desc = entry.getValue();
+
+            if (!instanceDesc.getInstanceId().equals(key)) {
+                remoteAppNameList.add(desc.getServerName());
+
+            }
+        }
+
+//        for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
+//            String id = entry.getKey();
+//            JcAppDescriptor desc = entry.getValue().getRemoteAppDesc();
+//            
+//        }
+        return remoteAppNameList;
+    }
+
     public void destroy() {
         for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
             entry.getValue().destroy();
@@ -473,6 +519,14 @@ public class JcManager {
             serverEndpoint.destroy();
         }
         running = false;
+
+        for (Map.Entry<String, JcRemoteInstanceConnectionBean> entry : remoteInstanceMap.entrySet()) {
+            JcRemoteInstanceConnectionBean ri = entry.getValue();
+
+//            String metricsId = instanceDesc.getServerName() + "->" + ri.getRemoteAppDesc().getServerName();
+//            jcMetricsMap.delete(metricsId);
+        }
+
         HzController.getInstance().destroy();
     }
 

@@ -77,6 +77,8 @@ public class JcBootstrap implements Extension {
 
         List<String> pkgFilterList = JcAppConfig.getINSTANCE().getPkgFilterList();
 
+        pkgFilterList.add("org.jcluster");
+
         long scanStart = System.currentTimeMillis();
 
         List<Class> jcRemoteInterfaceList = getAllJcRemoteClasses(pkgFilterList);
@@ -93,8 +95,7 @@ public class JcBootstrap implements Extension {
             } else if (!jcRemoteAnn.appName().isEmpty()) {
                 appNameList.add(jcRemoteAnn.appName());
             } else {
-                LOG.log(Level.WARNING, "JcRemote annotation found without appName|topic specified: {0}", jcRClass.getName());
-                continue;
+                LOG.log(Level.INFO, "JcRemote annotation found without appName|topic specified: {0}. Adding as GLOBAL", jcRClass.getName());
             }
 
             Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteExecutionHandler());
@@ -114,7 +115,7 @@ public class JcBootstrap implements Extension {
 
         LOG.log(Level.INFO, "JcBootstrap Found Total Required APP: {0} =>  [ {1}] complete in {2}ms",
                 new Object[]{appNameList.size(), allApps, System.currentTimeMillis() - scanStart});
-        
+
         if (!allTopics.isEmpty()) {
             LOG.log(Level.INFO, "JcBootstrap Found Total Required TOPICS: {0} =>  [ {1}] complete",
                     new Object[]{topicNameList.size(), allTopics});

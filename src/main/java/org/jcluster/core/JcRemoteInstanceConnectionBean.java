@@ -32,6 +32,9 @@ import org.jcluster.core.proxy.JcProxyMethod;
 /**
  *
  * @author platar86
+ *
+ * Bean that handles connections with another app. Uses the appDescriptor to
+ * figure out how to manage that connection.
  */
 public class JcRemoteInstanceConnectionBean {
 
@@ -39,18 +42,23 @@ public class JcRemoteInstanceConnectionBean {
 
     //all connections must contain same instance as inbound + outbound
     private final List<JcClientConnection> allConnections = new ArrayList<>();
+
     //contains pointers only to outbound connection for quick access
     private final RingConcurentList<JcClientConnection> outboundList = new RingConcurentList<>();
-    private final JcAppDescriptor desc;
+
+    //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
+    private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
+
+    private final JcAppDescriptor remoteAppDesc;
     private boolean outboundEnabled = true;
 
     public JcRemoteInstanceConnectionBean(JcAppDescriptor desc, boolean outboundEnabled) {
-        this.desc = desc;
+        this.remoteAppDesc = desc;
         this.outboundEnabled = outboundEnabled;
     }
 
     public JcRemoteInstanceConnectionBean(JcAppDescriptor desc) {
-        this.desc = desc;
+        this.remoteAppDesc = desc;
         this.outboundEnabled = true;
     }
 
@@ -67,15 +75,37 @@ public class JcRemoteInstanceConnectionBean {
     }
 
     public String getAppName() {
-        return desc.getAppName();
+        return remoteAppDesc.getAppName();
+    }
+
+    protected void validateInboundConnectionCount(int minCount) {
+
+        int actualCount = inboundList.size();
+
+        //Incase there is another isolated app connected, don't create an inbound connection to that app
+        if (actualCount < minCount && !remoteAppDesc.isIsolated()) {
+            for (int i = 0; i < (minCount - actualCount); i++) {
+                JcClientConnection conn = startClientConnection(true);
+                if (conn != null) {
+                    JcManager.getInstance().getThreadFactory().newThread(conn).start();
+                    addConnection(conn);
+                } else {
+                    return;
+                }
+            }
+        }
+
     }
 
     protected void validateOutboundConnectionCount(int minCount) {
         if (!outboundEnabled) {
             return;
         }
+
         int actualCount = outboundList.size();
-        if (actualCount < minCount) {
+
+        //The isolated app will take care of the connection count.
+        if (actualCount < minCount && !remoteAppDesc.isIsolated()) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection();
                 if (conn != null) {
@@ -89,8 +119,12 @@ public class JcRemoteInstanceConnectionBean {
     }
 
     private synchronized JcClientConnection startClientConnection() {
+        return startClientConnection(false);
+    }
+
+    private synchronized JcClientConnection startClientConnection(boolean fromIsolated) {
         try {
-            SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPort());
+            SocketAddress socketAddress = new InetSocketAddress(remoteAppDesc.getIpAddress(), remoteAppDesc.getIpPort());
             Socket socket = new Socket();
             try {
                 socket.connect(socketAddress, 2000);
@@ -102,6 +136,7 @@ public class JcRemoteInstanceConnectionBean {
             //after socket gets connected we have to receive first Handshake from the other site.
             //in case where socket gets broken, ois.readObject can freezes the current thread. This is why handshaking must happen always in separate thread to avoid 
             //JcManager main thread locking!
+            //Handles incoming handshake requests
             FutureTask<JcClientConnection> futureHanshake = new FutureTask<>(() -> {
                 try {
                     ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
@@ -110,23 +145,36 @@ public class JcRemoteInstanceConnectionBean {
                     JcMessage request = (JcMessage) ois.readObject();
                     if (request.getMethodSignature().equals("handshake")) {
                         JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
-                        if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
-                            LOG.log(Level.INFO, "Handshake Response with Invalid for instanceId: " + desc.getInstanceId() + " found: " + handshakeDesc.getInstanceId());
+                        if (!handshakeDesc.getInstanceId().equals(remoteAppDesc.getInstanceId())) {
+                            LOG.log(Level.INFO, "Handshake Response with Invalid for instanceId: {0} found: {1}",
+                                    new Object[]{remoteAppDesc.getInstanceId(), handshakeDesc.getInstanceId()});
                             return null;
                         }
 
-                        LOG.log(Level.INFO, "Handshake Request from instance: {0}", desc.getAppName());
+                        LOG.log(Level.INFO, "Handshake Request from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
 
                         JcHandhsakeFrame hf = new JcHandhsakeFrame(JcManager.getInstance().getInstanceAppDesc());
-                        hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
+
+                        if (fromIsolated) {
+                            LOG.log(Level.INFO, "Creating INBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                            hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
+                        } else {
+                            LOG.log(Level.INFO, "Creating OUTBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                            hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
+                        }
 
                         JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
                         oos.writeObject(response);
                         oos.flush();
-                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
+                        if (fromIsolated) {
+                            return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.INBOUND);
+                        } else {
+                            return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.OUTBOUND);
+                        }
 
                     }
                 } catch (IOException | ClassNotFoundException ex) {
+                    socket.close();
                     LOG.log(Level.SEVERE, null, ex);
                 }
                 return null;
@@ -156,6 +204,7 @@ public class JcRemoteInstanceConnectionBean {
             conn.destroy();
         }
         outboundList.clear();
+        inboundList.clear();
         allConnections.clear();
     }
 
@@ -167,6 +216,7 @@ public class JcRemoteInstanceConnectionBean {
             }
             allConnections.clear();
             outboundList.clear();
+            inboundList.clear();
         }
         return count;
     }
@@ -179,6 +229,8 @@ public class JcRemoteInstanceConnectionBean {
 
                 if (conn.getConnType() == JcConnectionTypeEnum.OUTBOUND) {
                     outboundList.remove(conn);
+                } else {
+                    inboundList.remove(conn);
                 }
 
                 conn.destroy();
@@ -192,8 +244,11 @@ public class JcRemoteInstanceConnectionBean {
         synchronized (this) {
             if (conn != null && conn.getConnType() != null) {
                 allConnections.add(conn);
+
                 if (conn.getConnType() == JcConnectionTypeEnum.OUTBOUND) {
                     outboundList.add(conn);
+                } else {
+                    inboundList.add(conn);
                 }
                 return true;
             }
@@ -240,8 +295,8 @@ public class JcRemoteInstanceConnectionBean {
         return !outboundList.isEmpty();
     }
 
-    public JcAppDescriptor getDesc() {
-        return desc;
+    public JcAppDescriptor getRemoteAppDesc() {
+        return remoteAppDesc;
     }
 
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
@@ -260,7 +315,7 @@ public class JcRemoteInstanceConnectionBean {
 
     @Override
     public String toString() {
-        return "JcRemoteInstanceConnectionBean{" + "appName=" + desc.getAppName() + ", instanceId=" + desc.getInstanceId() + '}';
+        return "JcRemoteInstanceConnectionBean{" + "appName=" + remoteAppDesc.getAppName() + ", instanceId=" + remoteAppDesc.getInstanceId() + " address=" + remoteAppDesc.getIpAddress() + '}';
     }
 
 }

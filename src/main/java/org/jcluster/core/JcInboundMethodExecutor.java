@@ -10,9 +10,10 @@ import java.lang.reflect.Method;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.naming.NamingException;
-import org.jcluster.core.ServiceLookup;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
+import org.jcluster.core.monitor.AppMetricMonitorInterface;
+import org.jcluster.core.monitor.AppMetricsMonitor;
 
 /**
  *
@@ -33,6 +34,7 @@ public class JcInboundMethodExecutor implements Runnable {
         try {
             clientConn.writeAndFlushToOOS(msg);
         } catch (IOException ex) {
+            LOG.log(Level.WARNING, "Attempt to send response for: {0} to [{1}] FAILED", new Object[]{request.getMethodSignature(), clientConn.getConnId()});
             Logger.getLogger(JcClientConnection.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -48,7 +50,9 @@ public class JcInboundMethodExecutor implements Runnable {
 
                 default:
                     jndiName = request.getJndiName();
-                    Object service = ServiceLookup.getService(jndiName);
+                    Object service;
+
+                    service = ServiceLookup.getService(jndiName, request.getClassName());
 
                     Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
 

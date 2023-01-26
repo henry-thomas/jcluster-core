@@ -24,12 +24,15 @@ public class JcAppDescriptor implements Serializable {
     //add whatever we need to represent our instances
 
     private final boolean isolated;
+    private final boolean monitor;
     private final String appName;
     private final List<String> topicList = new ArrayList<>();
+    private final List<String> outboundAppNameList = new ArrayList<>();
     private final String instanceId;
     private final String serverName;
     private final String ipAddress;
     private final int ipPort;
+    private int outBoundMinConnection;
     //use this to detect dead instances somehow left unclean in the map
     private long lastAlive;
     private final Map<String, HashSet<Object>> filterMap = new HashMap<>();
@@ -43,6 +46,20 @@ public class JcAppDescriptor implements Serializable {
         this.serverName = JcAppConfig.getINSTANCE().readProp("JC_SERVER_NAME", instanceId);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
         this.topicList.addAll(JcAppConfig.getINSTANCE().getTopicList());
+        this.outBoundMinConnection = JcAppConfig.getINSTANCE().getMinConnections();
+        this.monitor = JcAppConfig.getINSTANCE().readProp("JC_MONITOR", false);
+    }
+
+    public int getOutBoundMinConnection() {
+        return outBoundMinConnection;
+    }
+
+    public void setOutBoundMinConnection(int outBoundMinConnection) {
+        this.outBoundMinConnection = outBoundMinConnection;
+    }
+
+    public List<String> getOutboundAppNameList() {
+        return outboundAppNameList;
     }
 
     public String getServerName() {
@@ -83,6 +100,10 @@ public class JcAppDescriptor implements Serializable {
 
     public List<String> getTopicList() {
         return topicList;
+    }
+
+    public boolean isMonitor() {
+        return monitor;
     }
 
     @Override
