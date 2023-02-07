@@ -41,7 +41,7 @@ public class InstanceResMonitorBean implements Serializable {
         long heapMemoryUsage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
 
         metrics.setCpuUsage(systemLoadAverage);
-        metrics.setMemUsage(heapMemoryUsage / 1024);
+        metrics.setMemUsage(heapMemoryUsage / 1024 / 1024);
 
         long currRxCount = 0l;
         long currTxCount = 0l;
@@ -49,7 +49,7 @@ public class InstanceResMonitorBean implements Serializable {
         Object osName = System.getProperties().get("os.name");
         if (!osName.toString().contains("Windows")) {
             if (Files.exists(Paths.get(NET_FILE_LOCATION + "tx_bytes"), LinkOption.NOFOLLOW_LINKS)
-                    && Files.exists(Paths.get(NET_FILE_LOCATION + "tx_bytes"), LinkOption.NOFOLLOW_LINKS)) {
+                    && Files.exists(Paths.get(NET_FILE_LOCATION + "rx_bytes"), LinkOption.NOFOLLOW_LINKS)) {
 
                 try {
                     List<String> currRxStringList = Files.readAllLines(Paths.get(NET_FILE_LOCATION + "rx_bytes"));
