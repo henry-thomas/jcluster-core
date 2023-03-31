@@ -259,8 +259,16 @@ public class JcManager {
     protected JcRemoteInstanceConnectionBean addRemoteInstanceConnection(JcAppDescriptor desc) {
         //Here!
         boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList()) || instanceDesc.isMonitor();
-        JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), new JcRemoteInstanceConnectionBean(desc, outboundEnabled));
-        return ric;
+        
+        JcRemoteInstanceConnectionBean jcRemoteInstanceConnectionBean = new JcRemoteInstanceConnectionBean(desc, outboundEnabled);
+        
+        JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), jcRemoteInstanceConnectionBean);
+        
+        if(ric != null){
+            ric.destroy();
+        }
+        
+        return jcRemoteInstanceConnectionBean;
     }
 
     private void resynchronizeHzMap() {
