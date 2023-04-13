@@ -123,78 +123,73 @@ public class JcRemoteInstanceConnectionBean {
     }
 
     private synchronized JcClientConnection startClientConnection(boolean fromIsolated) {
+        SocketAddress socketAddress = new InetSocketAddress(remoteAppDesc.getIpAddress(), remoteAppDesc.getIpPort());
+        Socket socket = new Socket();
         try {
-            SocketAddress socketAddress = new InetSocketAddress(remoteAppDesc.getIpAddress(), remoteAppDesc.getIpPort());
-            Socket socket = new Socket();
+            socket.connect(socketAddress, 2000);
+        } catch (IOException e) {
+            LOG.log(Level.INFO, "Attempt to connect fail: {0}", this);
+            return null;
+        }
+        //after socket gets connected we have to receive first Handshake from the other site.
+        //in case where socket gets broken, ois.readObject can freezes the current thread. This is why handshaking must happen always in separate thread to avoid
+        //JcManager main thread locking!
+        //Handles incoming handshake requests
+        FutureTask<JcClientConnection> futureHanshake = new FutureTask<>(() -> {
             try {
-                socket.connect(socketAddress, 2000);
-            } catch (IOException e) {
-                LOG.log(Level.INFO, "Attempt to connect fail: {0}", this);
-                return null;
-            }
+                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+                ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 
-            //after socket gets connected we have to receive first Handshake from the other site.
-            //in case where socket gets broken, ois.readObject can freezes the current thread. This is why handshaking must happen always in separate thread to avoid 
-            //JcManager main thread locking!
-            //Handles incoming handshake requests
-            FutureTask<JcClientConnection> futureHanshake = new FutureTask<>(() -> {
-                try {
-                    ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-                    ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-
-                    JcMessage request = (JcMessage) ois.readObject();
-                    if (request.getMethodSignature().equals("handshake")) {
-                        JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
-                        if (!handshakeDesc.getInstanceId().equals(remoteAppDesc.getInstanceId())) {
-                            LOG.log(Level.INFO, "Handshake Response with Invalid for instanceId: {0} found: {1}",
-                                    new Object[]{remoteAppDesc.getInstanceId(), handshakeDesc.getInstanceId()});
-                            return null;
-                        }
-
-                        LOG.log(Level.INFO, "Handshake Request from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
-
-                        JcHandhsakeFrame hf = new JcHandhsakeFrame(JcManager.getInstance().getInstanceAppDesc());
-
-                        if (fromIsolated) {
-                            LOG.log(Level.INFO, "Creating INBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
-                            hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
-                        } else {
-                            LOG.log(Level.INFO, "Creating OUTBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
-                            hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
-                        }
-
-                        JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
-                        oos.writeObject(response);
-                        oos.flush();
-                        if (fromIsolated) {
-                            return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.INBOUND);
-                        } else {
-                            return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.OUTBOUND);
-                        }
-
+                JcMessage request = (JcMessage) ois.readObject();
+                if (request.getMethodSignature().equals("handshake")) {
+                    JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
+                    if (!handshakeDesc.getInstanceId().equals(remoteAppDesc.getInstanceId())) {
+                        LOG.log(Level.INFO, "Handshake Response with Invalid for instanceId: {0} found: {1}",
+                                new Object[]{remoteAppDesc.getInstanceId(), handshakeDesc.getInstanceId()});
+                        return null;
                     }
-                } catch (IOException | ClassNotFoundException ex) {
-                    socket.close();
-                    LOG.log(Level.SEVERE, null, ex);
-                }
-                return null;
-            });
 
-            JcManager.getInstance().getExecutorService().execute(futureHanshake);
-            try {
-                JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
-                if (conn == null) {
-                    socket.close();
-                } else {
-                    return conn;
-                }
+                    LOG.log(Level.INFO, "Handshake Request from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
 
-            } catch (InterruptedException | ExecutionException | TimeoutException ex) {
-                Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName()).log(Level.SEVERE, null, ex);
+                    JcHandhsakeFrame hf = new JcHandhsakeFrame(JcManager.getInstance().getInstanceAppDesc());
+
+                    if (fromIsolated) {
+                        LOG.log(Level.INFO, "Creating INBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                        hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
+                    } else {
+                        LOG.log(Level.INFO, "Creating OUTBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                        hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
+                    }
+
+                    JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
+                    oos.writeObject(response);
+                    oos.flush();
+                    if (fromIsolated) {
+                        return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.INBOUND);
+                    } else {
+                        return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.OUTBOUND);
+                    }
+
+                }
+            } catch (IOException | ClassNotFoundException ex) {
+                socket.close();
+                LOG.log(Level.SEVERE, null, ex);
+            }
+            return null;
+        });
+        JcManager.getInstance().getExecutorService().execute(futureHanshake);
+        try {
+            JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
+            if (conn == null) {
+                LOG.log(Level.SEVERE, "Failed to connect to: {0}InstanceID: {1} ServerID: {2}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getInstanceId(), remoteAppDesc.getServerName()});
+
+                socket.close();
+            } else {
+                return conn;
             }
 
-        } catch (IOException ex) {
-            LOG.log(Level.SEVERE, null, ex);
+        } catch (InterruptedException | ExecutionException | TimeoutException | IOException ex) {
+            Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
     }
@@ -315,7 +310,10 @@ public class JcRemoteInstanceConnectionBean {
 
     @Override
     public String toString() {
-        return "JcRemoteInstanceConnectionBean{" + "appName=" + remoteAppDesc.getAppName() + ", instanceId=" + remoteAppDesc.getInstanceId() + " address=" + remoteAppDesc.getIpAddress() + '}';
+        return "JcRemoteInstanceConnectionBean{" + "appName=" + 
+                remoteAppDesc.getAppName() + ", instanceId=" + 
+                remoteAppDesc.getInstanceId() + " address=" + 
+                remoteAppDesc.getIpAddress() + '}';
     }
 
 }
