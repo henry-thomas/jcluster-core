@@ -183,7 +183,7 @@ public class JcManager {
             try {
                 mainLoop();
             } catch (Exception e) {
-                LOG.log(Level.INFO, null, e);
+                LOG.log(Level.INFO, "JCluster exception in main loop", e);
             }
             if (System.currentTimeMillis() - beginCycle < 500) {
                 try {
@@ -259,15 +259,15 @@ public class JcManager {
     protected JcRemoteInstanceConnectionBean addRemoteInstanceConnection(JcAppDescriptor desc) {
         //Here!
         boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList()) || instanceDesc.isMonitor();
-        
+
         JcRemoteInstanceConnectionBean jcRemoteInstanceConnectionBean = new JcRemoteInstanceConnectionBean(desc, outboundEnabled);
-        
+
         JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), jcRemoteInstanceConnectionBean);
-        
-        if(ric != null){
+
+        if (ric != null) {
             ric.destroy();
         }
-        
+
         return jcRemoteInstanceConnectionBean;
     }
 
@@ -536,6 +536,10 @@ public class JcManager {
         }
 
         HzController.getInstance().destroy();
+    }
+
+    public IMap<String, JcAppDescriptor> getHzAppDescMap() {
+        return hzAppDescMap;
     }
 
 }
