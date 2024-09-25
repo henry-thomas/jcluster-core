@@ -18,8 +18,7 @@ import java.util.logging.Logger;
  * someone can think of a better way, please mention.
  *
  * They are read by JcAppConfig, so all accessible from there throughout the
- * project.
- *add id conf
+ * project. add id conf
  */
 public class JcAppConfig {
 
@@ -31,6 +30,7 @@ public class JcAppConfig {
     private final String hostName;
     private final boolean isolated;
     private final String appName;
+    private final boolean debug;
     private final List<String> pkgFilterList = new ArrayList<>();
     private final List<String> topicList = new ArrayList<>();
     private final Long jcLastSendMaxTimeout;
@@ -44,6 +44,7 @@ public class JcAppConfig {
         this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
         this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
         this.isolated = readProp("JC_ISOLATED", false);
+        this.debug = readProp("JC_DEBUG", true);
 
         this.jcLastSendMaxTimeout = Long.valueOf(readProp("JC_LAST_SEND_MAX_TIMEOUT", "5000"));
 
@@ -162,6 +163,10 @@ public class JcAppConfig {
 
     public List<String> getTopicList() {
         return topicList;
+    }
+
+    public boolean isDebug() {
+        return debug;
     }
 
 }

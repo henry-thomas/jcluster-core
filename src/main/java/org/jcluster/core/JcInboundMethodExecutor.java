@@ -12,8 +12,6 @@ import java.util.logging.Logger;
 import javax.naming.NamingException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
-import org.jcluster.core.monitor.AppMetricMonitorInterface;
-import org.jcluster.core.monitor.AppMetricsMonitor;
 
 /**
  *
@@ -51,13 +49,15 @@ public class JcInboundMethodExecutor implements Runnable {
                 default:
                     jndiName = request.getJndiName();
                     Object service;
-
+//com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface
+//com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface#com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface
                     service = ServiceLookup.getService(jndiName, request.getClassName());
 
                     Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
 
                     //Do work, then assign response here
                     Object result = method.invoke(service, request.getArgs()); //if method return type is void then result will be null,
+                   
 
                     //send back result or null for ACK
                     JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);

@@ -9,8 +9,10 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jcluster.core.JcFactory;
+import org.jcluster.core.config.JcAppConfig;
 
 /**
  *
@@ -35,7 +37,13 @@ public class JcRemoteExecutionHandler implements InvocationHandler, Serializable
             proxyMethod = JcProxyMethod.initProxyMethod(method, args);
             methodCache.put(method.getName(), proxyMethod);
         }
+        long now = System.currentTimeMillis();
+
         Object response = JcFactory.getManager().send(proxyMethod, args);
+
+        if (JcAppConfig.getINSTANCE().isDebug()) {
+            LOG.log(Level.INFO, "exec [{0}] in [{1} ms]", new Object[]{method.getName(), System.currentTimeMillis() - now});
+        }
 
         if (response instanceof Exception) {
             LOG.severe(((Exception) response).getMessage());
