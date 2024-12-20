@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 import javax.naming.NamingException;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcConnectionMetrics;
-import org.jcluster.core.bean.JcMeberEvent;
+import org.jcluster.core.bean.JcMemberEvent;
 import org.jcluster.core.bean.JcMemerEventTypeEnum;
 import org.jcluster.core.bean.JcMetrics;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
@@ -51,7 +51,7 @@ public class JcManager {
     private static final Logger LOG = Logger.getLogger(JcManager.class.getName());
 
     private IMap<String, JcAppDescriptor> hzAppDescMap = null; //This map will be managed by Hazelcast
-    protected final Queue<JcMeberEvent> memberEventQueue = new ArrayDeque<>(512);
+    protected final Queue<JcMemberEvent> memberEventQueue = new ArrayDeque<>(512);
 //    private final JcInstance thisAppInstance = new JcInstance(); //representst this app instance, configured at bootstrap
     private final JcAppDescriptor instanceDesc = new JcAppDescriptor();
 
@@ -103,7 +103,7 @@ public class JcManager {
 
     private void updateThisHzDescriptor() {
         instanceDesc.updateTimestamp();
-        hzAppDescMap.set(instanceDesc.getInstanceId(), instanceDesc);
+        hzAppDescMap.put(instanceDesc.getInstanceId(), instanceDesc);
     }
 
     public JcMetrics getAllMetrics() {
@@ -144,7 +144,7 @@ public class JcManager {
 
     }
 
-    private void proccessNewEvent(JcMeberEvent ev) {
+    private void proccessNewEvent(JcMemberEvent ev) {
         JcAppDescriptor remDesc = ev.getAppDescriptor();
         if (ev.getEventType() == JcMemerEventTypeEnum.MEMBER_ADD) {
             //precess member of appNames that are required only
@@ -172,7 +172,7 @@ public class JcManager {
             try {
                 //execute event in current thread to avoid synchronization in the map
                 synchronized (memberEventQueue) {
-                    JcMeberEvent ev;
+                    JcMemberEvent ev;
                     while ((ev = memberEventQueue.poll()) != null) {
                         proccessNewEvent(ev);
                     }
@@ -220,7 +220,7 @@ public class JcManager {
         return INSTANCE;
     }
 
-    protected void onNewMemberEvent(JcMeberEvent event) {
+    protected void onNewMemberEvent(JcMemberEvent event) {
         //do not connect to yourself 
         if (event.getAppDescriptor() == null || event.getAppDescriptor().getInstanceId().equals(instanceDesc.getInstanceId())) {
             return;
@@ -538,7 +538,7 @@ public class JcManager {
         HzController.getInstance().destroy();
     }
 
-    public IMap<String, JcAppDescriptor> getHzAppDescMap() {
+    public Map<String, JcAppDescriptor> getHzAppDescMap() {
         return hzAppDescMap;
     }
 

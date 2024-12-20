@@ -8,12 +8,12 @@ package org.jcluster.core.bean;
  *
  * @author platar86
  */
-public class JcMeberEvent {
+public class JcMemberEvent {
 
     private final JcAppDescriptor appDescriptor;
     private final JcMemerEventTypeEnum eventType;
 
-    public JcMeberEvent(JcAppDescriptor appDescriptor, JcMemerEventTypeEnum eventType) {
+    public JcMemberEvent(JcAppDescriptor appDescriptor, JcMemerEventTypeEnum eventType) {
         this.appDescriptor = appDescriptor;
         this.eventType = eventType;
     }

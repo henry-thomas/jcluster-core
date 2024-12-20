@@ -12,6 +12,7 @@ import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.properties.ClusterProperty;
 import java.util.Map;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.config.JcAppConfig;
@@ -51,10 +52,19 @@ public class HzController {
                 .setPortAutoIncrement(true)
                 .setPortCount(100)
                 .setJoin(join);
+//        hzConfig.setProperty("hazelcast.backpressure.enabled", "true");
+        
+        
 
         hz = Hazelcast.newHazelcastInstance(hzConfig);
+//        ClusterProperty.BACKPRESSURE_ENABLED.setSystemProperty("true");
+//        ClusterProperty.BACKPRESSURE_ENABLED;
 
-        MapConfig noBackupsMap = new MapConfig("*").setBackupCount(0).setAsyncBackupCount(1).setInMemoryFormat(InMemoryFormat.OBJECT);
+        MapConfig noBackupsMap = new MapConfig("*")
+                .setBackupCount(0)
+                .setAsyncBackupCount(1)
+                .setInMemoryFormat(InMemoryFormat.OBJECT)
+                .setStatisticsEnabled(true);
         hz.getConfig().addMapConfig(noBackupsMap);
 
         map = hz.getMap("jc-app-map");
