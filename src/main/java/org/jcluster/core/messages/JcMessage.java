@@ -37,6 +37,8 @@ public class JcMessage implements Serializable {
     public static JcMessage createPingMsg() {
         return new JcMessage("ping", null, null);
     }
+    
+    //filterMapChange
 
     public JcMsgResponse getResponse() {
         return response;

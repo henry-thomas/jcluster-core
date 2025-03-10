@@ -29,6 +29,7 @@ public class JcAppConfig {
     private final Integer minConnections;
     private final String hostName;
     private final boolean isolated;
+    private final boolean isPrimary;
     private final String appName;
     private final boolean debug;
     private final List<String> pkgFilterList = new ArrayList<>();
@@ -38,6 +39,7 @@ public class JcAppConfig {
     private static final JcAppConfig INSTANCE = new JcAppConfig();
 
     private JcAppConfig() {
+        this.isPrimary = readProp("JC_IS_PRIMARY_MEMBER", false);
         this.jcHzPrimaryMember = readProp("JC_HZ_PRIMARY_MEMBER", "127.0.0.1");
         this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
         this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "2"));
@@ -167,6 +169,10 @@ public class JcAppConfig {
 
     public boolean isDebug() {
         return debug;
+    }
+
+    public boolean isIsPrimary() {
+        return isPrimary;
     }
 
 }

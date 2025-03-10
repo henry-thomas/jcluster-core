@@ -4,7 +4,6 @@
  */
 package org.jcluster.core;
 
-import com.hazelcast.map.IMap;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import static java.lang.System.currentTimeMillis;
@@ -26,8 +25,9 @@ import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.bean.JcMemberEvent;
 import org.jcluster.core.bean.JcMemerEventTypeEnum;
 import org.jcluster.core.bean.JcMetrics;
+import org.jcluster.core.bean.jcCollections.jcmap.JcMap;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
-import org.jcluster.core.hzUtils.HzController;
+import org.jcluster.core.cluster.DiscoveryService;
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcIOException;
@@ -50,14 +50,14 @@ public class JcManager {
 
     private static final Logger LOG = Logger.getLogger(JcManager.class.getName());
 
-    private IMap<String, JcAppDescriptor> hzAppDescMap = null; //This map will be managed by Hazelcast
+    private JcMap<String, JcAppDescriptor> hzAppDescMap = null; //This map will be managed by Hazelcast
     protected final Queue<JcMemberEvent> memberEventQueue = new ArrayDeque<>(512);
 //    private final JcInstance thisAppInstance = new JcInstance(); //representst this app instance, configured at bootstrap
     private final JcAppDescriptor instanceDesc = new JcAppDescriptor();
 
     //this maps hold object for each remote instance
     private final Map<String, JcRemoteInstanceConnectionBean> remoteInstanceMap = new ConcurrentHashMap<>(); //
-    private final IMap<String, List<JcConnectionMetrics>> jcMetricsMap; //
+//    private final JcMap<String, List<JcConnectionMetrics>> jcMetricsMap; //
 
     //List that contains the instanceId's of remote instances.
     private static final JcManager INSTANCE = new JcManager();
@@ -70,14 +70,14 @@ public class JcManager {
     private long lastPingTimestamp = 0l;
     private final Set<String> appNameList;
     private final Set<String> topicList;
-    private final HzController hzController;
+    private final DiscoveryService hzController;
     private final InstanceResMonitorBean monitorBean;
 //    private final List<String> onlineInstanceIdList = new ArrayList<>();
 
     private JcManager() {
-        hzController = HzController.getInstance();
+        hzController = DiscoveryService.getInstance();
         hzAppDescMap = hzController.getInstanceDescriptorMap();
-        jcMetricsMap = hzController.getMap("jcMetricsMap");
+//        jcMetricsMap = hzController.getMap("jcMetricsMap");
         ManagedExecutorService exs = null;
         ManagedThreadFactory th = null;
 
@@ -490,9 +490,7 @@ public class JcManager {
         return threadFactory;
     }
 
-    public <K, V> IMap<K, V> getDistributedMap(String mapId) {
-        return hzController.getMap(mapId);
-    }
+ 
 
     public HashSet<String> getRemoteAppNameList() {
         HashSet<String> remoteAppNameList = new HashSet<>();
@@ -522,7 +520,7 @@ public class JcManager {
         appNameList.clear();
 
         //remove self from hzCast
-        hzAppDescMap.delete(instanceDesc.getInstanceId());
+        hzAppDescMap.remove(instanceDesc.getInstanceId());
         if (serverEndpoint != null) {
             serverEndpoint.destroy();
         }
@@ -535,7 +533,7 @@ public class JcManager {
 //            jcMetricsMap.delete(metricsId);
         }
 
-        HzController.getInstance().destroy();
+//        DiscoveryService.getInstance().destroy();
     }
 
     public Map<String, JcAppDescriptor> getHzAppDescMap() {

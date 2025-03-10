@@ -6,7 +6,6 @@ package org.jcluster.core;
 
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
-import javax.ejb.LocalBean;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.BeanManager;
@@ -19,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.ejb.LocalBean;
 
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.lib.annotation.JcRemote;

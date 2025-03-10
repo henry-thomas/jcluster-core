@@ -13,6 +13,8 @@ import org.jcluster.core.JcConnectionTypeEnum;
  */
 public class JcHandhsakeFrame implements Serializable {
 
+    private static final long serialVersionUID = -711425395787330558L;
+
     private boolean accepted;
     private JcConnectionTypeEnum requestedConnType = null;
     private final JcAppDescriptor remoteAppDesc;
