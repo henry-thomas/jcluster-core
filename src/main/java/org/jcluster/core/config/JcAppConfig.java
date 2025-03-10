@@ -44,7 +44,7 @@ public class JcAppConfig {
         this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
         this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
         this.isolated = readProp("JC_ISOLATED", false);
-        this.debug = readProp("JC_DEBUG", true);
+        this.debug = readProp("JC_DEBUG", false);
 
         this.jcLastSendMaxTimeout = Long.valueOf(readProp("JC_LAST_SEND_MAX_TIMEOUT", "5000"));
 
