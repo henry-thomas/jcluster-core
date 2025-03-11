@@ -24,14 +24,15 @@ public class JcAppConfig {
 
     private static final Logger LOG = Logger.getLogger(JcAppConfig.class.getName());
 
-    private final String jcHzPrimaryMember;
+    private final String jcPrimaryMemberAddress;
     private final Integer port;
     private final Integer minConnections;
     private final String hostName;
     private final boolean isolated;
-    private final boolean isPrimary;
+    private final boolean primary;
     private final String appName;
     private final boolean debug;
+    private final List<Integer> portList = new ArrayList<>();
     private final List<String> pkgFilterList = new ArrayList<>();
     private final List<String> topicList = new ArrayList<>();
     private final Long jcLastSendMaxTimeout;
@@ -39,8 +40,8 @@ public class JcAppConfig {
     private static final JcAppConfig INSTANCE = new JcAppConfig();
 
     private JcAppConfig() {
-        this.isPrimary = readProp("JC_IS_PRIMARY_MEMBER", false);
-        this.jcHzPrimaryMember = readProp("JC_HZ_PRIMARY_MEMBER", "127.0.0.1");
+        this.primary = readProp("JC_IS_PRIMARY_MEMBER", false);
+        this.jcPrimaryMemberAddress = readProp("JC_PRIMARY_MEMBER_ADDRESS", "127.0.0.1");
         this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
         this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "2"));
         this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
@@ -136,7 +137,7 @@ public class JcAppConfig {
     }
 
     public String getJcHzPrimaryMember() {
-        return jcHzPrimaryMember;
+        return jcPrimaryMemberAddress;
     }
 
     public Integer getPort() {
@@ -171,8 +172,8 @@ public class JcAppConfig {
         return debug;
     }
 
-    public boolean isIsPrimary() {
-        return isPrimary;
+    public boolean isPrimary() {
+        return primary;
     }
 
 }

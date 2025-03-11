@@ -22,7 +22,7 @@ import javax.ejb.LocalBean;
 
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.lib.annotation.JcRemote;
-import org.jcluster.core.proxy.JcRemoteExecutionHandler;
+import org.jcluster.core.proxy.JcRemoteInvocationHandler;
 
 /**
  *
@@ -98,7 +98,7 @@ public class JcBootstrap implements Extension {
                 LOG.log(Level.INFO, "JcRemote annotation found without appName|topic specified: {0}. Adding as GLOBAL", jcRClass.getName());
             }
 
-            Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteExecutionHandler());
+            Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteInvocationHandler());
             event.addBean().types(jcRClass).createWith(e -> newProxyInstance);
             LOG.log(Level.INFO, "JcBootstrap add Remote interface implementation for: [{0}]", new Object[]{jcRClass.getName()});
         }

@@ -27,11 +27,12 @@ public class JcMap<K, V> extends HashMap<K, V> {
     public V put(K key, V value) {
         V put = super.put(key, value);
 
-        EntryAddedEvent ev = new EntryAddedEvent(Map.entry(key, value), EntryEventType.ADDED, put);
+//        if (!put.equals(value)) {
+        EntryAddedEvent<K, V> ev = new EntryAddedEvent(Map.entry(key, value), EntryEventType.ADDED, put);
         for (EntryAddedListener entryAddedListener : entryAddedListenerList) {
             entryAddedListener.onEntryAdded(ev);
+//            }
         }
-
         return put;
     }
 

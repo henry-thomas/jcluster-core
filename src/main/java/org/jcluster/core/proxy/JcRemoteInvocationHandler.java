@@ -18,13 +18,13 @@ import org.jcluster.core.config.JcAppConfig;
  *
  * @autor Henry Thomas
  */
-public class JcRemoteExecutionHandler implements InvocationHandler, Serializable {
+public class JcRemoteInvocationHandler implements InvocationHandler, Serializable {
 
-    private static final Logger LOG = Logger.getLogger(JcRemoteExecutionHandler.class.getName());
+    private static final Logger LOG = Logger.getLogger(JcRemoteInvocationHandler.class.getName());
 
     private final Map<String, JcProxyMethod> methodCache = new HashMap<>();
 
-    public JcRemoteExecutionHandler() {
+    public JcRemoteInvocationHandler() {
 
     }
 

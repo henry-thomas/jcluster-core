@@ -10,5 +10,6 @@ package org.jcluster.core.bean.jcCollections.jcmap;
  */
 public enum EntryEventType {
     ADDED,
+    UPDATED,
     REMOVED;
 }

@@ -4,7 +4,11 @@
  */
 package org.jcluster.core.cluster;
 
+import org.jcluster.core.JcFactory;
+import org.jcluster.core.JcManager;
 import org.jcluster.core.bean.JcAppDescriptor;
+import org.jcluster.core.bean.JcMemberEvent;
+import org.jcluster.core.bean.JcMemerEventTypeEnum;
 import org.jcluster.core.bean.jcCollections.jcmap.EntryAddedEvent;
 import org.jcluster.core.bean.jcCollections.jcmap.EntryAddedListener;
 
@@ -12,12 +16,13 @@ import org.jcluster.core.bean.jcCollections.jcmap.EntryAddedListener;
  *
  * @author henry
  */
-public class OnNewMemberConnect implements EntryAddedListener{
+public class OnNewMemberConnect implements EntryAddedListener<String, JcAppDescriptor> {
 
     @Override
-    public void onEntryAdded(EntryAddedEvent ev) {
+    public void onEntryAdded(EntryAddedEvent<String, JcAppDescriptor> ev) {
         JcAppDescriptor value = (JcAppDescriptor) ev.getEntry().getValue();
         System.out.println("onEntryAdded" + value.getAppName());
+        JcFactory.getManager().onNewMemberEvent(new JcMemberEvent(ev.getValue(), JcMemerEventTypeEnum.MEMBER_ADD));
     }
-    
+
 }

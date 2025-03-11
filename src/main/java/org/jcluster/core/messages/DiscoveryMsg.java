@@ -2,15 +2,16 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.bean.jcCollections.jcmap;
+package org.jcluster.core.messages;
 
+import java.util.List;
 import org.jcluster.core.bean.JcAppDescriptor;
 
 /**
  *
  * @author henry
  */
-public interface EntryAddedListener<K, V> {
+public class DiscoveryMsg {
 
-    public void onEntryAdded(EntryAddedEvent<K, V> ev);
+    private List<JcAppDescriptor> memberList;
 }

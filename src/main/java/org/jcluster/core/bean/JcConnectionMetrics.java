@@ -14,8 +14,8 @@ import org.jcluster.core.JcFactory;
  */
 public class JcConnectionMetrics implements Serializable {
 
-    private final String homeServerName;
-    private final String remoteServerName;
+    private final String homeServerName = null;
+    private final String remoteServerName = null;
     private final String connId;
     private final String instanceId;
     private final String ipAddress;
@@ -29,8 +29,8 @@ public class JcConnectionMetrics implements Serializable {
     private long lastConnAttempt = 0;
 
     public JcConnectionMetrics(JcAppDescriptor desc, JcConnectionTypeEnum connType, String connId) {
-        this.remoteServerName = desc.getServerName();
-        this.homeServerName = JcFactory.getManager().getInstanceAppDesc().getServerName();
+//        this.remoteServerName = desc.getServerName();
+//        this.homeServerName = JcFactory.getManager().getInstanceAppDesc().getServerName();
         this.connId = connId;
         this.connType = connType;
         this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPort();

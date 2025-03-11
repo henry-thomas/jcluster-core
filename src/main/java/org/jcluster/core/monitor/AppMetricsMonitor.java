@@ -24,7 +24,7 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
     @Override
     public JcMetrics getMetricsMap(String instanceId) {
-        return JcFactory.getManager().getAllMetrics();
+        return null;
     }
 
 }

@@ -10,19 +10,21 @@ import java.util.Map;
  *
  * @author henry
  */
-public class EntryAddedEvent {
+public class EntryAddedEvent<K, V> {
 
-    private Map.Entry entry;
-    private Object previousValue;
-    private EntryEventType type;
+    private final Map.Entry<K, V> entry;
+    private final V previousValue;
+    private final V value;
+    private final EntryEventType type;
 
-    public EntryAddedEvent(Map.Entry entry, EntryEventType type, Object previousValue) {
+    public EntryAddedEvent(Map.Entry<K, V> entry, EntryEventType type, V previousValue) {
         this.entry = entry;
+        this.value = entry.getValue();
         this.type = type;
         this.previousValue = previousValue;
     }
 
-    public Object getPreviousValue() {
+    public V getPreviousValue() {
         return previousValue;
     }
 
@@ -30,8 +32,12 @@ public class EntryAddedEvent {
         return type;
     }
 
-    public Map.Entry getEntry() {
+    public Map.Entry<K, V> getEntry() {
         return entry;
+    }
+
+    public V getValue() {
+        return value;
     }
 
 }

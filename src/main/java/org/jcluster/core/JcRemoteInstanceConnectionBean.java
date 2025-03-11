@@ -181,7 +181,7 @@ public class JcRemoteInstanceConnectionBean {
         try {
             JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
             if (conn == null) {
-                LOG.log(Level.SEVERE, "Failed to connect to: {0}InstanceID: {1} ServerID: {2}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getInstanceId(), remoteAppDesc.getServerName()});
+                LOG.log(Level.SEVERE, "Failed to connect to: {0} ", new Object[]{remoteAppDesc});
 
                 socket.close();
             } else {
@@ -310,10 +310,10 @@ public class JcRemoteInstanceConnectionBean {
 
     @Override
     public String toString() {
-        return "JcRemoteInstanceConnectionBean{" + "appName=" + 
-                remoteAppDesc.getAppName() + ", instanceId=" + 
-                remoteAppDesc.getInstanceId() + " address=" + 
-                remoteAppDesc.getIpAddress() + '}';
+        return "JcRemoteInstanceConnectionBean{" + "appName="
+                + remoteAppDesc.getAppName() + ", instanceId="
+                + remoteAppDesc.getInstanceId() + " address="
+                + remoteAppDesc.getIpAddress() + '}';
     }
 
 }
