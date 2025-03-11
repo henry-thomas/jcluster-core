@@ -23,11 +23,8 @@ import org.jcluster.core.messages.JcDistMsg;
 import org.jcluster.core.messages.JcDistMsgType;
 import org.slf4j.LoggerFactory;
 import ch.qos.logback.classic.Logger;
-import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.logging.Level;
 
 /**
  *
@@ -39,7 +36,6 @@ public final class JcCoreService {
 
     public static final int UDP_LISTEN_PORT_DEFAULT = 4445;
 
-//    private String appId;
     private final Map<String, JcMember> memberMap = new ConcurrentHashMap<>();
     private final Map<String, JcMember> primaryMemberMap = new HashMap<>();
     private final JcAppDescriptor selfDesc = new JcAppDescriptor();
@@ -49,7 +45,9 @@ public final class JcCoreService {
     private boolean running = false;
     private DatagramSocket socket;
 
-    private Map<String, JcDistMsg> requestMsgMap = new HashMap<>();
+    byte[] buf = new byte[65535 - 28];
+
+    private final Map<String, JcDistMsg> requestMsgMap = new HashMap<>();
 
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
@@ -112,8 +110,6 @@ public final class JcCoreService {
         throw new Exception("Could not init UDP server from list: " + portList.toString());
     }
 
-    byte[] buf = new byte[10_000];
-
     private boolean checkForMsg() {
         DatagramPacket packet = new DatagramPacket(buf, buf.length);
         try {
@@ -127,7 +123,10 @@ public final class JcCoreService {
                 JcDistMsg msg = (JcDistMsg) ob;
                 msg.setSrcIpAddr(packet.getAddress().getHostAddress());
                 processRecMsg(msg);
+            } else {
+                LOG.warn("Received JcDistMsg  from invalid type: ", ob.getClass().getName());
             }
+
             return true;
         } catch (IOException | ClassNotFoundException ex) {
             if (ex instanceof SocketTimeoutException) {
@@ -137,7 +136,6 @@ public final class JcCoreService {
             }
         }
         return false;
-
     }
 
     private JcMember onMemberJoinMsg(JcDistMsg msg, String ipStrPortStr) {
@@ -250,6 +248,11 @@ public final class JcCoreService {
         }
     }
 
+    private void onMemberRemove(JcMember mem) {
+        mem.close();
+
+    }
+
     private void checkMemberState() {
         LOG.info("Check member state");
 
@@ -296,6 +299,8 @@ public final class JcCoreService {
                 if (primaryMemberMap.containsKey(ipStrPortStr)) {
                     primaryMemberMap.put(ipStrPortStr, null);
                 }
+
+                onMemberRemove(mem);
             } else {
                 try {
                     mem.sendMessage(ping);
