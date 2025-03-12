@@ -5,7 +5,6 @@
 package org.jcluster.core.cluster;
 
 import org.jcluster.core.JcFactory;
-import org.jcluster.core.JcManager;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcMemberEvent;
 import org.jcluster.core.bean.JcMemerEventTypeEnum;

@@ -23,11 +23,8 @@ import org.jcluster.core.messages.JcDistMsg;
 import org.jcluster.core.messages.JcDistMsgType;
 import org.slf4j.LoggerFactory;
 import ch.qos.logback.classic.Logger;
-import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.logging.Level;
 
 /**
  *
