@@ -27,7 +27,6 @@ import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
 public class JcClientConnection implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(JcClientConnection.class.getName());
-    private final JcManager manager = JcFactory.getManager();
     private static int conIdUniqueCounter = 0;
 //    private static int outboundConnCount = 0;
 
@@ -217,7 +216,8 @@ public class JcClientConnection implements Runnable {
                     JcMessage request = (JcMessage) ois.readObject();
                     metrics.incRxCount();
                     lastDataTimestamp = currentTimeMillis();
-                    manager.getExecutorService().submit(new JcInboundMethodExecutor(request, this));
+                    JcCoreService.getInstance().getExecutorService()
+                            .submit(new JcInboundMethodExecutor(request, this));
                 }
             } catch (IOException ex) {
                 destroy();

@@ -29,7 +29,14 @@ import java.util.Iterator;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
 import org.jcluster.core.config.JcAppConfig;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN;
@@ -77,6 +84,9 @@ public final class JcCoreService {
     //key is appName
     private final Map<String, Set<String>> subscAppFilterMap = new HashMap<>();
 
+    private ExecutorService executorService = null;
+    private ThreadFactory threadFactory = null;
+
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
@@ -92,14 +102,24 @@ public final class JcCoreService {
         if (!running) {
             Thread jcManagerThread;
             Thread jcRemConThread;
-            ManagedThreadFactory threadFactory = (ManagedThreadFactory) config.get("threadFactory");
-            if (threadFactory == null) {
-                jcManagerThread = new Thread(this::mainLoop);
-                jcRemConThread = new Thread(this::startTcpConnectionMonitor);
+
+            ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
+            if (mes != null) {
+                executorService = mes;
             } else {
-                jcManagerThread = threadFactory.newThread(this::mainLoop);
-                jcRemConThread = threadFactory.newThread(this::startTcpConnectionMonitor);
+                executorService = new ThreadPoolExecutor(5, 50, 0L, TimeUnit.MILLISECONDS,
+                        new LinkedBlockingQueue<Runnable>());
             }
+
+            ManagedThreadFactory tf = (ManagedThreadFactory) config.get("threadFactory");
+            if (tf == null) {
+                threadFactory = Executors.defaultThreadFactory();
+            } else {
+                threadFactory = tf;
+            }
+
+            jcManagerThread = threadFactory.newThread(this::mainLoop);
+            jcRemConThread = threadFactory.newThread(this::startTcpConnectionMonitor);
 
             initUdpServer(config);
             initPrimaryMembers(config);
@@ -724,4 +744,17 @@ public final class JcCoreService {
         return foundMem.getConector();
 
     }
+
+    public ExecutorService getExecutorService() {
+        return executorService;
+    }
+
+    public ThreadFactory getThreadFactory() {
+        return threadFactory;
+    }
+
+    public JcAppDescriptor getSelfDesc() {
+        return selfDesc;
+    }
+
 }

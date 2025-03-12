@@ -10,15 +10,15 @@ package org.jcluster.core;
  */
 public class JcFactory {
 
-    public static JcManager initManager() {
-        return JcManager.getInstance().startManager();
-    }
-
-    public static JcManager getManager() {
-        return JcManager.getInstance();
-    }
-
-    public static void destroyManager() {
-        JcManager.getInstance().destroy();
-    }
+//    public static JcManager initManager() {
+//        return JcManager.getInstance().startManager();
+//    }
+//
+//    public static JcManager getManager() {
+//        return JcManager.getInstance();
+//    }
+//
+//    public static void destroyManager() {
+//        JcManager.getInstance().destroy();
+//    }
 }

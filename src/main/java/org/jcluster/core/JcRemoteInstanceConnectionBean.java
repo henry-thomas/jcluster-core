@@ -76,7 +76,7 @@ public class JcRemoteInstanceConnectionBean {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection(true);
                 if (conn != null) {
-                    JcManager.getInstance().getThreadFactory().newThread(conn).start();
+                    JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
                     addConnection(conn);
                 } else {
                     return;
@@ -90,9 +90,7 @@ public class JcRemoteInstanceConnectionBean {
         if (desc == null) {
             return;
         }
-        if (!outboundEnabled) {
-            return;
-        }
+     
 
         int actualCount = outboundList.size();
 
@@ -101,7 +99,7 @@ public class JcRemoteInstanceConnectionBean {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection();
                 if (conn != null) {
-                    JcManager.getInstance().getThreadFactory().newThread(conn).start();
+                    JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
                     addConnection(conn);
                 } else {
                     return;
@@ -146,7 +144,7 @@ public class JcRemoteInstanceConnectionBean {
 
                     LOG.log(Level.INFO, "Handshake Request from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
 
-                    JcHandhsakeFrame hf = new JcHandhsakeFrame(JcManager.getInstance().getInstanceAppDesc());
+                    JcHandhsakeFrame hf = new JcHandhsakeFrame(JcCoreService.getInstance().getSelfDesc());
 
                     if (fromIsolated) {
                         LOG.log(Level.INFO, "Creating INBOUND connection from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
@@ -172,7 +170,7 @@ public class JcRemoteInstanceConnectionBean {
             }
             return null;
         });
-        JcManager.getInstance().getExecutorService().execute(futureHanshake);
+        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
         try {
             JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
             if (conn == null) {
