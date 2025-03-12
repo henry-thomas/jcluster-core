@@ -36,6 +36,7 @@ import org.jcluster.core.proxy.JcProxyMethod;
  * Bean that handles connections with another app. Uses the appDescriptor to
  * figure out how to manage that connection.
  */
+
 public class JcRemoteInstanceConnectionBean {
 
     private static final Logger LOG = Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName());
@@ -49,21 +50,11 @@ public class JcRemoteInstanceConnectionBean {
     //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
     private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
 
-    private final JcAppDescriptor remoteAppDesc;
-    private boolean outboundEnabled = true;
+    private JcAppDescriptor desc = null;
+  
 
-    public JcRemoteInstanceConnectionBean(JcAppDescriptor desc, boolean outboundEnabled) {
-        this.remoteAppDesc = desc;
-        this.outboundEnabled = outboundEnabled;
-    }
-
-    public JcRemoteInstanceConnectionBean(JcAppDescriptor desc) {
-        this.remoteAppDesc = desc;
-        this.outboundEnabled = true;
-    }
-
-    public boolean isOutboundEnabled() {
-        return outboundEnabled;
+    public void setDesc(JcAppDescriptor desc) {
+        this.desc = desc;
     }
 
     public List<JcConnectionMetrics> getAllMetrics() {
@@ -74,16 +65,14 @@ public class JcRemoteInstanceConnectionBean {
         return metricList;
     }
 
-    public String getAppName() {
-        return remoteAppDesc.getAppName();
-    }
-
     protected void validateInboundConnectionCount(int minCount) {
-
+        if (desc == null) {
+            return;
+        }
         int actualCount = inboundList.size();
 
         //Incase there is another isolated app connected, don't create an inbound connection to that app
-        if (actualCount < minCount && !remoteAppDesc.isIsolated()) {
+        if (actualCount < minCount && !desc.isIsolated()) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection(true);
                 if (conn != null) {
@@ -97,7 +86,10 @@ public class JcRemoteInstanceConnectionBean {
 
     }
 
-    protected void validateOutboundConnectionCount(int minCount) {
+    public void validateOutboundConnectionCount(int minCount) {
+        if (desc == null) {
+            return;
+        }
         if (!outboundEnabled) {
             return;
         }
@@ -105,7 +97,7 @@ public class JcRemoteInstanceConnectionBean {
         int actualCount = outboundList.size();
 
         //The isolated app will take care of the connection count.
-        if (actualCount < minCount && !remoteAppDesc.isIsolated()) {
+        if (actualCount < minCount && !desc.isIsolated()) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection();
                 if (conn != null) {
@@ -123,7 +115,10 @@ public class JcRemoteInstanceConnectionBean {
     }
 
     private synchronized JcClientConnection startClientConnection(boolean fromIsolated) {
-        SocketAddress socketAddress = new InetSocketAddress(remoteAppDesc.getIpAddress(), remoteAppDesc.getIpPort());
+        if (desc == null) {
+            return null;
+        }
+        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPort());
         Socket socket = new Socket();
         try {
             socket.connect(socketAddress, 2000);
@@ -143,21 +138,21 @@ public class JcRemoteInstanceConnectionBean {
                 JcMessage request = (JcMessage) ois.readObject();
                 if (request.getMethodSignature().equals("handshake")) {
                     JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
-                    if (!handshakeDesc.getInstanceId().equals(remoteAppDesc.getInstanceId())) {
+                    if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
                         LOG.log(Level.INFO, "Handshake Response with Invalid for instanceId: {0} found: {1}",
-                                new Object[]{remoteAppDesc.getInstanceId(), handshakeDesc.getInstanceId()});
+                                new Object[]{desc.getInstanceId(), handshakeDesc.getInstanceId()});
                         return null;
                     }
 
-                    LOG.log(Level.INFO, "Handshake Request from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                    LOG.log(Level.INFO, "Handshake Request from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
 
                     JcHandhsakeFrame hf = new JcHandhsakeFrame(JcManager.getInstance().getInstanceAppDesc());
 
                     if (fromIsolated) {
-                        LOG.log(Level.INFO, "Creating INBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                        LOG.log(Level.INFO, "Creating INBOUND connection from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
                         hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
                     } else {
-                        LOG.log(Level.INFO, "Creating OUTBOUND connection from instance: {0} -> {1}", new Object[]{remoteAppDesc.getAppName(), remoteAppDesc.getIpAddress()});
+                        LOG.log(Level.INFO, "Creating OUTBOUND connection from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
                         hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
                     }
 
@@ -165,9 +160,9 @@ public class JcRemoteInstanceConnectionBean {
                     oos.writeObject(response);
                     oos.flush();
                     if (fromIsolated) {
-                        return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.INBOUND);
+                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.INBOUND);
                     } else {
-                        return new JcClientConnection(socket, remoteAppDesc, JcConnectionTypeEnum.OUTBOUND);
+                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
                     }
 
                 }
@@ -181,7 +176,7 @@ public class JcRemoteInstanceConnectionBean {
         try {
             JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
             if (conn == null) {
-                LOG.log(Level.SEVERE, "Failed to connect to: {0} ", new Object[]{remoteAppDesc});
+                LOG.log(Level.SEVERE, "Failed to connect to: {0} ", new Object[]{desc});
 
                 socket.close();
             } else {
@@ -290,10 +285,6 @@ public class JcRemoteInstanceConnectionBean {
         return !outboundList.isEmpty();
     }
 
-    public JcAppDescriptor getRemoteAppDesc() {
-        return remoteAppDesc;
-    }
-
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
         JcClientConnection conn = outboundList.getNext();
         if (conn == null) {
@@ -311,9 +302,9 @@ public class JcRemoteInstanceConnectionBean {
     @Override
     public String toString() {
         return "JcRemoteInstanceConnectionBean{" + "appName="
-                + remoteAppDesc.getAppName() + ", instanceId="
-                + remoteAppDesc.getInstanceId() + " address="
-                + remoteAppDesc.getIpAddress() + '}';
+                + desc.getAppName() + ", instanceId="
+                + desc.getInstanceId() + " address="
+                + desc.getIpAddress() + '}';
     }
 
 }

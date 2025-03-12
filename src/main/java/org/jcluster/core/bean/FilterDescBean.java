@@ -13,10 +13,10 @@ import java.util.Set;
  */
 public class FilterDescBean {
 
-    private final String filterName;
-
+    private final String filterName; // String LOGGERCONNECTION_LWS_FILTER = "lvCon";
+    private long transCount = 0l;
     private final Set<Object> valueSet = new HashSet<>();
-    private final Set<String> subscriberList = new HashSet<>();
+    private final Set<String> subscriberList = new HashSet<>(); //MemberId
 
     public FilterDescBean(String filterName) {
         this.filterName = filterName;
@@ -31,10 +31,21 @@ public class FilterDescBean {
     }
 
     public boolean addFilterValue(Object value) {
+        transCount++;
         return valueSet.add(value);
     }
 
     public boolean removeFilterValue(Object value) {
+        transCount++;
         return valueSet.remove(value);
     }
+
+    public Set<Object> getValueSet() {
+        return valueSet;
+    }
+
+    public long getTransCount() {
+        return transCount;
+    }
+
 }

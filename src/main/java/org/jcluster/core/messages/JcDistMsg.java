@@ -29,7 +29,7 @@ public class JcDistMsg implements Serializable {
         this.ttl = 5;
     }
 
-    private JcDistMsg(JcDistMsgType type, String msgId, int ttl) {
+    public JcDistMsg(JcDistMsgType type, String msgId, int ttl) {
         this.type = type;
         this.msgId = msgId;
         this.ttl = ttl;
@@ -43,6 +43,8 @@ public class JcDistMsg implements Serializable {
         return resp;
 
     }
+
+   
 
     public boolean hasTTLExpire() {
         ttl--;

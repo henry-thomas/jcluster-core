@@ -32,7 +32,7 @@ public class JcProxyMethod {
     private final Map<String, Integer> paramNameIdxMap = new HashMap<>(); //<>
     private final Class<?> returnType;
 
-    private static final List<String> appList = new ArrayList<>();
+//    private static final List<String> appList = new ArrayList<>();
 
     private JcProxyMethod(String appName, Method method, boolean broadcast) {
         this(appName, method, broadcast, null);

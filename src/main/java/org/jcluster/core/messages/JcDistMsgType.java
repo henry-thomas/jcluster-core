@@ -14,7 +14,7 @@ public enum JcDistMsgType {
     NEW_MEMBER,
     PING,
     LEAVE,
-    PUBLISH,
+    PUBLISH_FILTER,
     SUBSCRIBE,
     SUBSCRIBE_RESP,
     AUTH_REQ,
