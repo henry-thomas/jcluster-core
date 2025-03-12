@@ -16,6 +16,7 @@ public enum JcDistMsgType {
     LEAVE,
     PUBLISH,
     SUBSCRIBE,
+    SUBSCRIBE_RESP,
     AUTH_REQ,
     AUTH_RESP;
 }

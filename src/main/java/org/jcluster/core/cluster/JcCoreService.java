@@ -23,8 +23,13 @@ import org.jcluster.core.messages.JcDistMsg;
 import org.jcluster.core.messages.JcDistMsgType;
 import org.slf4j.LoggerFactory;
 import ch.qos.logback.classic.Logger;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.stream.Collectors;
+import org.jcluster.core.bean.FilterDescBean;
 
 /**
  *
@@ -36,17 +41,23 @@ public final class JcCoreService {
 
     public static final int UDP_LISTEN_PORT_DEFAULT = 4445;
 
-//    private String appId;
+    private final Map<String, FilterDescBean> selfFilterMap = new ConcurrentHashMap<>();
+
     private final Map<String, JcMember> memberMap = new ConcurrentHashMap<>();
     private final Map<String, JcMember> primaryMemberMap = new HashMap<>();
+
     private final JcAppDescriptor selfDesc = new JcAppDescriptor();
-    private long lastPrimaryMemUpdate;
+    private long lastPrimaryMemUpdate = 0l;
 
     private static JcCoreService INSTANCE = new JcCoreService();
     private boolean running = false;
     private DatagramSocket socket;
 
-    private Map<String, JcDistMsg> requestMsgMap = new HashMap<>();
+    byte[] buf = new byte[65535 - 28];
+
+    private final Map<String, JcDistMsg> requestMsgMap = new HashMap<>();
+    private final Map<String, Set<String>> subscTopicFilterMap = new HashMap<>();
+    private final Map<String, Set<String>> subscAppFilterMap = new HashMap<>();
 
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
@@ -109,8 +120,6 @@ public final class JcCoreService {
         throw new Exception("Could not init UDP server from list: " + portList.toString());
     }
 
-    byte[] buf = new byte[10_000];
-
     private boolean checkForMsg() {
         DatagramPacket packet = new DatagramPacket(buf, buf.length);
         try {
@@ -123,8 +132,14 @@ public final class JcCoreService {
             if (ob instanceof JcDistMsg) {
                 JcDistMsg msg = (JcDistMsg) ob;
                 msg.setSrcIpAddr(packet.getAddress().getHostAddress());
-                processRecMsg(msg);
+
+                String memID = msg.getSrcIpAddr() + ":" + msg.getSrc().getIpPort();
+                LOG.info("Received JcDistMsg: {}  SRC:{}  Size:{}b", msg.getType(), memID, packet.getData().length);
+                processRecMsg(msg, memID);
+            } else {
+                LOG.warn("Received JcDistMsg  from invalid type: ", ob.getClass().getName());
             }
+
             return true;
         } catch (IOException | ClassNotFoundException ex) {
             if (ex instanceof SocketTimeoutException) {
@@ -134,7 +149,6 @@ public final class JcCoreService {
             }
         }
         return false;
-
     }
 
     private JcMember onMemberJoinMsg(JcDistMsg msg, String ipStrPortStr) {
@@ -148,6 +162,7 @@ public final class JcCoreService {
             primaryMemberMap.put(ipStrPortStr, mem);
         }
         mem.updateLastSeen();
+        onMemberAdd(mem);
         return mem;
 
     }
@@ -208,18 +223,23 @@ public final class JcCoreService {
         return msg;
     }
 
-    private void processRecMsg(JcDistMsg msg) {
+    private void onSubscMsg(JcMember mem, JcDistMsg msg) {
+        if (msg.getData() instanceof String) {
+            String filter = (String) msg.getData();
 
-        String ipStrPortStr = msg.getSrcIpAddr() + ":" + msg.getSrc().getIpPort();
-        LOG.info("Received JcDistMsg: " + msg + "   SRC:" + ipStrPortStr);
-        JcMember mem = memberMap.get(ipStrPortStr);
+        }
+    }
+
+    private void processRecMsg(JcDistMsg msg, String memID) {
+
+        JcMember mem = memberMap.get(memID);
 
         switch (msg.getType()) {
             case JOIN:
                 if (false) {
                     //authenticate first
                 }
-                mem = onMemberJoinMsg(msg, ipStrPortStr);
+                mem = onMemberJoinMsg(msg, memID);
                 //send response
                 JcDistMsg resp = JcDistMsg.generateJoinResponse(msg, selfDesc);
                 try {
@@ -236,10 +256,15 @@ public final class JcCoreService {
                     break;
                 }
                 LOG.trace("Receive join response");
-                onMemberJoinMsg(msg, ipStrPortStr);
+                onMemberJoinMsg(msg, memID);
                 break;
             case PING:
                 onPingMsg(msg);
+                break;
+            case SUBSCRIBE:
+                if (mem != null) {
+                    onSubscMsg(mem, msg);
+                }
                 break;
 
             default:
@@ -247,29 +272,89 @@ public final class JcCoreService {
         }
     }
 
+    private void onMemberAdd(JcMember mem) {
+
+    }
+
+    private void onMemberRemove(JcMember mem) {
+        mem.close();
+        //remove member if has been subscribe to something
+        selfFilterMap.entrySet().forEach(entry -> {
+            entry.getValue().removeSubscirber(mem.getId());
+        });
+    }
+
+    private void updateMember(JcMember mem) {
+        Set<String> toSubscribe = new HashSet<>();
+
+        //verify subscription is correct for app filters
+        for (Map.Entry<String, Set<String>> entry : subscAppFilterMap.entrySet()) {
+            String appName = entry.getKey();
+            Set<String> reqSubsFiltSet = entry.getValue();
+
+            //check if same appName
+            if (Objects.equals(appName, mem.getDesc().getAppName())) {
+                toSubscribe.addAll(reqSubsFiltSet.stream()
+                        .filter((t) -> !mem.getSubscribtionSet().contains(t))
+                        .collect(Collectors.toSet()));
+            }
+        }
+
+        //verify subscription is correct for topic filters
+        for (Map.Entry<String, Set<String>> entry : subscTopicFilterMap.entrySet()) {
+            String topic = entry.getKey();
+            Set<String> reqSubsFiltSet = entry.getValue();
+
+            //check if same appName
+            if (mem.getDesc().getTopicList().contains(topic)) {
+                toSubscribe.addAll(reqSubsFiltSet.stream()
+                        .filter((t) -> !mem.getSubscribtionSet().contains(t))
+                        .collect(Collectors.toSet()));
+            }
+        }
+
+        //subscribe if needed
+        for (String filterName : toSubscribe) {
+
+            JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.SUBSCRIBE);
+            jcDistMsg.setSrc(selfDesc);
+            jcDistMsg.setData(filterName);
+            try {
+                LOG.info("Sending subscription request filter:[{}] to {}",
+                        filterName, mem.getId());
+
+                mem.sendMessage(jcDistMsg);
+                requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
+            } catch (IOException ex) {
+                LOG.warn(null, ex);
+            }
+        }
+
+    }
+
     private void checkMemberState() {
         LOG.info("Check member state");
 
         for (Map.Entry<String, JcMember> entry : primaryMemberMap.entrySet()) {
-            String ipPortStr = entry.getKey();
-            JcMember member = entry.getValue();
+            String memId = entry.getKey();
+            JcMember mem = entry.getValue();
             if (entry.getValue() == null) {
 
 //            memberMap.entrySet().stream().fi
-                if (!memberMap.containsKey(ipPortStr)) {
+                if (!memberMap.containsKey(memId)) {
                     try {
-                        sendReqJoin(ipPortStr);
+                        sendReqJoin(memId);
                     } catch (IOException ex) {
                         LOG.error(null, ex);
                     } catch (Exception ex) {
                         LOG.error(null, ex);
                         //TODO remove from memberMap here
                     }
-                } else if (member.isLastSeenExpired()) {
+                } else if (mem.isLastSeenExpired()) {
                     JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.JOIN);
                     jcDistMsg.setSrc(selfDesc);
                     try {
-                        member.sendMessage(jcDistMsg);
+                        mem.sendMessage(jcDistMsg);
                     } catch (IOException ex) {
                         LOG.error(null, ex);
                     }
@@ -282,21 +367,30 @@ public final class JcCoreService {
         for (Iterator<Map.Entry<String, JcMember>> iterator = memberMap.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<String, JcMember> entry = iterator.next();
 
-            String ipStrPortStr = entry.getKey();
+            String memId = entry.getKey();
             JcMember mem = entry.getValue();
 
-            strMembLog += ipStrPortStr + "\n\t";
+            strMembLog += memId + "\n\t";
 
             if (mem.isLastSeenExpired()) {
-                LOG.warn("Jc Member:" + ipStrPortStr + " TIMEOUT!");
-                memberMap.remove(ipStrPortStr);
-                if (primaryMemberMap.containsKey(ipStrPortStr)) {
-                    primaryMemberMap.put(ipStrPortStr, null);
+                LOG.warn("Jc Member:" + memId + " TIMEOUT!");
+                memberMap.remove(memId);
+                if (primaryMemberMap.containsKey(memId)) {
+                    primaryMemberMap.put(memId, null);
                 }
+
+                onMemberRemove(mem);
+                mem.close();
             } else {
                 try {
                     mem.sendMessage(ping);
+
                 } catch (IOException ex) {
+                    LOG.warn(null, ex);
+                }
+                try {
+                    updateMember(mem);
+                } catch (Exception ex) {
                     LOG.warn(null, ex);
                 }
             }
@@ -347,6 +441,64 @@ public final class JcCoreService {
         return INSTANCE;
     }
 
+    public void removeSelfFilterValue(String filterName, Object value) {
+        FilterDescBean fd = selfFilterMap.get(filterName);
+        if (fd == null) {
+            fd = new FilterDescBean(filterName);
+            selfFilterMap.put(filterName, fd);
+        }
+        fd.removeFilterValue(value);
+
+        //notify all subscribers for this value
+        //TODO
+    }
+
+    public void addSelfFilterValue(String filterName, Object value) {
+        FilterDescBean fd = selfFilterMap.get(filterName);
+        if (fd == null) {
+            fd = new FilterDescBean(filterName);
+            selfFilterMap.put(filterName, fd);
+        }
+        //add value
+        fd.addFilterValue(value);
+
+        //notify all subscribers for this value
+        //TODO
+    }
+
+    public boolean subscribeToTopicFilter(String topic, String filterName) {
+        if (topic == null) {
+            return false;
+        }
+        Set<String> topicSet = subscTopicFilterMap.get(topic);
+        if (topicSet == null) {
+            topicSet = new HashSet<>();
+            subscTopicFilterMap.put(topic, topicSet);
+        }
+
+        //force immediate subscription
+        lastPrimaryMemUpdate = 0l;
+
+        return topicSet.add(filterName);
+    }
+
+    public boolean subscribeToAppFilter(String appName, String filterName) {
+        if (appName == null) {
+            return false;
+        }
+
+        Set<String> topicSet = subscAppFilterMap.get(appName);
+        if (topicSet == null) {
+            topicSet = new HashSet<>();
+            subscAppFilterMap.put(appName, topicSet);
+        }
+
+        //force immediate subscription
+        lastPrimaryMemUpdate = 0l;
+
+        return topicSet.add(filterName);
+    }
+
     public static void main(String[] args) throws SocketException {
         Map<String, Object> argMap = new HashMap();
         List<String> primaryMemberList = new ArrayList<>();
@@ -372,5 +524,4 @@ public final class JcCoreService {
         }
 
     }
-
 }
