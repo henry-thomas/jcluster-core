@@ -87,6 +87,8 @@ public final class JcCoreService {
     private ExecutorService executorService = null;
     private ThreadFactory threadFactory = null;
 
+    private JcServerEndpoint serverEndpoint;
+
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
@@ -100,6 +102,7 @@ public final class JcCoreService {
             config = new HashMap<>();
         }
         if (!running) {
+            LOG.info("JCLUSTER -- Startup...");
             Thread jcManagerThread;
             Thread jcRemConThread;
 
@@ -107,8 +110,7 @@ public final class JcCoreService {
             if (mes != null) {
                 executorService = mes;
             } else {
-                executorService = new ThreadPoolExecutor(5, 50, 0L, TimeUnit.MILLISECONDS,
-                        new LinkedBlockingQueue<Runnable>());
+                executorService = new ThreadPoolExecutor(5, 50, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
             }
 
             ManagedThreadFactory tf = (ManagedThreadFactory) config.get("threadFactory");
@@ -127,6 +129,13 @@ public final class JcCoreService {
             jcManagerThread.setName("JcCore@" + selfDesc.getIpAddress() + ":" + selfDesc.getIpPort());
             jcManagerThread.start();
             jcRemConThread.start();
+
+            //TCP server 
+            serverEndpoint = new JcServerEndpoint(threadFactory);
+            Thread serverThread = threadFactory.newThread(serverEndpoint);
+            serverThread.setName("JcServerEndpoint");
+            serverThread.start();
+
         }
     }
 
@@ -162,15 +171,18 @@ public final class JcCoreService {
         throw new Exception("Could not init UDP server from list: " + portList.toString());
     }
 
-    private JcMember onMemberJoinMsg(JcDistMsg msg, String ipStrPortStr) {
+    protected JcMember getMember(String memId) {
+        return memberMap.get(memId);
+    }
 
-        JcMember mem = memberMap.get(ipStrPortStr);
+    private JcMember onMemberJoinMsg(JcDistMsg msg, String memId) {
+        JcMember mem = memberMap.get(memId);
         if (mem == null) {
             mem = new JcMember(msg.getSrc());
-            memberMap.put(ipStrPortStr, mem);
+            memberMap.put(memId, mem);
         }
-        if (primaryMemberMap.containsKey(ipStrPortStr)) {
-            primaryMemberMap.put(ipStrPortStr, mem);
+        if (primaryMemberMap.containsKey(memId)) {
+            primaryMemberMap.put(memId, mem);
         }
         mem.updateLastSeen();
         onMemberAdd(mem);
@@ -411,16 +423,16 @@ public final class JcCoreService {
         JcMember.sendMessage(port, ipAddr, jcDistMsg);
     }
 
-    private void processRecMsg(JcDistMsg msg, String memID) {
+    private void processRecMsg(JcDistMsg msg, String memId) {
 
-        JcMember mem = memberMap.get(memID);
+        JcMember mem = memberMap.get(memId);
 
         switch (msg.getType()) {
             case JOIN:
                 if (false) {
                     //authenticate first
                 }
-                mem = onMemberJoinMsg(msg, memID);
+                mem = onMemberJoinMsg(msg, memId);
                 //send response
                 JcDistMsg resp = JcDistMsg.generateJoinResponse(msg, selfDesc);
                 try {
@@ -437,7 +449,7 @@ public final class JcCoreService {
                     break;
                 }
                 LOG.trace("Receive join response");
-                onMemberJoinMsg(msg, memID);
+                onMemberJoinMsg(msg, memId);
                 break;
             case PING:
                 onPingMsg(msg);

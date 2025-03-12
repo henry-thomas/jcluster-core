@@ -50,15 +50,15 @@ public class JcManager {
         return INSTANCE;
     }
 
-    public void addFilter(String filterName, Object value) {
+    public static void addFilter(String filterName, Object value) {
         JcCoreService.getInstance().addSelfFilterValue(filterName, value);
     }
 
-    public void removeFilter(String filterName, Object value) {
+    public static void removeFilter(String filterName, Object value) {
         JcCoreService.getInstance().addSelfFilterValue(filterName, value);
     }
 
-    private int broadcastSend(JcProxyMethod pm, Object[] args) {
+    private static int broadcastSend(JcProxyMethod pm, Object[] args) {
         int instanceBroadcastedTo = 0;
         List<JcRemoteInstanceConnectionBean> riList = null;
         if (pm.isTopic()) {
@@ -80,7 +80,7 @@ public class JcManager {
         return instanceBroadcastedTo;
     }
 
-    private Object filteredSend(JcProxyMethod pm, Object[] args) throws JcIOException {
+    private static Object filteredSend(JcProxyMethod pm, Object[] args) throws JcIOException {
         //find all instances by filter
 
         Map<String, Object> fMap = new HashMap<>();
@@ -111,7 +111,7 @@ public class JcManager {
         return ri.send(pm, args);
     }
 
-    public Object send(JcProxyMethod pm, Object[] args) throws JcRuntimeException {
+    public static Object send(JcProxyMethod pm, Object[] args) throws JcRuntimeException {
 
         if (pm.isInstanceFilter()) {//no app name needed if send is specific for remote instance
             return filteredSend(pm, args);

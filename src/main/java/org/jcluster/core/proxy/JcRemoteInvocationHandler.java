@@ -4,15 +4,17 @@
  */
 package org.jcluster.core.proxy;
 
+import ch.qos.logback.classic.Logger;
 import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcFactory;
+import org.jcluster.core.JcManager;
 import org.jcluster.core.config.JcAppConfig;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -20,7 +22,7 @@ import org.jcluster.core.config.JcAppConfig;
  */
 public class JcRemoteInvocationHandler implements InvocationHandler, Serializable {
 
-    private static final Logger LOG = Logger.getLogger(JcRemoteInvocationHandler.class.getName());
+    private static final ch.qos.logback.classic.Logger LOG = (Logger) LoggerFactory.getLogger(JcCoreService.class);
 
     private final Map<String, JcProxyMethod> methodCache = new HashMap<>();
 
@@ -39,14 +41,14 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
         }
         long now = System.currentTimeMillis();
 
-        Object response = JcFactory.getManager().send(proxyMethod, args);
+        Object response = JcManager.send(proxyMethod, args);
 
         if (JcAppConfig.getINSTANCE().isDebug()) {
-            LOG.log(Level.INFO, "exec [{0}] in [{1} ms]", new Object[]{method.getName(), System.currentTimeMillis() - now});
+            LOG.debug("exec [{0}] in [{1} ms]", new Object[]{method.getName(), System.currentTimeMillis() - now});
         }
 
         if (response instanceof Exception) {
-            LOG.severe(((Exception) response).getMessage());
+            LOG.error(((Exception) response).getMessage());
             throw ((Exception) response);
         }
 

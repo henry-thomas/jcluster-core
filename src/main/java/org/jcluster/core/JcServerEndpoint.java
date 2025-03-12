@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import ch.qos.logback.classic.Logger;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -13,14 +14,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.exception.sockets.JcSocketConnectException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -28,14 +30,14 @@ import org.jcluster.core.messages.JcMsgResponse;
  */
 public class JcServerEndpoint implements Runnable {
 
-    private static final Logger LOG = Logger.getLogger(JcServerEndpoint.class.getName());
+    private static final ch.qos.logback.classic.Logger LOG = (Logger) LoggerFactory.getLogger(JcCoreService.class);
 
     private boolean running;
     ServerSocket server;
 
-    private final ManagedThreadFactory threadFactory;
+    private final ThreadFactory threadFactory;
 
-    public JcServerEndpoint(ManagedThreadFactory threadFactory) {
+    public JcServerEndpoint(ThreadFactory threadFactory) {
         this.threadFactory = threadFactory;
     }
 
@@ -54,25 +56,25 @@ public class JcServerEndpoint implements Runnable {
                 try {
                     LOG.info("New Connection Accepted Start Hanshaking");
                     JcHandhsakeFrame handshakeFrame = doHandshake(sock);
-                    LOG.log(Level.INFO, "New Connection Hanshaking Complete: {0}", handshakeFrame);
+                    LOG.info("New Connection Hanshaking Complete: {0}", handshakeFrame);
 
                     JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame);
                     threadFactory.newThread(jcClientConnection).start();
 
-                    LOG.log(Level.INFO, "JcInstanceConnection connected.  {0}", jcClientConnection);
+                    LOG.info("JcInstanceConnection connected.  {0}", jcClientConnection);
 
-                    JcRemoteInstanceConnectionBean ric = JcCoreService.getInstance().getRemoteInstance(handshakeFrame.getRemoteAppDesc().getInstanceId());
-                    //In case where this instance does not have calls to the socket.accept() calling instance,
-                    //there will be no Remote instance conneciton sincse they are filtered by required app name. 
-                    //In this case we have to create one,
-                    //as long as that instance is available in HZ it will not be destroyed
-                    if (ric == null) {
-                        ric = JcCoreService.getInstance().addRemoteInstanceConnection(handshakeFrame.getRemoteAppDesc());
+                    JcAppDescriptor remDesc = handshakeFrame.getRemoteAppDesc();
+                    JcMember member = JcCoreService.getInstance().getMember(remDesc.getIpStrPortStr());
+                    if (member == null) {
+                        LOG.warn("New Connection from invalid member: {0}", member);
+                        continue;
                     }
+
+                    JcRemoteInstanceConnectionBean ric = member.getConector();
                     ric.addConnection(jcClientConnection);
 
                 } catch (Exception e) {
-                    Logger.getLogger(JcServerEndpoint.class.getSimpleName()).log(Level.SEVERE, null, e);
+                    LOG.error(null, e);
                     sock.close();
                 }
 
@@ -99,7 +101,7 @@ public class JcServerEndpoint implements Runnable {
                 if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
                     return (JcHandhsakeFrame) handshakeResponse.getData();
                 } else {
-                    LOG.log(Level.WARNING, "Unknown Message Type on Handshake: {0}", handshakeResponse.getData().getClass().getName());
+                    LOG.warn("Unknown Message Type on Handshake: {0}", handshakeResponse.getData().getClass().getName());
                 }
 
             } catch (IOException | ClassNotFoundException ex) {
@@ -115,7 +117,7 @@ public class JcServerEndpoint implements Runnable {
                 return hf;
             }
         } catch (InterruptedException | ExecutionException | TimeoutException ex) {
-            Logger.getLogger(JcServerEndpoint.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.error(null, ex);
         }
 
         throw new JcSocketConnectException("Handshake Timeout!");
@@ -126,7 +128,7 @@ public class JcServerEndpoint implements Runnable {
             running = false;
             server.close();
         } catch (IOException ex) {
-            Logger.getLogger(JcServerEndpoint.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.error(null, ex);
         }
     }
 }
