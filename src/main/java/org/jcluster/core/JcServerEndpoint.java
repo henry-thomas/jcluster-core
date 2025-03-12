@@ -30,7 +30,6 @@ public class JcServerEndpoint implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(JcServerEndpoint.class.getName());
 
-    private final JcManager manager = JcFactory.getManager();
     private boolean running;
     ServerSocket server;
 
@@ -46,7 +45,7 @@ public class JcServerEndpoint implements Runnable {
             server = new ServerSocket();
             server.setReuseAddress(true);
 
-            InetSocketAddress address = new InetSocketAddress(manager.getInstanceAppDesc().getIpPort());
+            InetSocketAddress address = new InetSocketAddress(JcCoreService.getInstance().getSelfDesc().getIpPort());
             server.bind(address);
             running = true;
             while (running) {
@@ -62,13 +61,13 @@ public class JcServerEndpoint implements Runnable {
 
                     LOG.log(Level.INFO, "JcInstanceConnection connected.  {0}", jcClientConnection);
 
-                    JcRemoteInstanceConnectionBean ric = manager.getRemoteInstance(handshakeFrame.getRemoteAppDesc().getInstanceId());
+                    JcRemoteInstanceConnectionBean ric = JcCoreService.getInstance().getRemoteInstance(handshakeFrame.getRemoteAppDesc().getInstanceId());
                     //In case where this instance does not have calls to the socket.accept() calling instance,
                     //there will be no Remote instance conneciton sincse they are filtered by required app name. 
                     //In this case we have to create one,
                     //as long as that instance is available in HZ it will not be destroyed
                     if (ric == null) {
-                        ric = manager.addRemoteInstanceConnection(handshakeFrame.getRemoteAppDesc());
+                        ric = JcCoreService.getInstance().addRemoteInstanceConnection(handshakeFrame.getRemoteAppDesc());
                     }
                     ric.addConnection(jcClientConnection);
 
@@ -90,7 +89,7 @@ public class JcServerEndpoint implements Runnable {
 
         FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
             try {
-                JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcFactory.getManager().getInstanceAppDesc()});
+                JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
 
                 ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
@@ -109,7 +108,7 @@ public class JcServerEndpoint implements Runnable {
             return null;
 
         });
-        JcManager.getInstance().getExecutorService().execute(futureHanshake);
+        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
         try {
             JcHandhsakeFrame hf = futureHanshake.get(5, TimeUnit.SECONDS);
             if (hf != null) {
