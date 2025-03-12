@@ -6,8 +6,10 @@ package org.jcluster.core.bean;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.config.JcAppConfig;
 
@@ -24,8 +26,8 @@ public class JcAppDescriptor implements Serializable {
     private final boolean isolated;
 //    private final boolean monitor;
     private final String appName;
-    private final List<String> topicList = new ArrayList<>();
-    private final List<String> outboundAppNameList = new ArrayList<>();
+    private final Set<String> topicList = new HashSet<>();
+//    private final List<String> outboundAppNameList = new ArrayList<>();
     private final String instanceId;
 //    private final String serverName;
     private String ipAddress;
@@ -56,10 +58,9 @@ public class JcAppDescriptor implements Serializable {
         this.outBoundMinConnection = outBoundMinConnection;
     }
 
-    public List<String> getOutboundAppNameList() {
-        return outboundAppNameList;
-    }
-
+//    public List<String> getOutboundAppNameList() {
+//        return outboundAppNameList;
+//    }
 //    public String getServerName() {
 //        return serverName;
 //    }
@@ -90,7 +91,7 @@ public class JcAppDescriptor implements Serializable {
         return appName;
     }
 
-    public List<String> getTopicList() {
+    public Set<String> getTopicList() {
         return topicList;
     }
 

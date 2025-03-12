@@ -12,7 +12,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -20,8 +19,8 @@ import javax.naming.NamingException;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcMemberEvent;
 import org.jcluster.core.bean.JcMemerEventTypeEnum;
-import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.cluster.JcCoreService;
+import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.cluster.JcMember;
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -43,7 +42,6 @@ public class JcManager {
 
     private static final Logger LOG = Logger.getLogger(JcManager.class.getName());
 
-    private Map<String, JcMember> jcMemberMap  ; //This map will be managed by Hazelcast
     protected final Queue<JcMemberEvent> memberEventQueue = new ArrayDeque<>(512);
 //    private final JcInstance thisAppInstance = new JcInstance(); //representst this app instance, configured at bootstrap
     private final JcAppDescriptor selfDesc = new JcAppDescriptor();
@@ -60,8 +58,8 @@ public class JcManager {
     private final ManagedThreadFactory threadFactory;
 
     private long lastPingTimestamp = 0l;
-    private final Set<String> appNameList;
-    private final Set<String> topicList;
+//    private final Set<String> appNameList;
+//    private final Set<String> topicList = new ;
 //    private final InstanceResMonitorBean monitorBean;
 //    private final List<String> onlineInstanceIdList = new ArrayList<>();
 
@@ -79,23 +77,18 @@ public class JcManager {
         }
         executorService = exs;
         threadFactory = th;
-        jcMemberMap = JcCoreService.getMemberMap();
 
-        appNameList = JcBootstrap.appNameList;
-        selfDesc.getOutboundAppNameList().addAll(appNameList);
-        topicList = JcBootstrap.topicNameList;
-
+//        appNameList = JcBootstrap.appNameList;
+//        selfDesc.getOutboundAppNameList().addAll(appNameList); //TODO
+//        topicList = JcBootstrap.topicNameList;
     }
 
     protected static JcManager getInstance() {
         return INSTANCE;
     }
 
-    
-
-
-
     public void addFilter(String filterName, Object value) {
+        JcCoreService.getInstance().addSelfFilterValue(filterName, value);
 //        Map<String, HashSet<Object>> filterMap = selfDesc.getFilterMap();
 //
 //        HashSet<Object> filterSet = filterMap.get(filterName);
@@ -111,6 +104,7 @@ public class JcManager {
     }
 
     public void removeFilter(String filterName, Object value) {
+        JcCoreService.getInstance().addSelfFilterValue(filterName, value);
 //        HashSet<Object> filterSet = selfDesc.getFilterMap().get(filterName);
 //        if (filterSet == null) {
 //            LOG.log(Level.INFO, "Filter does not exist: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
@@ -121,19 +115,20 @@ public class JcManager {
 
 //        updateThisHzDescriptor();
 //        LOG.log(Level.INFO, "Removed filter: [{0}] with value: [{1}]", new Object[]{filterName, String.valueOf(value)});
-
     }
 
     private void proccessNewEvent(JcMemberEvent ev) {
         JcAppDescriptor remDesc = ev.getAppDescriptor();
         if (ev.getEventType() == JcMemerEventTypeEnum.MEMBER_ADD) {
             //precess member of appNames that are required only
-            if (appNameList.contains(ev.getAppDescriptor().getAppName()) && !ev.getAppDescriptor().isIsolated()) {
-                if (!remoteInstanceMap.containsKey(remDesc.getInstanceId())) {
-                    JcRemoteInstanceConnectionBean ric = new JcRemoteInstanceConnectionBean(remDesc);
-                    remoteInstanceMap.put(ev.getAppDescriptor().getInstanceId(), ric);
-                }
-            }
+
+            //TODO
+//            if (appNameList.contains(ev.getAppDescriptor().getAppName()) && !ev.getAppDescriptor().isIsolated()) {
+//                if (!remoteInstanceMap.containsKey(remDesc.getInstanceId())) {
+//                    JcRemoteInstanceConnectionBean ric = new JcRemoteInstanceConnectionBean(remDesc);
+//                    remoteInstanceMap.put(ev.getAppDescriptor().getInstanceId(), ric);
+//                }
+//            }
         } else if (ev.getEventType() == JcMemerEventTypeEnum.MEMBER_REMOVE) {
             JcRemoteInstanceConnectionBean remove = remoteInstanceMap.remove(ev.getAppDescriptor().getInstanceId());
             if (remove != null) {
@@ -188,13 +183,10 @@ public class JcManager {
             //adding this app to the shared appMap, 
             //which is visible to all other apps in the Hazelcast Cluster
 //            updateThisHzDescriptor();
-
             running = true;
-           
 
             //Adding a filter to this instance with its own id
 //            addFilter(JC_INSTANCE_FILTER, instanceDesc.getServerName());
-
         }
         return INSTANCE;
     }
@@ -212,26 +204,24 @@ public class JcManager {
         }
     }
 
-    
-
     protected JcRemoteInstanceConnectionBean addRemoteInstanceConnection(JcAppDescriptor desc) {
+        return null;
         //Here!
-        boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList()) ;
+//TODO
+//        boolean outboundEnabled = appNameList.contains(desc.getAppName()) || !Collections.disjoint(topicList, desc.getTopicList());
 
-        JcRemoteInstanceConnectionBean jcRemoteInstanceConnectionBean = new JcRemoteInstanceConnectionBean(desc, outboundEnabled);
-
-        JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), jcRemoteInstanceConnectionBean);
-
-        if (ric != null) {
-            ric.destroy();
-        }
-
-        return jcRemoteInstanceConnectionBean;
+//        JcRemoteInstanceConnectionBean jcRemoteInstanceConnectionBean = new JcRemoteInstanceConnectionBean(desc, outboundEnabled);
+//
+//        JcRemoteInstanceConnectionBean ric = remoteInstanceMap.put(desc.getInstanceId(), jcRemoteInstanceConnectionBean);
+//
+//        if (ric != null) {
+//            ric.destroy();
+//        }
+//
+//        return jcRemoteInstanceConnectionBean;
     }
 
-   
     private void mainLoop() {
-
 
         //ping interval
         if (currentTimeMillis() - lastPingTimestamp >= 1500) {
@@ -252,7 +242,7 @@ public class JcManager {
 
             //we have to check the app name because there is another apps that makes only inboudn connections
             if (appNameList.contains(ri.getAppName())
-                    || !Collections.disjoint(ri.getRemoteAppDesc().getTopicList(), topicList) ) {
+                    || !Collections.disjoint(ri.getRemoteAppDesc().getTopicList(), topicList)) {
                 ri.validateOutboundConnectionCount(JcAppConfig.getINSTANCE().getMinConnections());
             }
 
@@ -415,8 +405,6 @@ public class JcManager {
         return threadFactory;
     }
 
- 
-
     public HashSet<String> getRemoteAppNameList() {
         HashSet<String> remoteAppNameList = new HashSet<>();
         for (Map.Entry<String, JcMember> entry : jcMemberMap.entrySet()) {
@@ -464,5 +452,4 @@ public class JcManager {
 //    public Map<String, JcAppDescriptor> getHzAppDescMap() {
 //        return jcMemberMap;
 //    }
-
 }
