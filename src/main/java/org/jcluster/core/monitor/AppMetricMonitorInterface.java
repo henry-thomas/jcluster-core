@@ -16,8 +16,9 @@ import org.jcluster.lib.annotation.JcRemote;
 @Remote
 @JcRemote
 public interface AppMetricMonitorInterface {
-
     public static final String JC_INSTANCE_FILTER = "jcInstance";
+
+    
     public JcMetrics getMetricsMap(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
     
     public String testReq(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);

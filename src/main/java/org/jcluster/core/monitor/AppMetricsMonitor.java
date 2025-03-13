@@ -12,14 +12,7 @@ import org.jcluster.core.bean.JcMetrics;
  */
 public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
-    private static final AppMetricsMonitor INSTANCE = new AppMetricsMonitor();
-
-    private AppMetricsMonitor() {
-    }
-    
-    public static AppMetricsMonitor getInstance(){
-        return INSTANCE;
-    }
+ 
 
     @Override
     public JcMetrics getMetricsMap(String instanceId) {

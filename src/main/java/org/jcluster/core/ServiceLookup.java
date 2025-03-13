@@ -48,6 +48,7 @@ public class ServiceLookup {
                 if (parameters.length == 0) {
                     Object ob = constr.newInstance();
                     localInterfaceInstanceMap.put(clazz.getName(), ob);
+                    return;
                 }
             }
         } catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
@@ -75,11 +76,7 @@ public class ServiceLookup {
             try {
                 serviceObj = ctx.lookup(jndiName);
             } catch (NamingException e) {
-                if (className.equals(AppMetricMonitorInterface.class.getName())) {
-                    serviceObj = AppMetricsMonitor.getInstance();
-                } else {
-                    throw e;
-                }
+                throw e;
             }
 
             INSTANCE.jndiLookupMap.put(jndiName, serviceObj);

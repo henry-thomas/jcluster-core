@@ -45,6 +45,7 @@ import static org.jcluster.core.messages.JcDistMsgType.PING;
 import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
+import org.jcluster.core.monitor.AppMetricsMonitor;
 
 /**
  *
@@ -141,6 +142,7 @@ public final class JcCoreService {
             serverThread.setName("JcServerEndpoint");
             serverThread.start();
 
+            registerLocalClassImplementation(AppMetricsMonitor.class);
         }
     }
 
