@@ -116,7 +116,7 @@ public class JcRemoteInstanceConnectionBean {
         if (desc == null) {
             return null;
         }
-        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPort());
+        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenUDP());
         Socket socket = new Socket();
         try {
             socket.connect(socketAddress, 2000);

@@ -55,6 +55,8 @@ public final class JcCoreService {
 
     public static final int UDP_LISTEN_PORT_DEFAULT = 4445;
 
+    private int outBoundMinConnection;
+
     //to keep track on own filters set
     //key is filterName
     //value is FilterDescBean with set of values inside
@@ -126,7 +128,7 @@ public final class JcCoreService {
             initUdpServer(config);
             initPrimaryMembers(config);
             running = true;
-            jcManagerThread.setName("JcCore@" + selfDesc.getIpAddress() + ":" + selfDesc.getIpPort());
+            jcManagerThread.setName("JcCore@" + selfDesc.getIpAddress() + ":" + selfDesc.getIpPortListenUDP());
             jcManagerThread.start();
             jcRemConThread.start();
 
@@ -161,7 +163,7 @@ public final class JcCoreService {
             try {
                 socket = new DatagramSocket(port);
                 socket.setSoTimeout(timeout);
-                selfDesc.setIpPort(port);
+                selfDesc.setIpPortListenUDP(port);
                 LOG.info("UDP Server init successfully on port: {}", port);
                 return;
             } catch (SocketException ex) {
@@ -488,7 +490,7 @@ public final class JcCoreService {
                 JcDistMsg msg = (JcDistMsg) ob;
                 msg.setSrcIpAddr(packet.getAddress().getHostAddress());
 
-                String memID = msg.getSrcIpAddr() + ":" + msg.getSrc().getIpPort();
+                String memID = msg.getSrcIpAddr() + ":" + msg.getSrc().getIpPortListenUDP();
                 LOG.info("Received JcDistMsg: {}  SRC:{}  Size:{}b", msg.getType(), memID, packet.getData().length);
                 processRecMsg(msg, memID);
             } else {
@@ -767,6 +769,10 @@ public final class JcCoreService {
 
     public JcAppDescriptor getSelfDesc() {
         return selfDesc;
+    }
+
+    public int getOutBoundMinConnection() {
+        return outBoundMinConnection;
     }
 
 }

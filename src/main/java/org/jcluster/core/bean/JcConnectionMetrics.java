@@ -33,7 +33,7 @@ public class JcConnectionMetrics implements Serializable {
 //        this.homeServerName = JcFactory.getManager().getInstanceAppDesc().getServerName();
         this.connId = connId;
         this.connType = connType;
-        this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPort();
+        this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPortListenUDP();
         this.appName = desc.getAppName();
         this.instanceId = desc.getInstanceId();
     }

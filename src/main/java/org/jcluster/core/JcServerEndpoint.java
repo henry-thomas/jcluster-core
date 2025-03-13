@@ -47,7 +47,7 @@ public class JcServerEndpoint implements Runnable {
             server = new ServerSocket();
             server.setReuseAddress(true);
 
-            InetSocketAddress address = new InetSocketAddress(JcCoreService.getInstance().getSelfDesc().getIpPort());
+            InetSocketAddress address = new InetSocketAddress(JcCoreService.getInstance().getSelfDesc().getIpPortListenUDP());
             server.bind(address);
             running = true;
             while (running) {

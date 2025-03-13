@@ -141,7 +141,7 @@ public class JcMember {
         if (socket == null) {
             socket = new DatagramSocket();
         }
-        sendMessage(msg, socket, desc.getIpAddress(), desc.getIpPort());
+        sendMessage(msg, socket, desc.getIpAddress(), desc.getIpPortListenUDP());
 
     }
 

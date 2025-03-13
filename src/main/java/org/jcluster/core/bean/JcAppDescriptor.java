@@ -5,9 +5,7 @@
 package org.jcluster.core.bean;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -24,53 +22,26 @@ public class JcAppDescriptor implements Serializable {
     //add whatever we need to represent our instances
 
     private final boolean isolated;
-//    private final boolean monitor;
     private final String appName;
     private final Set<String> topicList = new HashSet<>();
-//    private final List<String> outboundAppNameList = new ArrayList<>();
     private final String instanceId;
-//    private final String serverName;
     private String ipAddress;
-    private int ipPort;
-    private int outBoundMinConnection;
-    //use this to detect dead instances somehow left unclean in the map
-//    private long lastAlive;
-//    private final Map<String, HashSet<Object>> filterMap = new HashMap<>();
+    private int ipPortListenUDP;//this is list
+    
+    private int ipPortListenTCP;//this is list
+
 
     public JcAppDescriptor() {
-        this.ipPort = JcAppConfig.getINSTANCE().getPort();
+        this.ipPortListenUDP = JcAppConfig.getINSTANCE().getPort();
         this.ipAddress = JcAppConfig.getINSTANCE().getHostName();
 
         this.appName = JcAppConfig.getINSTANCE().getAppName();
 
         this.instanceId = RandomStringUtils.random(16, true, true);
-//        this.serverName = JcAppConfig.getINSTANCE().readProp("JC_SERVER_NAME", instanceId);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
-//        this.topicList.addAll(JcAppConfig.getINSTANCE().getTopicList());
-
     }
 
-    public int getOutBoundMinConnection() {
-        return outBoundMinConnection;
-    }
 
-    public void setOutBoundMinConnection(int outBoundMinConnection) {
-        this.outBoundMinConnection = outBoundMinConnection;
-    }
-
-//    public List<String> getOutboundAppNameList() {
-//        return outboundAppNameList;
-//    }
-//    public String getServerName() {
-//        return serverName;
-//    }
-//    public void updateTimestamp() {
-//        lastAlive = System.currentTimeMillis();
-//    }
-//
-//    public long getLastAlive() {
-//        return lastAlive;
-//    }
     public boolean isIsolated() {
         return isolated;
     }
@@ -83,8 +54,8 @@ public class JcAppDescriptor implements Serializable {
         return ipAddress;
     }
 
-    public int getIpPort() {
-        return ipPort;
+    public int getIpPortListenUDP() {
+        return ipPortListenUDP;
     }
 
     public String getAppName() {
@@ -103,7 +74,7 @@ public class JcAppDescriptor implements Serializable {
         int hash = 7;
         hash = 47 * hash + Objects.hashCode(this.instanceId);
         hash = 47 * hash + Objects.hashCode(this.ipAddress);
-        hash = 47 * hash + this.ipPort;
+        hash = 47 * hash + this.ipPortListenUDP;
         return hash;
     }
 
@@ -119,7 +90,7 @@ public class JcAppDescriptor implements Serializable {
             return false;
         }
         final JcAppDescriptor other = (JcAppDescriptor) obj;
-        if (this.ipPort != other.ipPort) {
+        if (this.ipPortListenUDP != other.ipPortListenUDP) {
             return false;
         }
         if (!Objects.equals(this.instanceId, other.instanceId)) {
@@ -133,17 +104,25 @@ public class JcAppDescriptor implements Serializable {
         this.ipAddress = ipAddress;
     }
 
-    public void setIpPort(int ipPort) {
-        this.ipPort = ipPort;
+    public void setIpPortListenUDP(int ipPortListenUDP) {
+        this.ipPortListenUDP = ipPortListenUDP;
     }
 
     @Override
     public String toString() {
-        return "JcAppDescriptor{" + "appName=" + appName + ", instanceId=" + instanceId + ", address=" + ipAddress + ":" + ipPort + '}';
+        return "JcAppDescriptor{" + "appName=" + appName + ", instanceId=" + instanceId + ", address=" + ipAddress + ":" + ipPortListenUDP + '}';
     }
 
     public String getIpStrPortStr() {
-        return ipAddress + ":" + ipPort;
+        return ipAddress + ":" + ipPortListenUDP;
+    }
+
+    public int getIpPortListenTCP() {
+        return ipPortListenTCP;
+    }
+
+    public void setIpPortListenTCP(int ipPortListenTCP) {
+        this.ipPortListenTCP = ipPortListenTCP;
     }
 
 }
