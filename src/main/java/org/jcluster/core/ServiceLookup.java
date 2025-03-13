@@ -16,6 +16,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import org.jcluster.core.exception.JcException;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
 
@@ -26,6 +27,8 @@ import org.jcluster.core.monitor.AppMetricsMonitor;
 public class ServiceLookup {
 
     //<serviceName, <methodName, method>>
+    private final Map<String, Object> localInterfaceInstanceMap = new HashMap<>();
+
     private final Map<String, Map<String, Method>> serviceMethodsMap = new HashMap<>();
 
     private final Map<String, Object> jndiLookupMap = new HashMap<>();
@@ -37,11 +40,28 @@ public class ServiceLookup {
         return INSTANCE;
     }
 
-    public static Object getService(String jndiName, String className) throws NamingException {
-//        Object serviceObj = null;
+    protected final void registerLocalClassImplementation(Class clazz) throws JcException {
+        try {
+            Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
+            for (Constructor<?> constr : declaredConstructors) {
+                Parameter[] parameters = constr.getParameters();
+                if (parameters.length == 0) {
+                    Object ob = constr.newInstance();
+                    localInterfaceInstanceMap.put(clazz.getName(), ob);
+                }
+            }
+        } catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+            throw new JcException(ex.getMessage());
+        }
+        throw new JcException("Can not find suitable constructor for class: " + clazz.getName());
+    }
 
-        //Figure it out
-        return serviceObj;
+    public static Object getService(String jndiName, String className) throws NamingException {
+        Object ob = INSTANCE.localInterfaceInstanceMap.get(className);
+        if (ob == null) {
+            throw new NamingException("ServiceLookup can not find class instance [" + className + "]  Did you forget to load it?");
+        }
+        return ob;
     }
 
     public static Object getServiceEnterprise(String jndiName, String className) throws NamingException {
@@ -86,23 +106,6 @@ public class ServiceLookup {
             serviceMethodsMap.put(service.getClass().getName(), methodMap);
         }
         return methodMap.get(methodSignature);
-    }
-
-    private Object createClassWithReflection(String className) {
-        try {
-            Class<?> clazz = Class.forName(className);
-            Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
-            for (Constructor<?> constr : declaredConstructors) {
-                Parameter[] parameters = constr.getParameters();
-                if (parameters.length == 0) {
-                    Object unit = constr.newInstance();
-                    return unit;
-                }
-            }
-        } catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | ClassNotFoundException ex) {
-            Logger.getLogger(ServiceLookup.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return null;
     }
 
 }

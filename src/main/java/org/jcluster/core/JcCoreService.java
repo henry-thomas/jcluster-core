@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
 import org.jcluster.core.config.JcAppConfig;
+import org.jcluster.core.exception.JcException;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
@@ -785,4 +786,7 @@ public final class JcCoreService {
         this.enterprise = enterprise;
     }
 
+    public final void registerLocalClassImplementation(Class clazz) throws JcException {
+        ServiceLookup.getINSTANCE().registerLocalClassImplementation(clazz);
+    }
 }
