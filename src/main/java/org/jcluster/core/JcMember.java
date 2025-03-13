@@ -18,7 +18,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import org.jcluster.core.JcRemoteInstanceConnectionBean;
 import org.jcluster.core.bean.RemMembFilter;
 import org.jcluster.core.messages.PublishMsg;
 import org.slf4j.LoggerFactory;
@@ -189,6 +188,10 @@ public class JcMember {
         }
 
         return true;
+    }
+
+    long getLastSeen() {
+        return lastSeen;
     }
 
 }

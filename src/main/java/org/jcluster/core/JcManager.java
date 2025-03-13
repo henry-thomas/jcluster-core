@@ -55,7 +55,7 @@ public class JcManager {
     }
 
     public static void removeFilter(String filterName, Object value) {
-        JcCoreService.getInstance().addSelfFilterValue(filterName, value);
+        JcCoreService.getInstance().removeSelfFilterValue(filterName, value);
     }
 
     private static int broadcastSend(JcProxyMethod pm, Object[] args) {

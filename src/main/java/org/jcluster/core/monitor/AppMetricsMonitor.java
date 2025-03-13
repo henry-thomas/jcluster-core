@@ -4,7 +4,6 @@
  */
 package org.jcluster.core.monitor;
 
-import org.jcluster.core.JcFactory;
 import org.jcluster.core.bean.JcMetrics;
 
 /**
@@ -25,6 +24,11 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     @Override
     public JcMetrics getMetricsMap(String instanceId) {
         return null;
+    }
+
+    @Override
+    public String testReq(String instanceId) {
+        return "Hello from me"; 
     }
 
 }

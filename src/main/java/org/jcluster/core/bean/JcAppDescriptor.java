@@ -27,9 +27,8 @@ public class JcAppDescriptor implements Serializable {
     private final String instanceId;
     private String ipAddress;
     private int ipPortListenUDP;//this is list
-    
-    private int ipPortListenTCP;//this is list
 
+    private int ipPortListenTCP;//this is list
 
     public JcAppDescriptor() {
         this.ipPortListenUDP = JcAppConfig.getINSTANCE().getPort();
@@ -40,8 +39,7 @@ public class JcAppDescriptor implements Serializable {
         this.instanceId = RandomStringUtils.random(16, true, true);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
     }
-
-
+ 
     public boolean isIsolated() {
         return isolated;
     }

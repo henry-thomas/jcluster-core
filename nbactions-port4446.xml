@@ -13,7 +13,7 @@
                 <exec.vmArgs></exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
                 <exec.appArgs>udpListenPort=4446 primaryMember=127.0.0.1:4445</exec.appArgs>
-                <exec.mainClass>org.jcluster.core.cluster.JcCoreService</exec.mainClass>
+                <exec.mainClass>${packageClassName}</exec.mainClass>
                 <exec.executable>java</exec.executable>
             </properties>
         </action>

@@ -131,4 +131,9 @@ public class JcServerEndpoint implements Runnable {
             LOG.error(null, ex);
         }
     }
+
+    public boolean isRunning() {
+        return running;
+    }
+
 }

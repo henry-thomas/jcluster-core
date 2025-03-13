@@ -4,10 +4,16 @@
  */
 package org.jcluster.core;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
@@ -23,6 +29,7 @@ public class ServiceLookup {
     private final Map<String, Map<String, Method>> serviceMethodsMap = new HashMap<>();
 
     private final Map<String, Object> jndiLookupMap = new HashMap<>();
+    private final Set<String> failSet = new HashSet<>();
 
     private static final ServiceLookup INSTANCE = new ServiceLookup();
 
@@ -30,11 +37,14 @@ public class ServiceLookup {
         return INSTANCE;
     }
 
-    public static Object getService(String jndiName) throws NamingException {
-        return getService(jndiName, null);
+    public static Object getService(String jndiName, String className) throws NamingException {
+//        Object serviceObj = null;
+
+        //Figure it out
+        return serviceObj;
     }
 
-    public static Object getService(String jndiName, String className) throws NamingException {
+    public static Object getServiceEnterprise(String jndiName, String className) throws NamingException {
 //        Object serviceObj = null;
 
         Object serviceObj = INSTANCE.jndiLookupMap.get(jndiName);
@@ -76,6 +86,23 @@ public class ServiceLookup {
             serviceMethodsMap.put(service.getClass().getName(), methodMap);
         }
         return methodMap.get(methodSignature);
+    }
+
+    private Object createClassWithReflection(String className) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
+            for (Constructor<?> constr : declaredConstructors) {
+                Parameter[] parameters = constr.getParameters();
+                if (parameters.length == 0) {
+                    Object unit = constr.newInstance();
+                    return unit;
+                }
+            }
+        } catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | ClassNotFoundException ex) {
+            Logger.getLogger(ServiceLookup.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
     }
 
 }

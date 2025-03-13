@@ -21,11 +21,17 @@ public class JcInboundMethodExecutor implements Runnable {
 
     private final JcClientConnection clientConn;
     private final JcMessage request;
+    private final boolean enterprise;
     private static final Logger LOG = Logger.getLogger(JcInboundMethodExecutor.class.getName());
 
     public JcInboundMethodExecutor(JcMessage msg, JcClientConnection clientConn) {
+        this(msg, clientConn, false);
+    }
+
+    public JcInboundMethodExecutor(JcMessage msg, JcClientConnection clientConn, boolean enterprise) {
         this.request = msg;
         this.clientConn = clientConn;
+        this.enterprise = enterprise;
     }
 
     public void sendResponse(JcMsgResponse msg) {
@@ -51,13 +57,17 @@ public class JcInboundMethodExecutor implements Runnable {
                     Object service;
 //com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface
 //com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface#com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface
-                    service = ServiceLookup.getService(jndiName, request.getClassName());
+
+                    if (enterprise) {
+                        service = ServiceLookup.getServiceEnterprise(jndiName, request.getClassName());
+                    } else {
+                        service = ServiceLookup.getService(jndiName, request.getClassName());
+                    }
 
                     Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
 
                     //Do work, then assign response here
                     Object result = method.invoke(service, request.getArgs()); //if method return type is void then result will be null,
-                   
 
                     //send back result or null for ACK
                     JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);

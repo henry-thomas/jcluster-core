@@ -27,7 +27,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,6 +43,7 @@ import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
 import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
 import org.jcluster.core.messages.PublishMsg;
+import org.jcluster.core.monitor.AppMetricMonitorInterface;
 
 /**
  *
@@ -54,6 +54,8 @@ public final class JcCoreService {
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcCoreService.class);
 
     public static final int UDP_LISTEN_PORT_DEFAULT = 4445;
+
+    private boolean enterprise = false;
 
     private int outBoundMinConnection;
 
@@ -285,7 +287,7 @@ public final class JcCoreService {
     }
 
     private void onMemberAdd(JcMember mem) {
-
+        addSelfFilterValue(AppMetricMonitorInterface.JC_INSTANCE_FILTER, mem.getDesc().getInstanceId());
     }
 
     private void onMemberRemove(JcMember mem) {
@@ -294,6 +296,7 @@ public final class JcCoreService {
         selfFilterMap.entrySet().forEach(entry -> {
             entry.getValue().removeSubscirber(mem.getId());
         });
+        removeSelfFilterValue(AppMetricMonitorInterface.JC_INSTANCE_FILTER, mem.getDesc().getInstanceId());
     }
 
     private void updateMember(JcMember mem) {
@@ -428,7 +431,6 @@ public final class JcCoreService {
     private void processRecMsg(JcDistMsg msg, String memId) {
 
         JcMember mem = memberMap.get(memId);
-
         switch (msg.getType()) {
             case JOIN:
                 if (false) {
@@ -773,6 +775,14 @@ public final class JcCoreService {
 
     public int getOutBoundMinConnection() {
         return outBoundMinConnection;
+    }
+
+    public boolean isEnterprise() {
+        return enterprise;
+    }
+
+    public void setEnterprise(boolean enterprise) {
+        this.enterprise = enterprise;
     }
 
 }
