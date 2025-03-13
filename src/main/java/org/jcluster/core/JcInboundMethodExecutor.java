@@ -47,32 +47,25 @@ public class JcInboundMethodExecutor implements Runnable {
     public void run() {
         String jndiName;
         try {
-            switch (request.getMethodSignature()) {
-                case "ping":
-                    onPingRequest();
-                    break;
 
-                default:
-                    jndiName = request.getJndiName();
-                    Object service;
-//com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface
-//com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface#com.myPower24.ejblib.daoLogger.LoggerDataMigrationHistoryInterface
+            jndiName = request.getJndiName();
+            Object service;
 
-                    if (enterprise) {
-                        service = ServiceLookup.getServiceEnterprise(jndiName, request.getClassName());
-                    } else {
-                        service = ServiceLookup.getService(jndiName, request.getClassName());
-                    }
-
-                    Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
-
-                    //Do work, then assign response here
-                    Object result = method.invoke(service, request.getArgs()); //if method return type is void then result will be null,
-
-                    //send back result or null for ACK
-                    JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);
-                    sendResponse(response);
+            if (enterprise) {
+                service = ServiceLookup.getServiceEnterprise(jndiName, request.getClassName());
+            } else {
+                service = ServiceLookup.getService(jndiName, request.getClassName());
             }
+
+            Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
+
+            //Do work, then assign response here
+            Object result = method.invoke(service, request.getArgs()); //if method return type is void then result will be null,
+
+            //send back result or null for ACK
+            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, result);
+            sendResponse(response);
+
         } catch (NamingException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
             LOG.log(Level.SEVERE, null, ex.getCause());
             JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
