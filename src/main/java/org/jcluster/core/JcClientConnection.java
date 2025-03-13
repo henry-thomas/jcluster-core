@@ -60,7 +60,7 @@ public class JcClientConnection implements Runnable {
         this.remoteAppDesc = desc;
         this.connType = conType;
 
-        this.port = this.remoteAppDesc.getIpPort();
+        this.port = this.remoteAppDesc.getIpPortListenTCP();
         this.hostName = this.remoteAppDesc.getIpAddress();
 
         this.connId = remoteAppDesc.getAppName()
@@ -128,7 +128,7 @@ public class JcClientConnection implements Runnable {
 
                 throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
                         + remoteAppDesc.getAppName() + "] ADDRESS: ["
-                        + remoteAppDesc.getIpAddress() + ":" + String.valueOf(remoteAppDesc.getIpPort())
+                        + remoteAppDesc.getIpAddress() + ":" + String.valueOf(remoteAppDesc.getIpPortListenTCP())
                         + "] METHOD: [" + msg.getMethodSignature()
                         + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", msg);
 
