@@ -39,6 +39,7 @@ public class RemMembFilter {
 
     public void onFilterPublishMsg(PublishMsg pm) {
         boolean mustVerifyIndex = false;
+       
         switch (pm.getOperationType()) {
             case PublishMsg.OPER_TYPE_ADD: {
                 addFilterValue(pm.getValue());
@@ -73,7 +74,7 @@ public class RemMembFilter {
 
         if (mustVerifyIndex) {
             long missing = pm.getTransCount() - trIdx + 1;
-            trIdxMisses += missing;
+            trIdxMisses -= missing;
 
             if (trIdxMisses != 0) {
                 lastMissTimestamp = System.currentTimeMillis();
@@ -83,5 +84,7 @@ public class RemMembFilter {
         }
         trIdx = pm.getTransCount();
     }
+    
+    
 
 }

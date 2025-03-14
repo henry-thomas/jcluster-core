@@ -34,6 +34,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
@@ -45,6 +46,7 @@ import static org.jcluster.core.messages.JcDistMsgType.JOIN;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
 import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
+import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
@@ -167,6 +169,7 @@ public final class JcCoreService {
         }
 
         int timeout = 2000;
+        SocketException lastEx = null;
         for (Integer port : portList) {
             try {
                 socket = new DatagramSocket(port);
@@ -175,8 +178,11 @@ public final class JcCoreService {
                 LOG.info("UDP Server init successfully on port: {}", port);
                 return;
             } catch (SocketException ex) {
-                LOG.error(null, ex);
+                lastEx = ex;
             }
+        }
+        if (lastEx != null) {
+            throw lastEx;
         }
         throw new Exception("Could not init UDP server from list: " + portList.toString());
     }
@@ -260,32 +266,26 @@ public final class JcCoreService {
         if (msg.getData() instanceof String) {
             String filterName = (String) msg.getData();
             FilterDescBean fd = selfFilterValueMap.get(filterName);
+            if (fd == null) {
+                fd = new FilterDescBean(filterName);
+                selfFilterValueMap.put(filterName, fd);
+            }
 
             JcDistMsg resp = new JcDistMsg(JcDistMsgType.SUBSCRIBE_RESP, msg.getMsgId(), msg.getTtl());
             resp.setSrc(selfDesc);
 
-            if (fd == null) {
-                //send response that you can help the member because not having filter liket hwi
-                LOG.warn("Receive subscription INVALID request from: {} filter: {}",
-                        mem.getId(), filterName);
+            LOG.info("Receive subscription request from: {} filter: {}", mem.getId(), filterName);
 
-                PublishMsg pm = new PublishMsg();
-                pm.setOperationType(PublishMsg.OPER_TYPE_INVALID_FNAME);
-                resp.setData(pm);
-
-            } else {
-                LOG.info("Receive subscription request from: {} filter: {}",
-                        mem.getId(), filterName);
-
-                PublishMsg pm = new PublishMsg();
-                pm.setOperationType(PublishMsg.OPER_TYPE_ADDBULK);
-                pm.setTransCount(fd.getTransCount());
-                pm.getValueSet().addAll(fd.getValueSet());
-
-            }
+            PublishMsg pm = new PublishMsg();
+            pm.setOperationType(PublishMsg.OPER_TYPE_ADDBULK);
+            pm.setFilterName(filterName);
+            pm.setTransCount(fd.getTransCount());
+            pm.getValueSet().addAll(fd.getValueSet());
+            resp.setData(pm);
 
             try {
-                mem.sendMessage(msg);
+                mem.sendMessage(resp);
+                mem.getSubscribtionSet().add(filterName);
             } catch (IOException ex) {
                 LOG.warn(null, ex);
             }
@@ -390,15 +390,14 @@ public final class JcCoreService {
         }
 
         JcDistMsg ping = generatePingMsg();
-        String strMembLog = "Cluster known members: \n\t";
+//        String strMembLog = "Cluster known members: \n\t";
         for (Iterator<Map.Entry<String, JcMember>> iterator = memberMap.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<String, JcMember> entry = iterator.next();
 
             String memId = entry.getKey();
             JcMember mem = entry.getValue();
 
-            strMembLog += memId + "\n\t";
-
+//            strMembLog += memId + "\n\t";
             if (mem.isLastSeenExpired()) {
                 LOG.warn("Jc Member:" + memId + " TIMEOUT!");
                 memberMap.remove(memId);
@@ -422,7 +421,7 @@ public final class JcCoreService {
                 }
             }
         }
-        LOG.debug(strMembLog);
+//        LOG.debug(strMembLog);
     }
 
     private void sendReqJoin(String ipStrPortStr) throws IOException, Exception {
@@ -505,7 +504,7 @@ public final class JcCoreService {
                 msg.setSrcIpAddr(packet.getAddress().getHostAddress());
 
                 String memID = msg.getSrcIpAddr() + ":" + msg.getSrc().getIpPortListenUDP();
-                LOG.info("Received JcDistMsg: {}  SRC:{}  Size:{}b", msg.getType(), memID, packet.getData().length);
+//                LOG.info("Received JcDistMsg: {}  SRC:{} ", msg.getType(), memID);
                 processRecMsg(msg, memID);
             } else {
                 LOG.warn("Received JcDistMsg  from invalid type: ", ob.getClass().getName());
@@ -559,7 +558,17 @@ public final class JcCoreService {
         fd.removeFilterValue(value);
 
         //notify all subscribers for this value
-        //TODO
+        List<JcMember> subscribers = memberMap.values().stream()
+                .filter((t) -> t.isSubscribed(filterName))
+                .collect(Collectors.toList());
+
+        PublishMsg pm = new PublishMsg();
+        pm.setFilterName(filterName);
+        pm.setValue(value);
+        pm.setOperationType(PublishMsg.OPER_TYPE_ADD);
+        pm.setTransCount(fd.getTransCount());
+
+        publisFilterChange(subscribers, pm);
     }
 
     public void addSelfFilterValue(String filterName, Object value) {
@@ -572,8 +581,30 @@ public final class JcCoreService {
         fd.addFilterValue(value);
 
         //notify all subscribers for this value
-        //TODO
-        
+        List<JcMember> subscribers = memberMap.values().stream()
+                .filter((t) -> t.isSubscribed(filterName))
+                .collect(Collectors.toList());
+
+        PublishMsg pm = new PublishMsg();
+        pm.setFilterName(filterName);
+        pm.setValue(value);
+        pm.setOperationType(PublishMsg.OPER_TYPE_ADD);
+        pm.setTransCount(fd.getTransCount());
+
+        publisFilterChange(subscribers, pm);
+    }
+
+    private void publisFilterChange(List<JcMember> subscribers, PublishMsg pm) {
+        JcDistMsg msg = new JcDistMsg(JcDistMsgType.PUBLISH_FILTER);
+        msg.setSrc(selfDesc);
+        msg.setData(pm);
+        subscribers.forEach((t) -> {
+            try {
+                t.sendMessage(msg);
+            } catch (IOException ex) {
+                LOG.warn(null, ex);
+            }
+        });
     }
 
     public boolean subscribeToTopicFilter(String topic, String filterName) {

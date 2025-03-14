@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import ch.qos.logback.classic.Level;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutput;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.jcluster.core.bean.FilterDescBean;
 import org.jcluster.core.bean.RemMembFilter;
 import org.jcluster.core.messages.PublishMsg;
 import org.slf4j.LoggerFactory;
@@ -45,6 +47,7 @@ public class JcMember {
     private final Map<String, RemMembFilter> filterMap = new HashMap<>();
 
     public JcMember(JcAppDescriptor desc) {
+        LOG.setLevel(Level.ALL);
         this.desc = desc;
         if (desc != null) {
             conector.setDesc(desc);
@@ -83,6 +86,7 @@ public class JcMember {
 
         RemMembFilter rmf = getOrCreateFilterTarget(filterName);
         rmf.onFilterPublishMsg(pm);
+        LOG.trace("Receive published Filter {}     Filter state", pm, rmf);
     }
 
     protected void onSubscResponseMsg(JcDistMsg msg) {
@@ -90,6 +94,7 @@ public class JcMember {
             LOG.warn("Receive invalid Subscription response: {}", msg);
             return;
         }
+
         PublishMsg pm = (PublishMsg) msg.getData();
         String filterName = pm.getFilterName();
         if (filterName == null) {
@@ -188,6 +193,28 @@ public class JcMember {
         }
 
         return true;
+    }
+
+    protected boolean isSubscribed(String fName) {
+        return subscribtionSet.contains(fName);
+    }
+
+    protected void notifyOnFilterValueAdd(String fName, Object fVal, FilterDescBean fd) {
+
+        if (!subscribtionSet.contains(fName)) {
+            return;
+        }
+        //from here , remote member is subscribe and we have to send message to give him the new value
+
+    }
+
+    protected void notifyOnFilterValueRemoved(String fName, Object fVal, FilterDescBean fd) {
+
+        if (!subscribtionSet.contains(fName)) {
+            return;
+        }
+        //from here , remote member is subscribe and we have to send message to give him the new value
+
     }
 
     public long getLastSeen() {

@@ -4,6 +4,7 @@
  */
 package org.jcluster.core.messages;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -11,7 +12,7 @@ import java.util.Set;
  *
  * @author platar86
  */
-public class PublishMsg {
+public class PublishMsg implements Serializable {
 
     public static final int OPER_TYPE_UNKNOWN = 0;
     public static final int OPER_TYPE_ADD = 1;
@@ -61,6 +62,11 @@ public class PublishMsg {
 
     public void setValue(Object value) {
         this.value = value;
+    }
+
+    @Override
+    public String toString() {
+        return "PublishMsg{" + "filterName=" + filterName + ", transCount=" + transCount + ", valueSet=" + valueSet + ", value=" + value + '}';
     }
 
 }
