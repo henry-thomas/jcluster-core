@@ -40,6 +40,7 @@ import org.jcluster.core.bean.FilterDescBean;
 import org.jcluster.core.bean.RemMembFilter;
 import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
+import org.jcluster.core.exception.cluster.JcInstanceNotFoundException;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
@@ -364,7 +365,7 @@ public final class JcCoreService {
         for (Map.Entry<String, JcMember> entry : primaryMemberMap.entrySet()) {
             String memId = entry.getKey();
             JcMember mem = entry.getValue();
-            if (entry.getValue() == null) {
+            if (mem == null) {
 
 //            memberMap.entrySet().stream().fi
                 if (!memberMap.containsKey(memId) && !memId.equals(selfDesc.getIpStrPortStr())) {
@@ -376,7 +377,7 @@ public final class JcCoreService {
                         LOG.error(null, ex);
                         //TODO remove from memberMap here
                     }
-                } else if (mem.isLastSeenExpired()) {
+                } else if (mem != null && mem.isLastSeenExpired()) {
                     JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.JOIN);
                     jcDistMsg.setSrc(selfDesc);
                     try {
@@ -572,6 +573,7 @@ public final class JcCoreService {
 
         //notify all subscribers for this value
         //TODO
+        
     }
 
     public boolean subscribeToTopicFilter(String topic, String filterName) {
@@ -603,8 +605,10 @@ public final class JcCoreService {
 
         //force immediate subscription
         lastPrimaryMemUpdate = 0l;
-
-        return topicSet.add(filterName);
+        if (filterName != null) {
+            topicSet.add(filterName);
+        }
+        return true;
     }
 
     public static void main(String[] args) throws SocketException {
@@ -733,13 +737,16 @@ public final class JcCoreService {
 
     protected JcRemoteInstanceConnectionBean getMemConByTopicAndFilter(String topic, Map<String, Object> fMap) {
         JcMember foundMem = memberMap.values().stream()
-                .filter((mem) -> mem.getConector().isOutboundAvailable())
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
                 .filter((mem) -> mem.containsFilter(fMap))
-                .findFirst().get();
+                .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
 
         if (foundMem == null) {
             return null;
+        }
+
+        if (!foundMem.getConector().isOutboundAvailable()) {
+            foundMem.getConector().setOnDemandConnection(true);
         }
 
         return foundMem.getConector();
@@ -748,27 +755,34 @@ public final class JcCoreService {
 
     protected JcRemoteInstanceConnectionBean getMemConByTopicSingle(String topic) {
         JcMember foundMem = memberMap.values().stream()
-                .filter((mem) -> mem.getConector().isOutboundAvailable())
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
-                .findFirst().get();
+                .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
 
         if (foundMem == null) {
             return null;
         }
 
+        if (!foundMem.getConector().isOutboundAvailable()) {
+            foundMem.getConector().setOnDemandConnection(true);
+        }
         return foundMem.getConector();
 
     }
 
     protected JcRemoteInstanceConnectionBean getMemConByAppAndFilter(String app, Map<String, Object> fMap) {
         JcMember foundMem = memberMap.values().stream()
-                .filter((mem) -> mem.getConector().isOutboundAvailable())
-                .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
+                .filter((mem)
+                        -> Objects.equals(mem.getDesc().getAppName(), app)
+                )
                 .filter((mem) -> mem.containsFilter(fMap))
-                .findFirst().get();
+                .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
 
         if (foundMem == null) {
             return null;
+        }
+
+        if (!foundMem.getConector().isOutboundAvailable()) {
+            foundMem.getConector().setOnDemandConnection(true);
         }
 
         return foundMem.getConector();
@@ -777,14 +791,15 @@ public final class JcCoreService {
 
     protected JcRemoteInstanceConnectionBean getMemConByAppSingle(String app) {
         JcMember foundMem = memberMap.values().stream()
-                .filter((mem) -> mem.getConector().isOutboundAvailable())
                 .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
-                .findFirst().get();
+                .findFirst().orElseThrow(() -> new JcInstanceNotFoundException("No available instance found for app: [" + app + "]"));
 
         if (foundMem == null) {
             return null;
         }
-
+        if (!foundMem.getConector().isOutboundAvailable()) {
+            foundMem.getConector().setOnDemandConnection(true);
+        }
         return foundMem.getConector();
 
     }

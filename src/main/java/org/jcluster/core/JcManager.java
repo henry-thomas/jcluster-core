@@ -126,7 +126,7 @@ public class JcManager {
                     ri = JcCoreService.getInstance().getMemConByAppSingle(pm.getAppName());
                 } else {
                     throw new JcIOException(
-                            "Invalid JC destination  App: " + pm.getAppName() + "  Toppic: " + pm.getTopicName());
+                            "Invalid JC destination  App: " + pm.getAppName() + "  Topic: " + pm.getTopicName());
                 }
             }
 
@@ -143,12 +143,14 @@ public class JcManager {
         ServiceLookup.getINSTANCE().registerLocalClassImplementation(clazz);
     }
 
-    public static final <T> T generateProxy(Class<T> clazz) {
-        JcRemote jcRemoteAnn = (JcRemote) clazz.getAnnotation(JcRemote.class);
+    public static final <T> T generateProxy(Class<T> iClazz) {
+        JcRemote jcRemoteAnn = (JcRemote) iClazz.getAnnotation(JcRemote.class);
         if (jcRemoteAnn == null) {
             throw new JcRuntimeException("Invalid class, JcRemote annotation expected.");
         }
-        return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{clazz}, new JcRemoteInvocationHandler());
+        
+        ServiceLookup.getINSTANCE().scanAnnotationFilters(iClazz);
+        return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler());
     }
 
 }

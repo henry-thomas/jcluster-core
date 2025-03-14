@@ -13,7 +13,6 @@ import org.jcluster.lib.annotation.JcRemote;
  *
  * @author henry
  */
-@Remote
 @JcRemote
 public interface AppMetricMonitorInterface {
     public static final String JC_INSTANCE_FILTER = "jcInstance";

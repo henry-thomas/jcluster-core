@@ -4,21 +4,24 @@
  */
 package org.jcluster.core;
 
+import java.io.File;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import org.apache.commons.lang3.ClassUtils;
 import org.jcluster.core.exception.JcException;
-import org.jcluster.core.monitor.AppMetricMonitorInterface;
-import org.jcluster.core.monitor.AppMetricsMonitor;
+import org.jcluster.lib.annotation.JcFilter;
 import org.jcluster.lib.annotation.JcRemote;
 
 /**
@@ -33,7 +36,7 @@ public class ServiceLookup {
     private final Map<String, Map<String, Method>> serviceMethodsMap = new HashMap<>();
 
     private final Map<String, Object> jndiLookupMap = new HashMap<>();
-    private final Set<String> failSet = new HashSet<>();
+//    private final Set<String> failSet = new HashSet<>();
 
     private static final ServiceLookup INSTANCE = new ServiceLookup();
 
@@ -46,7 +49,8 @@ public class ServiceLookup {
             Class iFaceClass = null;
             Class[] interfaces = clazz.getInterfaces();
             for (Class aInterface : interfaces) {
-                if (aInterface.getAnnotation(JcRemote.class) != null) {
+                Annotation annotation = aInterface.getAnnotation(JcRemote.class);
+                if (annotation != null) {
                     iFaceClass = aInterface;
                     break;
                 }
@@ -60,6 +64,9 @@ public class ServiceLookup {
                 if (parameters.length == 0) {
                     Object ob = constr.newInstance();
                     localInterfaceInstanceMap.put(iFaceClass.getName(), ob);
+
+                    //subscribe here if has not been done yet
+                    scanAnnotationFilters(iFaceClass);
                     return;
                 }
             }
@@ -115,6 +122,56 @@ public class ServiceLookup {
             serviceMethodsMap.put(service.getClass().getName(), methodMap);
         }
         return methodMap.get(methodSignature);
+    }
+
+    protected void scanAnnotationFilters(Class iClazz) {
+        JcRemote classAnnot = (JcRemote) iClazz.getAnnotation(JcRemote.class);
+
+        for (Method method : iClazz.getMethods()) {
+
+//            method.getParameters()
+            for (Parameter param : method.getParameters()) {
+                JcFilter parAnn = param.getAnnotation(JcFilter.class);
+                if (parAnn != null) {
+                    if (!classAnnot.appName().isEmpty() ) {
+                        JcCoreService.getInstance().subscribeToAppFilter(classAnnot.appName(), parAnn.filterName());
+                    }
+                    if (!classAnnot.topic().isEmpty()) {
+                        JcCoreService.getInstance().subscribeToTopicFilter(classAnnot.topic(), parAnn.filterName());
+                    }
+                }
+            }
+
+        }
+    }
+
+    public static List<Class<?>> findImplementations(String packageName, Class<?> interfaceClass) {
+        //com.mypower24.jcclustertest.FilterTestIFace
+        List<Class<?>> implementations = new ArrayList<>();
+        String path = packageName.replace('.', '/');
+
+        try {
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            URL resource = classLoader.getResource(path);
+            if (resource == null) {
+                return implementations;
+            }
+
+            File directory = new File(resource.toURI());
+            if (directory.exists()) {
+                if (directory.getName().endsWith(".class")) {
+                    String className = packageName.replace(".class", "");
+                    Class<?> clazz = Class.forName(className);
+                    if (interfaceClass.isAssignableFrom(clazz) && !clazz.isInterface()) {
+                        implementations.add(clazz);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return implementations;
     }
 
 }
