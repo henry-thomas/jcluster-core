@@ -5,26 +5,20 @@
 package org.jcluster.core;
 
 import ch.qos.logback.classic.Logger;
-import javax.enterprise.concurrent.ManagedExecutorService;
-import javax.enterprise.concurrent.ManagedThreadFactory;
-import static java.lang.System.currentTimeMillis;
-import java.util.ArrayDeque;
-import java.util.Collections;
+import java.lang.reflect.Proxy;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
-import javax.naming.NamingException;
-import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.bean.JcMemberEvent;
-import org.jcluster.core.bean.JcMemerEventTypeEnum;
+import java.util.logging.Level;
+import static org.jcluster.core.JcBootstrap.appNameList;
+import static org.jcluster.core.JcBootstrap.topicNameList;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
-import org.jcluster.core.config.JcAppConfig;
+import org.jcluster.core.exception.JcException;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.proxy.JcProxyMethod;
+import org.jcluster.core.proxy.JcRemoteInvocationHandler;
+import org.jcluster.lib.annotation.JcRemote;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -101,6 +95,8 @@ public class JcManager {
                 throw new JcIOException(
                         "Invalid JC destination  App: " + pm.getAppName() + "  Toppic: " + pm.getTopicName());
             }
+        } else {
+            ri = JcCoreService.getInstance().getMemConByFilter(fMap);
         }
 
         if (ri == null) {
@@ -141,6 +137,18 @@ public class JcManager {
 
             return ri.send(pm, args);
         }
+    }
+
+    public final void registerLocalClassImplementation(Class clazz) throws JcException {
+        ServiceLookup.getINSTANCE().registerLocalClassImplementation(clazz);
+    }
+
+    public static final <T> T generateProxy(Class<T> clazz) {
+        JcRemote jcRemoteAnn = (JcRemote) clazz.getAnnotation(JcRemote.class);
+        if (jcRemoteAnn == null) {
+            throw new JcRuntimeException("Invalid class, JcRemote annotation expected.");
+        }
+        return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{clazz}, new JcRemoteInvocationHandler());
     }
 
 }

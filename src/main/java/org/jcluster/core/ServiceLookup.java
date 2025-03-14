@@ -19,6 +19,7 @@ import javax.naming.NamingException;
 import org.jcluster.core.exception.JcException;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
+import org.jcluster.lib.annotation.JcRemote;
 
 /**
  *
@@ -42,12 +43,23 @@ public class ServiceLookup {
 
     protected final void registerLocalClassImplementation(Class clazz) throws JcException {
         try {
+            Class iFaceClass = null;
+            Class[] interfaces = clazz.getInterfaces();
+            for (Class aInterface : interfaces) {
+                if (aInterface.getAnnotation(JcRemote.class) != null) {
+                    iFaceClass = aInterface;
+                    break;
+                }
+            }
+            if (iFaceClass == null) {
+                throw new JcException("Can not find suitable interface for class: " + clazz.getName());
+            }
             Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
             for (Constructor<?> constr : declaredConstructors) {
                 Parameter[] parameters = constr.getParameters();
                 if (parameters.length == 0) {
                     Object ob = constr.newInstance();
-                    localInterfaceInstanceMap.put(clazz.getName(), ob);
+                    localInterfaceInstanceMap.put(iFaceClass.getName(), ob);
                     return;
                 }
             }

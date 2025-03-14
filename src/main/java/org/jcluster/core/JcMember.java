@@ -190,7 +190,7 @@ public class JcMember {
         return true;
     }
 
-    long getLastSeen() {
+    public long getLastSeen() {
         return lastSeen;
     }
 

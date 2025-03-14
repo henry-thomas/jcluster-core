@@ -37,8 +37,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
+import org.jcluster.core.bean.RemMembFilter;
 import org.jcluster.core.config.JcAppConfig;
-import org.jcluster.core.exception.JcException;
+import org.jcluster.core.exception.JcRuntimeException;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
@@ -64,7 +65,7 @@ public final class JcCoreService {
     //to keep track on own filters set
     //key is filterName
     //value is FilterDescBean with set of values inside
-    private final Map<String, FilterDescBean> selfFilterMap = new ConcurrentHashMap<>();
+    private final Map<String, FilterDescBean> selfFilterValueMap = new ConcurrentHashMap<>();
 
     private final Map<String, JcMember> memberMap = new ConcurrentHashMap<>();
 
@@ -142,7 +143,8 @@ public final class JcCoreService {
             serverThread.setName("JcServerEndpoint");
             serverThread.start();
 
-            registerLocalClassImplementation(AppMetricsMonitor.class);
+            JcManager.getInstance().registerLocalClassImplementation(AppMetricsMonitor.class);
+
         }
     }
 
@@ -256,7 +258,7 @@ public final class JcCoreService {
     private void onSubscRequestMsg(JcMember mem, JcDistMsg msg) {
         if (msg.getData() instanceof String) {
             String filterName = (String) msg.getData();
-            FilterDescBean fd = selfFilterMap.get(filterName);
+            FilterDescBean fd = selfFilterValueMap.get(filterName);
 
             JcDistMsg resp = new JcDistMsg(JcDistMsgType.SUBSCRIBE_RESP, msg.getMsgId(), msg.getTtl());
             resp.setSrc(selfDesc);
@@ -290,16 +292,22 @@ public final class JcCoreService {
     }
 
     private void onMemberAdd(JcMember mem) {
-        addSelfFilterValue(AppMetricMonitorInterface.JC_INSTANCE_FILTER, mem.getDesc().getInstanceId());
+        //Add from remote since we have him already
+        RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
+        filter.addFilterValue(mem.getDesc().getInstanceId());
     }
 
     private void onMemberRemove(JcMember mem) {
         mem.close();
         //remove member if has been subscribe to something
-        selfFilterMap.entrySet().forEach(entry -> {
+        selfFilterValueMap.entrySet().forEach(entry -> {
             entry.getValue().removeSubscirber(mem.getId());
         });
-        removeSelfFilterValue(AppMetricMonitorInterface.JC_INSTANCE_FILTER, mem.getDesc().getInstanceId());
+
+        //Remove from remote since we have him already
+        RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
+        filter.removeFilterValue(mem.getDesc().getInstanceId());
+
     }
 
     private void updateMember(JcMember mem) {
@@ -359,7 +367,7 @@ public final class JcCoreService {
             if (entry.getValue() == null) {
 
 //            memberMap.entrySet().stream().fi
-                if (!memberMap.containsKey(memId)) {
+                if (!memberMap.containsKey(memId) && !memId.equals(selfDesc.getIpStrPortStr())) {
                     try {
                         sendReqJoin(memId);
                     } catch (IOException ex) {
@@ -542,10 +550,10 @@ public final class JcCoreService {
     }
 
     public void removeSelfFilterValue(String filterName, Object value) {
-        FilterDescBean fd = selfFilterMap.get(filterName);
+        FilterDescBean fd = selfFilterValueMap.get(filterName);
         if (fd == null) {
             fd = new FilterDescBean(filterName);
-            selfFilterMap.put(filterName, fd);
+            selfFilterValueMap.put(filterName, fd);
         }
         fd.removeFilterValue(value);
 
@@ -554,10 +562,10 @@ public final class JcCoreService {
     }
 
     public void addSelfFilterValue(String filterName, Object value) {
-        FilterDescBean fd = selfFilterMap.get(filterName);
+        FilterDescBean fd = selfFilterValueMap.get(filterName);
         if (fd == null) {
             fd = new FilterDescBean(filterName);
-            selfFilterMap.put(filterName, fd);
+            selfFilterValueMap.put(filterName, fd);
         }
         //add value
         fd.addFilterValue(value);
@@ -637,8 +645,8 @@ public final class JcCoreService {
 
             //validate all instances have correct amount of outbound connections
             //we have to check the app name because there is another apps that makes only inboudn connections
-            if (subscAppFilterMap.containsKey(mem.getDesc().getAppName())
-                    || !Collections.disjoint(mem.getDesc().getTopicList(), subscAppFilterMap.keySet())) {
+            if (ri.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
+                    || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
                 ri.validateOutboundConnectionCount(JcAppConfig.getINSTANCE().getMinConnections());
             }
 
@@ -703,6 +711,23 @@ public final class JcCoreService {
                 .collect(Collectors.toList());
 
         return riList;
+
+    }
+
+    protected JcRemoteInstanceConnectionBean getMemConByFilter(Map<String, Object> fMap) {
+        JcMember foundMem = memberMap.values().stream()
+                .filter((mem) -> mem.containsFilter(fMap))
+                .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
+
+        if (foundMem == null) {
+            return null;
+        }
+
+        if (!foundMem.getConector().isOutboundAvailable()) {
+            foundMem.getConector().setOnDemandConnection(true);
+        }
+
+        return foundMem.getConector();
 
     }
 
@@ -788,7 +813,4 @@ public final class JcCoreService {
         this.enterprise = enterprise;
     }
 
-    public final void registerLocalClassImplementation(Class clazz) throws JcException {
-        ServiceLookup.getINSTANCE().registerLocalClassImplementation(clazz);
-    }
 }

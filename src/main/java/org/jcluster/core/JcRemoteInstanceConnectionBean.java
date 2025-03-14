@@ -36,8 +36,9 @@ import org.jcluster.core.proxy.JcProxyMethod;
  * Bean that handles connections with another app. Uses the appDescriptor to
  * figure out how to manage that connection.
  */
-
 public class JcRemoteInstanceConnectionBean {
+
+    private boolean onDemandConnection = false;
 
     private static final Logger LOG = Logger.getLogger(JcRemoteInstanceConnectionBean.class.getName());
 
@@ -51,7 +52,14 @@ public class JcRemoteInstanceConnectionBean {
     private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
 
     private JcAppDescriptor desc = null;
-  
+
+    public boolean isOnDemandConnection() {
+        return onDemandConnection;
+    }
+
+    public void setOnDemandConnection(boolean onDemandConnection) {
+        this.onDemandConnection = onDemandConnection;
+    }
 
     public void setDesc(JcAppDescriptor desc) {
         this.desc = desc;
@@ -90,7 +98,6 @@ public class JcRemoteInstanceConnectionBean {
         if (desc == null) {
             return;
         }
-     
 
         int actualCount = outboundList.size();
 
