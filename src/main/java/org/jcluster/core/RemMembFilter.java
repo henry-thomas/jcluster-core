@@ -2,12 +2,11 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.bean;
+package org.jcluster.core;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import org.jcluster.core.messages.PublishMsg;
 import org.slf4j.LoggerFactory;
@@ -19,27 +18,36 @@ import org.slf4j.LoggerFactory;
 public class RemMembFilter {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(RemMembFilter.class);
-    private final Map<String, Long> filterMapTrIdxValuesMiss = new HashMap<>();
+
     private long trIdxMisses = 0;
     private long trIdx = 0;
     private long lastMissTimestamp = 0;
-    private final Set<Object> filterMapValues = new HashSet<>();
+    private final Set<Object> valueSet = new HashSet<>();
+    private final String filterName;
+
+    private final JcMember mem;
+
+    public RemMembFilter(String filterName, JcMember mem) {
+        this.filterName = filterName;
+        this.mem = mem;
+        LOG.setLevel(Level.ALL);
+    }
 
     public boolean containsFilterValue(Object val) {
-        return filterMapValues.contains(val);
+        return valueSet.contains(val);
     }
 
     public boolean addFilterValue(Object value) {
-        return filterMapValues.add(value);
+        return valueSet.add(value);
     }
 
     public boolean removeFilterValue(Object value) {
-        return filterMapValues.remove(value);
+        return valueSet.remove(value);
     }
 
-    public void onFilterPublishMsg(PublishMsg pm) {
-        boolean mustVerifyIndex = false;
-       
+    public synchronized void onFilterPublishMsg(PublishMsg pm) {
+        boolean mustVerifyIndex;
+
         switch (pm.getOperationType()) {
             case PublishMsg.OPER_TYPE_ADD: {
                 addFilterValue(pm.getValue());
@@ -57,13 +65,14 @@ public class RemMembFilter {
                     return;
                 }
 
-                filterMapValues.clear();
-                filterMapValues.add(pm.getOperationType());
+                valueSet.clear();
+                valueSet.addAll(pm.getValueSet());
 
                 trIdxMisses = 0;
                 lastMissTimestamp = 0;
 
                 mustVerifyIndex = false;
+                LOG.trace("Filter [{}] Add Bulk values  trIdx[{}]  Size: {}", filterName, trIdx, valueSet.size());
                 break;
             }
             default: {
@@ -73,8 +82,14 @@ public class RemMembFilter {
         }
 
         if (mustVerifyIndex) {
-            long missing = pm.getTransCount() - trIdx + 1;
-            trIdxMisses -= missing;
+            //DEBUG ONLY TODO Remove in production
+            if (pm.getValue() != null && pm.getValue().toString().equals("skip")) {
+                trIdxMisses++;
+            }
+
+            long missing = pm.getTransCount() - trIdx - 1;
+
+            trIdxMisses += missing;
 
             if (trIdxMisses != 0) {
                 lastMissTimestamp = System.currentTimeMillis();
@@ -84,7 +99,24 @@ public class RemMembFilter {
         }
         trIdx = pm.getTransCount();
     }
-    
-    
+
+    protected boolean checkIntegrity() {
+        if (lastMissTimestamp != 0) {
+            long timeUnconsistant = System.currentTimeMillis() - lastMissTimestamp;
+            if (timeUnconsistant > 10000) {
+                LOG.warn("Filter [{}] inconsistent [{} : {}]  since: {} ms Forcing resubscribe", filterName, trIdx, trIdxMisses, timeUnconsistant);
+                return false;
+            } else {
+                LOG.info("Filter [{}] inconsistent  [{} : {}]  since: {} ms  Size: {}", filterName, trIdx, trIdxMisses, timeUnconsistant, valueSet.size());
+            }
+        } else {
+            LOG.trace("Filter [{}] correct integrity  [{} : {}]  Size: {}", filterName, trIdx, trIdxMisses, valueSet.size());
+        }
+        return true;
+    }
+
+    public String getFilterName() {
+        return filterName;
+    }
 
 }

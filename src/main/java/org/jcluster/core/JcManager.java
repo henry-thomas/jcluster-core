@@ -145,7 +145,7 @@ public class JcManager {
         if (jcRemoteAnn == null) {
             throw new JcRuntimeException("Invalid class, JcRemote annotation expected.");
         }
-        
+
         ServiceLookup.getINSTANCE().scanAnnotationFilters(iClazz);
         return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler());
     }

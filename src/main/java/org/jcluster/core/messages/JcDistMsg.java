@@ -5,6 +5,8 @@
 package org.jcluster.core.messages;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.bean.JcAppDescriptor;
 
@@ -15,12 +17,13 @@ import org.jcluster.core.bean.JcAppDescriptor;
 public class JcDistMsg implements Serializable {
 
     private final JcDistMsgType type;
-//    private boolean request = true;
+
     private final String msgId;
     private int ttl;
     private JcAppDescriptor src;
     private Object data;
     private String srcIpAddr;
+
     private final long timestamp = System.currentTimeMillis();
 
     public JcDistMsg(JcDistMsgType type) {
@@ -35,6 +38,20 @@ public class JcDistMsg implements Serializable {
         this.ttl = ttl;
     }
 
+    public static List<JcDistMsg> createFragmentMessages(JcDistMsg src, JcMsgFragment fr) {
+        List<JcDistMsg> frList = new ArrayList<>();
+        for (int i = 0; i < fr.getFragments().length; i++) {
+            JcMsgFragmentData frData = fr.getFragments()[i];
+            JcDistMsg frDataMsg = new JcDistMsg(JcDistMsgType.FAG_DATA);
+            frDataMsg.setSrc(src.getSrc());
+            frDataMsg.setSrcIpAddr(src.getSrcIpAddr());
+            frDataMsg.setData(frData);
+
+            frList.add(frDataMsg);
+        }
+        return frList;
+    }
+
     public static JcDistMsg generateJoinResponse(JcDistMsg request, JcAppDescriptor src) {
         JcDistMsg resp = new JcDistMsg(JcDistMsgType.JOIN_RESP, request.msgId, request.getTtl() - 1);
         resp.data = request.src;
@@ -43,8 +60,6 @@ public class JcDistMsg implements Serializable {
         return resp;
 
     }
-
-   
 
     public boolean hasTTLExpire() {
         ttl--;
