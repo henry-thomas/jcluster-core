@@ -40,4 +40,9 @@ public class JcMsgFragmentData implements Serializable{
         return totalFragments;
     }
 
+    @Override
+    public String toString() {
+        return "JcMsgFragmentData{" + "frgId=" + frgId + ", seq=" + seq + ", totalFragments=" + totalFragments + '}';
+    }
+
 }

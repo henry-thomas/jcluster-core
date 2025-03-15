@@ -19,8 +19,8 @@ public enum JcDistMsgType {
     SUBSCRIBE_RESP,
     AUTH_REQ,
     AUTH_RESP,
-    FAG_DATA,//
-    FAG_ACK,//
-    FAG_REPEAT,//
+    FRG_DATA,//
+    FRG_ACK,//
+    FRG_RESEND,//
     ;
 }

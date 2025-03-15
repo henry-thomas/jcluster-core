@@ -18,6 +18,7 @@ import ch.qos.logback.classic.Logger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,6 +28,7 @@ import org.jcluster.core.messages.JcDistMsgType;
 import org.jcluster.core.messages.JcMsgFragment;
 import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.JcMsgFragmentData;
+import org.jcluster.core.messages.JcMsgFrgResendReq;
 import org.jcluster.core.messages.PublishMsg;
 import org.slf4j.LoggerFactory;
 
@@ -73,19 +75,38 @@ public class JcMember {
 
     void verifyRxFrag() {
         long now = System.currentTimeMillis();
-        for (Map.Entry<String, JcMsgFragment> entry : rxFragList.entrySet()) {
-            String id = entry.getKey();
-            JcMsgFragment fr = entry.getValue();
+        for (Iterator<JcMsgFragment> iterator = rxFragList.values().iterator(); iterator.hasNext();) {
+            JcMsgFragment fr = iterator.next();
 
-            if (now - fr.getTimestamp() > 1000) {
-                
+            if (now - fr.getTimestamp() > 500) {
+                if (fr.getRecoverCount() >= 3) {
+                    rxFragList.remove(fr.getFrgId());
+                    LOG.info("Fragment [{}] could not resend.", fr.getFrgId());
+                } else {
+                    LOG.info("Sending FrgResend request [{}]", fr.getFrgId());
+
+                    List<Integer> missingFragmenList = fr.getMissingFragmenList(); //this will increment missing counter
+                    JcMsgFrgResendReq resendReq = new JcMsgFrgResendReq(fr.getFrgId(), missingFragmenList);
+
+                    JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.FRG_RESEND);
+                    jcDistMsg.setSrc(core.selfDesc);
+                    jcDistMsg.setData(resendReq);
+
+                    try {
+                        sendMessage(jcDistMsg);
+                    } catch (IOException ex) {
+                        java.util.logging.Logger.getLogger(JcMember.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+                    }
+                }
             }
         }
     }
 
     void verifyFilterIntegrity() {
+       
         filterMap.values().forEach((filter) -> {
             if (!filter.checkIntegrity()) {
+                filter.resetIntegrityTimechek();
 
                 JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.SUBSCRIBE);
                 jcDistMsg.setSrc(core.selfDesc);
@@ -131,6 +152,35 @@ public class JcMember {
 
     }
 
+    void onFrgMsgResend(JcDistMsg msg) {
+        if (msg.getData() == null || !(msg.getData() instanceof JcMsgFrgResendReq)) {
+            LOG.warn("Invalid Fragmented Resend msg received!");
+            return;
+        }
+        JcMsgFrgResendReq resendReq = (JcMsgFrgResendReq) msg.getData();
+
+        JcMsgFragment fr = txFragList.get(resendReq.getFrgId());
+        if (fr == null) {
+            LOG.warn("Fragmented Resend msg received not in buffer frId[{}]", resendReq.getFrgId());
+            return;
+        }
+
+        LOG.trace("Receive Resend request Fragment {}", resendReq.getFrgId());
+        for (Integer frIdx : resendReq.getResendFrIdx()) {
+
+            JcMsgFragmentData frData = fr.getFragments()[frIdx];
+            JcDistMsg frDataMsg = new JcDistMsg(JcDistMsgType.FRG_DATA);
+            frDataMsg.setSrc(core.selfDesc);
+            frDataMsg.setData(frData);
+            try {
+                LOG.trace("Resend FragmentData {}", frData);
+                sendMessage(frDataMsg);
+            } catch (IOException ex) {
+            }
+        }
+
+    }
+
     protected void onFrgMsgReceived(JcDistMsg msg) {
         if (msg.getData() == null || !(msg.getData() instanceof JcMsgFragmentData)) {
             LOG.warn("Invalid Fragmented msg received!");
@@ -158,7 +208,7 @@ public class JcMember {
                     LOG.error(null, e);
                 }
 
-                JcDistMsg frAckMsg = new JcDistMsg(JcDistMsgType.FAG_ACK);
+                JcDistMsg frAckMsg = new JcDistMsg(JcDistMsgType.FRG_ACK);
                 frAckMsg.setSrc(core.selfDesc);
                 frAckMsg.setData(frData.getFrgId());
                 try {
@@ -241,10 +291,17 @@ public class JcMember {
 
         if (data.length > JcCoreService.UDP_FRAME_FRAGMENTATION_SIZE) {
             JcMsgFragment fr = JcMsgFragment.createTxFragmentMsg(data);
-            for (JcDistMsg jcDistMsg : JcDistMsg.createFragmentMessages(msg, fr)) {
-                sendMessage(jcDistMsg, ip, port);
 
+            List<JcDistMsg> toSend = JcDistMsg.createFragmentMessages(msg, fr);
+            for (int i = 0; i < toSend.size(); i++) {
+                //TODO REMOVE DEBUG
+                //Simulate missing packet 
+                if (i == 1) {
+                    continue;
+                }
+                sendMessage(toSend.get(i), ip, port);
             }
+
             txFragList.put(fr.getFrgId(), fr);
             LOG.trace("Sending Fragmented message: {}", fr);
         } else {

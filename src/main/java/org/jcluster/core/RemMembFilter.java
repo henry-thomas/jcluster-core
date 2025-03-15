@@ -100,6 +100,10 @@ public class RemMembFilter {
         trIdx = pm.getTransCount();
     }
 
+    protected void resetIntegrityTimechek() {
+        lastMissTimestamp = System.currentTimeMillis();
+    }
+
     protected boolean checkIntegrity() {
         if (lastMissTimestamp != 0) {
             long timeUnconsistant = System.currentTimeMillis() - lastMissTimestamp;
@@ -110,7 +114,7 @@ public class RemMembFilter {
                 LOG.info("Filter [{}] inconsistent  [{} : {}]  since: {} ms  Size: {}", filterName, trIdx, trIdxMisses, timeUnconsistant, valueSet.size());
             }
         } else {
-            LOG.trace("Filter [{}] correct integrity  [{} : {}]  Size: {}", filterName, trIdx, trIdxMisses, valueSet.size());
+//            LOG.trace("Filter [{}] correct integrity  [{} : {}]  Size: {}", filterName, trIdx, trIdxMisses, valueSet.size());
         }
         return true;
     }

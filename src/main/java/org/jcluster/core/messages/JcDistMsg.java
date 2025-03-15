@@ -42,7 +42,7 @@ public class JcDistMsg implements Serializable {
         List<JcDistMsg> frList = new ArrayList<>();
         for (int i = 0; i < fr.getFragments().length; i++) {
             JcMsgFragmentData frData = fr.getFragments()[i];
-            JcDistMsg frDataMsg = new JcDistMsg(JcDistMsgType.FAG_DATA);
+            JcDistMsg frDataMsg = new JcDistMsg(JcDistMsgType.FRG_DATA);
             frDataMsg.setSrc(src.getSrc());
             frDataMsg.setSrcIpAddr(src.getSrcIpAddr());
             frDataMsg.setData(frData);

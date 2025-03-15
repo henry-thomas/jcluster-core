@@ -83,6 +83,7 @@ public final class JcCoreService {
 
     protected final JcAppDescriptor selfDesc = new JcAppDescriptor();
     private long lastPrimaryMemUpdate = 0l;
+    private long lastMemSubscriptionTimestamp = 0l;
 
     private static JcCoreService INSTANCE = new JcCoreService();
     private boolean running = false;
@@ -265,7 +266,7 @@ public final class JcCoreService {
         } catch (Exception e) {
             LOG.info(null, e);
         }
-        LOG.trace("Receive ping message from: " + srcId);
+//        LOG.trace("Receive ping message from: " + srcId);
     }
 
     private JcDistMsg generatePingMsg() {
@@ -279,6 +280,7 @@ public final class JcCoreService {
         msg.setData(memberIpStrList);
         msg.setSrc(selfDesc);
         return msg;
+
     }
 
     private void onSubscRequestMsg(JcMember mem, JcDistMsg msg) {
@@ -382,6 +384,20 @@ public final class JcCoreService {
 
     }
 
+    private void checkMemberSubscribtion() {
+        for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
+
+            String memId = entry.getKey();
+            JcMember mem = entry.getValue();
+
+            try {
+                updateMemberSubscription(mem);
+            } catch (Exception ex) {
+                LOG.warn(null, ex);
+            }
+        }
+    }
+
     private void checkMemberState() {
 //        LOG.trace("Check member state");
 
@@ -427,21 +443,17 @@ public final class JcCoreService {
                 if (primaryMemberMap.containsKey(memId)) {
                     primaryMemberMap.put(memId, null);
                 }
-
                 onMemberRemove(mem);
                 mem.close();
             } else {
                 try {
                     mem.sendMessage(ping);
-
                 } catch (IOException ex) {
                     LOG.warn(null, ex);
                 }
-                try {
-                    updateMemberSubscription(mem);
-                } catch (Exception ex) {
-                    LOG.warn(null, ex);
-                }
+
+                mem.verifyRxFrag();
+
             }
         }
 //        LOG.debug(strMembLog);
@@ -522,14 +534,21 @@ public final class JcCoreService {
                     mem.onFilterPublishMsg(msg);
                 }
                 break;
-            case FAG_DATA:
+            case FRG_DATA:
                 if (mem != null) {
                     mem.onFrgMsgReceived(msg);
+                }else{
+                    System.out.println("");
                 }
                 break;
-            case FAG_ACK:
+            case FRG_ACK:
                 if (mem != null) {
                     mem.onFrgMsgAck(msg);
+                }
+                break;
+            case FRG_RESEND:
+                if (mem != null) {
+                    mem.onFrgMsgResend(msg);
                 }
                 break;
 
@@ -606,6 +625,11 @@ public final class JcCoreService {
                 if (System.currentTimeMillis() - lastPrimaryMemUpdate > 500) {
                     lastPrimaryMemUpdate = System.currentTimeMillis();
                     checkMemberState();
+                }
+
+                if (System.currentTimeMillis() - lastMemSubscriptionTimestamp > 5000) {
+                    lastMemSubscriptionTimestamp = System.currentTimeMillis();
+                    checkMemberSubscribtion();
                 }
 
             } catch (Exception e) {

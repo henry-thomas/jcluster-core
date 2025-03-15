@@ -4,7 +4,9 @@
  */
 package org.jcluster.core.messages;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.exception.fragmentation.JcFragmentationException;
@@ -139,4 +141,19 @@ public class JcMsgFragment {
         return rxData;
     }
 
+    public int getRecoverCount() {
+        return recoverCount;
+    }
+
+    public List<Integer> getMissingFragmenList() {
+        recoverCount++;
+        timestamp = System.currentTimeMillis();
+        List<Integer> missing = new ArrayList<>();
+        for (int i = 0; i < fragments.length; i++) {
+            if (fragments[i] == null) {
+                missing.add(i);
+            }
+        }
+        return missing;
+    }
 }

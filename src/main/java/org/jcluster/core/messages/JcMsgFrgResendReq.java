@@ -11,12 +11,12 @@ import java.util.List;
  *
  * @author platar86
  */
-public class JcMsgFragmentResendRequest implements Serializable {
+public class JcMsgFrgResendReq implements Serializable {
 
     private final String frgId;
     private final List<Integer> resendFrIdx;
 
-    public JcMsgFragmentResendRequest(String frgId, List<Integer> resendFrIdx) {
+    public JcMsgFrgResendReq(String frgId, List<Integer> resendFrIdx) {
         this.frgId = frgId;
         this.resendFrIdx = resendFrIdx;
     }
