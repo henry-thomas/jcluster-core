@@ -22,7 +22,7 @@ import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
-import org.jcluster.core.config.JcAppConfig;
+//import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
@@ -81,7 +81,7 @@ public class JcRemoteInstanceConnectionBean {
         int actualCount = inboundList.size();
 
         //Incase there is another isolated app connected, don't create an inbound connection to that app
-        if (actualCount < minCount && !desc.isIsolated()) {
+        if (actualCount < minCount ) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection(true);
                 if (conn != null) {
@@ -106,7 +106,7 @@ public class JcRemoteInstanceConnectionBean {
         int actualCount = outboundList.size();
 
         //The isolated app will take care of the connection count.
-        if (actualCount < minCount && !desc.isIsolated()) {
+        if (actualCount < minCount ) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection();
                 if (conn != null) {
@@ -277,7 +277,7 @@ public class JcRemoteInstanceConnectionBean {
             List<JcClientConnection> toRemove = new ArrayList<>();
 
             for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > JcAppConfig.getConnMaxTimeout()) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 5) {
                     toRemove.add(conn);
                 }
             }

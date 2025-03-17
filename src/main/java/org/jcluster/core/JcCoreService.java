@@ -45,15 +45,15 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
-import org.jcluster.core.config.JcAppConfig;
+//import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcInstanceNotFoundException;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN;
 import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
 import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
-import org.jcluster.core.messages.JcMessage;
-import org.jcluster.core.messages.JcMsgFragment;
+//import org.jcluster.core.messages.JcMessage;
+//import org.jcluster.core.messages.JcMsgFragment;
 import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
@@ -130,13 +130,12 @@ public final class JcCoreService {
                     member.sendMessage(msg);
 
                     onMemberRemove(member);
-                    
+
                 } catch (IOException ex) {
                     java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
                 }
             });
-            
-            
+
             if (socketUdpRx != null) {
                 socketUdpRx.close();
             }
@@ -144,15 +143,20 @@ public final class JcCoreService {
     }
 
     public final void start() throws Exception {
-        start(null);
+        start(JcManager.getDefaultConfig());
     }
 
     public final void start(Map<String, Object> config) throws Exception {
         if (config == null) {
-            config = new HashMap<>();
+            config = JcManager.getDefaultConfig();
         }
+
         if (!running) {
-            LOG.info("JCLUSTER -- Startup...");
+            if (config.containsKey("appName")) {
+                selfDesc.setAppName((String) config.get("appName"));
+            }
+
+            LOG.info("JCLUSTER -- Startup... APPNAME: {}", selfDesc.getAppName());
 
             ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
             if (mes != null) {
@@ -802,7 +806,7 @@ public final class JcCoreService {
             //we have to check the app name because there is another apps that makes only inboudn connections
             if (ri.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
                     || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
-                ri.validateOutboundConnectionCount(JcAppConfig.getINSTANCE().getMinConnections());
+                ri.validateOutboundConnectionCount(5);
             }
 
         }

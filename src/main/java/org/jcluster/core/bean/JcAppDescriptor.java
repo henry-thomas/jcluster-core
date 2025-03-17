@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.jcluster.core.config.JcAppConfig;
 
 /**
  *
@@ -21,8 +20,7 @@ import org.jcluster.core.config.JcAppConfig;
 public class JcAppDescriptor implements Serializable {
     //add whatever we need to represent our instances
 
-    private final boolean isolated;
-    private final String appName;
+    private String appName = "unknown";
     private final Set<String> topicList = new HashSet<>();
     private final String instanceId;
     private String ipAddress;
@@ -31,17 +29,7 @@ public class JcAppDescriptor implements Serializable {
     private int ipPortListenTCP;//this is list
 
     public JcAppDescriptor() {
-        this.ipPortListenUDP = JcAppConfig.getINSTANCE().getPort();
-        this.ipAddress = JcAppConfig.getINSTANCE().getHostName();
-
-        this.appName = JcAppConfig.getINSTANCE().getAppName();
-
         this.instanceId = RandomStringUtils.random(16, true, true);
-        this.isolated = JcAppConfig.getINSTANCE().isIsolated();
-    }
- 
-    public boolean isIsolated() {
-        return isolated;
     }
 
     public String getInstanceId() {
@@ -121,6 +109,10 @@ public class JcAppDescriptor implements Serializable {
 
     public void setIpPortListenTCP(int ipPortListenTCP) {
         this.ipPortListenTCP = ipPortListenTCP;
+    }
+
+    public void setAppName(String appName) {
+        this.appName = appName;
     }
 
 }

@@ -6,9 +6,11 @@ package org.jcluster.core;
 
 import ch.qos.logback.classic.Logger;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.exception.JcException;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -148,6 +150,107 @@ public class JcManager {
 
         ServiceLookup.getINSTANCE().scanAnnotationFilters(iClazz);
         return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler());
+    }
+
+    protected static Map<String, Object> getDefaultConfig() {
+        Map<String, Object> config = new HashMap();
+        config.put("appName", readProp("JC_APP_NAME", "unknown"));
+
+        config.put("udpListenPort", getConfigUdpListenerPorts("JC_UDPLISTENER_PORTS"));
+        config.put("tcpListenPort", getConfigUdpListenerPorts("JC_TCPLISTENER_PORTS"));
+
+        String primMemberStr = readProp("JC_PRIMARY_MEMBER_ADDRESS");
+        if (primMemberStr != null) {
+            List<String> list = new ArrayList<>();
+            String[] split = primMemberStr.split(",");
+            for (String primMembSpl : split) {
+                if (!primMembSpl.contains(":")) {
+                    throw new JcRuntimeException("Primary member addres must container port. found: [" + primMembSpl + "] expected: ###.###.###.###:####");
+                }
+                list.add(primMembSpl);
+            }
+
+            config.put("primaryMembers", list);
+        }
+
+        return config;
+    }
+
+    private static List<Integer> getConfigUdpListenerPorts(String portRangeKey) {
+        List<Integer> list = new ArrayList<>();
+        String strPort = readProp(portRangeKey);
+        if (strPort != null) {
+            String[] split = strPort.split(",");
+            for (String portSubStr : split) {
+                if (portSubStr.contains("-")) {
+                    String[] portRange = portSubStr.split("-");
+                    int start = Integer.parseInt(portRange[0]);
+                    int end = Integer.parseInt(portRange[1]);
+                    if (start >= end) {
+                        throw new JcRuntimeException("Invalid port configuration [" + portRangeKey + "] String [" + strPort + "]");
+                    }
+                    for (int i = start; i <= end; i++) {
+                        list.add(i);
+                    }
+                } else {
+                    list.add(Integer.valueOf(portSubStr));
+                }
+            }
+        } else {
+
+        }
+
+        return list;
+    }
+
+    public static List<String> getPkgFilterList() {
+        List<String> pkgFilterList = new ArrayList<>();
+        String pkgFilter = readProp("JC_SCAN_PKG_NAME", "");
+
+        if (pkgFilter.equals(
+                "")) {
+            pkgFilterList.add("");
+            LOG.warn("JCluster set to scan the entire package, this can slow down application startup. "
+                    + "Please set correct package to scan in domain.xml -> configs -> server-config example: "
+                    + "<system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
+        } else {
+            String[] split = null;
+            if (pkgFilter.contains(";")) {
+                split = pkgFilter.split(";");
+            } else if (pkgFilter.contains(",")) {
+                split = pkgFilter.split(",");
+            } else if (pkgFilter.contains(" ")) {
+                split = pkgFilter.split(" ");
+            } else {
+                split = new String[]{pkgFilter};
+            }
+
+            if (split != null) {
+                for (String pkg : split) {
+                    pkgFilterList.add(pkg.trim());
+                }
+            }
+        }
+        return pkgFilterList;
+    }
+
+    private static String readProp(String propName) {
+        return readProp(propName, null);
+    }
+
+    private static final boolean readProp(String propName, boolean defaultValue) {
+        String readProp = readProp(propName, String.valueOf(defaultValue));
+        return Boolean.parseBoolean(readProp);
+    }
+
+    private static final String readProp(String propName, String defaultValue) {
+        Properties properties = System.getProperties();
+        String prop = properties.getProperty(propName);
+        if (prop == null) {
+            LOG.warn("{} property not set!", propName);
+            return defaultValue;
+        }
+        return prop;
     }
 
 }

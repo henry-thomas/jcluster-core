@@ -20,7 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.LocalBean;
 
-import org.jcluster.core.config.JcAppConfig;
+//import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.lib.annotation.JcRemote;
 import org.jcluster.core.proxy.JcRemoteInvocationHandler;
 
@@ -75,7 +75,7 @@ public class JcBootstrap implements Extension {
     public void afterBeanDiscovery(@Observes AfterBeanDiscovery event, BeanManager manager) {
         LOG.info("JcBootstrap afterBeanDiscovery()");
 
-        List<String> pkgFilterList = JcAppConfig.getINSTANCE().getPkgFilterList();
+        List<String> pkgFilterList = JcManager.getPkgFilterList();
 
         pkgFilterList.add("org.jcluster");
 

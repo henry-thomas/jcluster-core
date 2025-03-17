@@ -13,7 +13,7 @@ import java.util.Map;
 import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcFactory;
 import org.jcluster.core.JcManager;
-import org.jcluster.core.config.JcAppConfig;
+//import org.jcluster.core.config.JcAppConfig;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -43,9 +43,9 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
 
         Object response = JcManager.send(proxyMethod, args);
 
-        if (JcAppConfig.getINSTANCE().isDebug()) {
-            LOG.debug("exec [{0}] in [{1} ms]", new Object[]{method.getName(), System.currentTimeMillis() - now});
-        }
+//        if (JcAppConfig.getINSTANCE().isDebug()) {
+//            LOG.debug("exec [{0}] in [{1} ms]", new Object[]{method.getName(), System.currentTimeMillis() - now});
+//        }
 
         if (response instanceof Exception) {
             LOG.error(((Exception) response).getMessage());
