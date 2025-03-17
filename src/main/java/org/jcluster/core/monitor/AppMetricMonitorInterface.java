@@ -25,6 +25,7 @@ public interface AppMetricMonitorInterface {
 
     public Map<String, Integer> getFilterList(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 
-    
     public Set<Object> getFilterValues(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String filterName);
+
+    public Map<String, String> getVisibleMembers();
 }

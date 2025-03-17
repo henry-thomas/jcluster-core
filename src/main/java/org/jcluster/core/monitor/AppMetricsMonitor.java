@@ -38,7 +38,10 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     public Set<Object> getFilterValues(String instanceId, String filterName) {
         return JcCoreService.getInstance().getFilterValues(filterName);
     }
-    
-    public List<String>
+
+    @Override
+    public Map<String, String> getVisibleMembers() {
+        return JcCoreService.getMemberMap().values().stream().collect(Collectors.toMap((t) -> t.getDesc().getAppName(), (u) -> u.getId()));
+    }
 
 }
