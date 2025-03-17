@@ -6,24 +6,24 @@ package com.mypower24.jcclustertest.customComp;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalTime;
-import java.util.regex.Pattern;
 import javax.swing.JTextArea;
-import org.apache.commons.lang3.RegExUtils;
 
 /**
  *
  * @author platar86
  */
-public class LogTextArea extends JTextArea {
+public class LogTextArea extends JTextArea implements JLogInterface{
 
-    private final SimpleDateFormat formatter = new SimpleDateFormat("mm-ss-yyyy");
     private long line = 0;
 
-    public void logWarn(String template, Object... msg) {
+    @Override
+    public void warn(String template, Object... msg) {
         log("WARN", template, msg);
     }
 
-    public void logInfo(String template, Object... msg) {
+    
+    @Override
+    public void info(String template, Object... msg) {
         log("INFO", template, msg);
     }
 

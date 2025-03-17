@@ -15,7 +15,6 @@ import java.net.InetAddress;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.messages.JcDistMsg;
 import ch.qos.logback.classic.Logger;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -106,7 +105,7 @@ public class JcMember {
        
         filterMap.values().forEach((filter) -> {
             if (!filter.checkIntegrity()) {
-                filter.resetIntegrityTimechek();
+                filter.onSubsciptionRequest();
 
                 JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.SUBSCRIBE);
                 jcDistMsg.setSrc(core.selfDesc);
@@ -131,7 +130,7 @@ public class JcMember {
         }
         RemMembFilter remFilter = filterMap.get(filterName);
         if (remFilter == null) {
-            remFilter = new RemMembFilter(filterName, this);
+            remFilter = new RemMembFilter(filterName);
             filterMap.put(filterName, remFilter);
         }
         return remFilter;

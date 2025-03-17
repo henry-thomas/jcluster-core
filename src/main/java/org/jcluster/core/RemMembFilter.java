@@ -6,7 +6,10 @@ package org.jcluster.core;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Queue;
 import java.util.Set;
 import org.jcluster.core.messages.PublishMsg;
 import org.slf4j.LoggerFactory;
@@ -23,13 +26,16 @@ public class RemMembFilter {
     private long trIdx = 0;
     private long lastMissTimestamp = 0;
     private final Set<Object> valueSet = new HashSet<>();
+
+    private final Queue<PublishMsg> bufferMessages = new ArrayDeque<>();
+
     private final String filterName;
 
-    private final JcMember mem;
+    private boolean inReset = false; //wait for bulk insert to remove in reset, if msg arrive buffer it
 
-    public RemMembFilter(String filterName, JcMember mem) {
+    public RemMembFilter(String filterName) {
         this.filterName = filterName;
-        this.mem = mem;
+//        this.mem = mem;
         LOG.setLevel(Level.ALL);
     }
 
@@ -47,19 +53,27 @@ public class RemMembFilter {
 
     public synchronized void onFilterPublishMsg(PublishMsg pm) {
         boolean mustVerifyIndex;
+        if (inReset && (pm.getOperationType() == PublishMsg.OPER_TYPE_ADD || pm.getOperationType() == PublishMsg.OPER_TYPE_REMOVE)) {
+            bufferMessages.add(pm);
+            LOG.info("Filter [{}] received in Reset state. Add to buffer totalSize:{} ", filterName, bufferMessages.size());
+            return;
+        }
 
         switch (pm.getOperationType()) {
             case PublishMsg.OPER_TYPE_ADD: {
+
                 addFilterValue(pm.getValue());
                 mustVerifyIndex = true;
                 break;
             }
             case PublishMsg.OPER_TYPE_REMOVE: {
+
                 removeFilterValue(pm.getValue());
                 mustVerifyIndex = true;
                 break;
             }
             case PublishMsg.OPER_TYPE_ADDBULK: {
+                inReset = false; //first reset
                 if (pm.getValueSet() == null) {
                     LOG.warn("Invalid Publish {} subsc operation: set is NULL", pm.getOperationType());
                     return;
@@ -98,10 +112,22 @@ public class RemMembFilter {
             }
         }
         trIdx = pm.getTransCount();
+
+        //restore filter messages received durring waiting for bulk insertation
+        if (pm.getOperationType() == PublishMsg.OPER_TYPE_ADDBULK) {
+            //check buffer for filter received after trIdx
+            PublishMsg poll;
+            while ((poll = bufferMessages.poll()) != null) {
+                if (poll.getTransCount() > trIdx) {
+                    onFilterPublishMsg(pm);
+                }
+            }
+        }
     }
 
-    protected void resetIntegrityTimechek() {
+    protected void onSubsciptionRequest() {
         lastMissTimestamp = System.currentTimeMillis();
+        inReset = true;
     }
 
     protected boolean checkIntegrity() {

@@ -6,6 +6,7 @@ package com.mypower24.jcclustertest;
 
 import com.formdev.flatlaf.FlatDarculaLaf;
 import com.formdev.flatlaf.FlatLightLaf;
+import com.mypower24.jcclustertest.customComp.JLogInterface;
 import com.mypower24.jcclustertest.customComp.LogTextArea;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private volatile boolean running = false;
     AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
     FilterTestIFace filterTestIFace = JcManager.generateProxy(FilterTestIFace.class);
-    private final LogTextArea log;
+    private final JLogInterface log;
 
     public JcTestWindow() {
         initComponents();
@@ -72,6 +73,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 }
 
             }
+            long duration = System.currentTimeMillis();
             for (int i = 0; i < itteration; i++) {
                 String itVal = v.replaceAll("\\{i\\}", String.valueOf(i));
 
@@ -87,14 +89,16 @@ public class JcTestWindow extends javax.swing.JFrame {
                     }
                 }
             }
+            duration = System.currentTimeMillis() - duration;
+            log.info("Filter {} operation complete in {} ms", isAdd ? "add" : "remove", duration);
             //log Separatly
             if (testFilterARFIterationLog.isSelected()) {
                 for (int i = 0; i < itteration; i++) {
                     String itVal = v.replaceAll("\\{i\\}", String.valueOf(i));
                     if (isAdd) {
-                        log.logInfo("Add filter Value:[{}] iteration[{}]", itVal, i);
+                        log.info("Add filter Value:[{}] iteration[{}]", itVal, i);
                     } else {
-                        log.logInfo("Removing filter Value:[{}] iteration[{}]", itVal, i);
+                        log.info("Removing filter Value:[{}] iteration[{}]", itVal, i);
                     }
                 }
             }
