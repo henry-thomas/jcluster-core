@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 public class JcRemoteInstanceConnectionBean {
 
     private boolean onDemandConnection = true;
-    private boolean conRequested = false;
+    private boolean conRequested = true;
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcRemoteInstanceConnectionBean.class);
 
@@ -148,6 +148,7 @@ public class JcRemoteInstanceConnectionBean {
                 JcMessage request = (JcMessage) ois.readObject();
                 if (request.getMethodSignature().equals("handshake")) {
                     JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
+                   
                     if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
                         LOG.info("Handshake Response with Invalid for instanceId: {} found: {}",
                                 new Object[]{desc.getInstanceId(), handshakeDesc.getInstanceId()});
@@ -158,13 +159,9 @@ public class JcRemoteInstanceConnectionBean {
 
                     JcHandhsakeFrame hf = new JcHandhsakeFrame(JcCoreService.getInstance().getSelfDesc());
 
-                    if (fromIsolated) {
-                        LOG.info("Creating OUTBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
-                        hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
-                    } else {
-                        LOG.info("Creating INBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
-                        hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
-                    }
+                    LOG.info("Creating OUTBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
+                    //Send with the type of connection the other side needs to be
+                    hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
 
                     JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
 
@@ -172,7 +169,7 @@ public class JcRemoteInstanceConnectionBean {
                     oos.flush();
                     LOG.info("Responding handshake frame: {}", hf);
 //                    if (hf.getRequestedConnType()) {
-                    return new JcClientConnection(socket, desc, hf.getRequestedConnType());
+                    return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
 //                    } else {
 //                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
 //                    }
@@ -279,7 +276,7 @@ public class JcRemoteInstanceConnectionBean {
             List<JcClientConnection> toRemove = new ArrayList<>();
 
             for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 5000) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
                     toRemove.add(conn);
                 }
             }
