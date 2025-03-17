@@ -27,6 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -112,6 +113,8 @@ public final class JcCoreService {
 
     //Buffer for all received messages
     protected final BlockingQueue<JcDistMsg> receiveBufferQueue = new ArrayBlockingQueue<>(4096);
+
+    private final List<MemberEventListener> memberEventList = new ArrayList<>();
 
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
@@ -317,6 +320,15 @@ public final class JcCoreService {
         //Add from remote since we have him already
         RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
         filter.addFilterValue(mem.getDesc().getInstanceId());
+
+        MemberEvent ev = new MemberEvent(mem, MemberEvent.TYPE_ADD);
+        memberEventList.forEach((e) -> {
+            try {
+                e.onEvent(ev);
+            } catch (Exception ex) {
+                LOG.error(null, ex);
+            }
+        });
     }
 
     private void onMemberRemove(JcMember mem) {
@@ -329,6 +341,15 @@ public final class JcCoreService {
         //Remove from remote since we have him already
         RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
         filter.removeFilterValue(mem.getDesc().getInstanceId());
+
+        MemberEvent ev = new MemberEvent(mem, MemberEvent.TYPE_REMOVE);
+        memberEventList.forEach((e) -> {
+            try {
+                e.onEvent(ev);
+            } catch (Exception ex) {
+                LOG.error(null, ex);
+            }
+        });
 
     }
 
@@ -537,7 +558,7 @@ public final class JcCoreService {
             case FRG_DATA:
                 if (mem != null) {
                     mem.onFrgMsgReceived(msg);
-                }else{
+                } else {
                     System.out.println("");
                 }
                 break;
@@ -920,6 +941,23 @@ public final class JcCoreService {
 
     public void setEnterprise(boolean enterprise) {
         this.enterprise = enterprise;
+    }
+
+    public void addMemberEventListener(MemberEventListener listener) {
+
+        memberEventList.add(listener);
+    }
+
+    public Collection<FilterDescBean> getSelfFilterValues() {
+        return selfFilterValueMap.values();
+    }
+
+    public Set<Object> getFilterValues(String fName) {
+        FilterDescBean fd = selfFilterValueMap.get(fName);
+        if (fd == null) {
+            throw new JcRuntimeException("Filter does not exist: " + fName);
+        }
+        return fd.getValueSet();
     }
 
 }

@@ -149,4 +149,8 @@ public class RemMembFilter {
         return filterName;
     }
 
+    public Set<Object> getValueSet() {
+        return valueSet;
+    }
+
 }

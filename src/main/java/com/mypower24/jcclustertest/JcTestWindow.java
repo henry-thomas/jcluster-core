@@ -8,18 +8,26 @@ import com.formdev.flatlaf.FlatDarculaLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.mypower24.jcclustertest.customComp.JLogInterface;
 import com.mypower24.jcclustertest.customComp.LogTextArea;
-import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.swing.JOptionPane;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.table.DefaultTableModel;
 import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcManager;
 import org.jcluster.core.JcMember;
+import org.jcluster.core.MemberEvent;
+import org.jcluster.core.RemMembFilter;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 
 /**
@@ -34,13 +42,100 @@ public class JcTestWindow extends javax.swing.JFrame {
     private volatile boolean running = false;
     AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
     FilterTestIFace filterTestIFace = JcManager.generateProxy(FilterTestIFace.class);
+    private final Set<JcMember> memberList = new HashSet<>();
+    private JcMember selectedMember = null;
+    private String selectedFilter = null;
+
     private final JLogInterface log;
 
     public JcTestWindow() {
         initComponents();
         log = (LogTextArea) logContainer;
+
+        JcCoreService.getInstance().addMemberEventListener(this::onMemberEvent);
+
         ConnectionDialog connDlg = new ConnectionDialog();
+
+        tblMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tblFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 //        connDlg.setVisible(true);
+    }
+
+    private void onMemSelChange() {
+        int rowIdx = tblMembers.getSelectedRow();
+        if (rowIdx == -1) {
+            DefaultTableModel dtm = (DefaultTableModel) tblFilters.getModel();
+            dtm.getDataVector().clear();
+            dtm = (DefaultTableModel) tblFilterValues.getModel();
+            dtm.getDataVector().clear();
+            return;
+        }
+
+        String memId = tblMembers.getValueAt(rowIdx, 0).toString();
+        log.info("onMemberSelect {}", memId);
+        selectedMember = JcCoreService.getMemberMap().get(memId);
+        if (selectedMember == null) {
+            log.info("Selected member is null: {}", memId);
+            return;
+        }
+        updateFilters();
+    }
+
+    private void onSelectedFilterChange() {
+        int rowIdx = tblFilters.getSelectedRow();
+        if (rowIdx == -1) {
+            DefaultTableModel dtmFilterValues = (DefaultTableModel) tblFilterValues.getModel();
+            dtmFilterValues.getDataVector().clear();
+            return;
+        }
+        String filterName = tblFilters.getValueAt(rowIdx, 0).toString();
+        selectedFilter = filterName;
+        log.info("onSelFilterChange {}", filterName);
+        updateSelectedFilterValues();
+    }
+
+    private void updateSelectedFilterValues() {
+        if (selectedFilter != null) {
+            DefaultTableModel dtmFilterValues = (DefaultTableModel) tblFilterValues.getModel();
+            dtmFilterValues.getDataVector().clear();
+            Set<Object> filters = metricsMonitor.getFilterValues(selectedMember.getDesc().getInstanceId(), selectedFilter);
+            for (Object filter : filters) {
+                dtmFilterValues.addRow(new Object[]{filter});
+            }
+            dtmFilterValues.fireTableDataChanged();
+        }
+    }
+
+    private void updateFilters() {
+
+        DefaultTableModel dtm = (DefaultTableModel) tblFilters.getModel();
+
+        dtm.getDataVector().clear();
+
+        Map<String, Integer> filterList = metricsMonitor.getFilterList(selectedMember.getDesc().getInstanceId());
+
+        for (Map.Entry<String, Integer> entry : filterList.entrySet()) {
+            String fName = entry.getKey();
+            Integer size = entry.getValue();
+
+            dtm.addRow(new Object[]{fName.isBlank() ? "No Filter name" : fName, size});
+        }
+
+    }
+
+    private void onMemberEvent(MemberEvent ev) {
+        DefaultTableModel dtm = (DefaultTableModel) tblMembers.getModel();
+        if (ev.getType() == MemberEvent.TYPE_ADD) {
+//            JcMember m = ev.getMember();
+            memberList.add(ev.getMember());
+        } else if (ev.getType() == MemberEvent.TYPE_REMOVE) {
+            memberList.remove(ev.getMember());
+
+        }
+        dtm.getDataVector().clear();
+        for (JcMember m : memberList) {
+            dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTopicList()});
+        }
     }
 
     /**
@@ -114,7 +209,13 @@ public class JcTestWindow extends javax.swing.JFrame {
         jTextArea1 = new javax.swing.JTextArea();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         jPanel1 = new javax.swing.JPanel();
-        jRadioButton1 = new javax.swing.JRadioButton();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        tblFilters = new javax.swing.JTable();
+        jScrollPane5 = new javax.swing.JScrollPane();
+        tblFilterValues = new javax.swing.JTable();
+        txtFilterValues = new javax.swing.JTextField();
+        jLabel5 = new javax.swing.JLabel();
+        btnRefreshFilters = new javax.swing.JButton();
         jPanel2 = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         testFilterARFIterVal = new javax.swing.JTextField();
@@ -157,7 +258,74 @@ public class JcTestWindow extends javax.swing.JFrame {
         jTabbedPane1.setTabLayoutPolicy(javax.swing.JTabbedPane.SCROLL_TAB_LAYOUT);
         jTabbedPane1.setTabPlacement(javax.swing.JTabbedPane.LEFT);
 
-        jRadioButton1.setText("Connected");
+        tblFilters.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null},
+                {null, null},
+                {null, null},
+                {null, null}
+            },
+            new String [] {
+                "Filter Name", "Size"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.Integer.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        tblFilters.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                tblFiltersMouseReleased(evt);
+            }
+        });
+        jScrollPane4.setViewportView(tblFilters);
+
+        tblFilterValues.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null},
+                {null},
+                {null},
+                {null}
+            },
+            new String [] {
+                "Value"
+            }
+        ) {
+            boolean[] canEdit = new boolean [] {
+                false
+            };
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane5.setViewportView(tblFilterValues);
+
+        txtFilterValues.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                txtFilterValuesKeyReleased(evt);
+            }
+        });
+
+        jLabel5.setText("Filter:");
+
+        btnRefreshFilters.setText("Refresh");
+        btnRefreshFilters.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRefreshFiltersActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -165,15 +333,29 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jRadioButton1)
-                .addContainerGap(218, Short.MAX_VALUE))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(btnRefreshFilters)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 50, Short.MAX_VALUE)
+                        .addComponent(jLabel5)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(txtFilterValues, javax.swing.GroupLayout.PREFERRED_SIZE, 135, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                    .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                .addGap(7, 7, 7))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(18, 18, 18)
-                .addComponent(jRadioButton1)
-                .addContainerGap(496, Short.MAX_VALUE))
+                .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 127, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtFilterValues, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel5)
+                    .addComponent(btnRefreshFilters))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 399, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
 
         jTabbedPane1.addTab("Status", jPanel1);
@@ -205,7 +387,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         jLabel3.setText("Iterations:");
 
-        testFilterARFIteration.setModel(new javax.swing.SpinnerNumberModel(500, 1, 10000, 1));
+        testFilterARFIteration.setModel(new javax.swing.SpinnerNumberModel(500, 1, 100000, 1));
         testFilterARFIteration.setToolTipText("cxvbn cvb n");
         testFilterARFIteration.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         testFilterARFIteration.setEditor(new javax.swing.JSpinner.NumberEditor(testFilterARFIteration, ""));
@@ -355,7 +537,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 212, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 250, Short.MAX_VALUE)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
@@ -374,13 +556,10 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         tblMembers.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+
             },
             new String [] {
-                "Member ID", "App Name", "Last Seen"
+                "Member ID", "App Name", "Topics"
             }
         ) {
             Class[] types = new Class [] {
@@ -396,6 +575,16 @@ public class JcTestWindow extends javax.swing.JFrame {
 
             public boolean isCellEditable(int rowIndex, int columnIndex) {
                 return canEdit [columnIndex];
+            }
+        });
+        tblMembers.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                tblMembersMouseReleased(evt);
+            }
+        });
+        tblMembers.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
+            public void propertyChange(java.beans.PropertyChangeEvent evt) {
+                tblMembersPropertyChange(evt);
             }
         });
         jScrollPane1.setViewportView(tblMembers);
@@ -477,7 +666,8 @@ public class JcTestWindow extends javax.swing.JFrame {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jButton1)
                         .addGap(18, 18, 18)
-                        .addComponent(jButton2))
+                        .addComponent(jButton2)
+                        .addGap(0, 0, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jScrollPane1)
                         .addGap(14, 14, 14))
@@ -547,41 +737,29 @@ public class JcTestWindow extends javax.swing.JFrame {
         JcManager.addFilter(testFilterARFIterName.getText(), "skip");
     }//GEN-LAST:event_addFilterValue2ActionPerformed
 
+    private void btnRefreshFiltersActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshFiltersActionPerformed
+        updateFilters();
+        updateSelectedFilterValues();
+    }//GEN-LAST:event_btnRefreshFiltersActionPerformed
+
+    private void txtFilterValuesKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtFilterValuesKeyReleased
+        updateSelectedFilterValues();
+    }//GEN-LAST:event_txtFilterValuesKeyReleased
+
+    private void tblFiltersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblFiltersMouseReleased
+        onSelectedFilterChange();
+    }//GEN-LAST:event_tblFiltersMouseReleased
+
+    private void tblMembersPropertyChange(java.beans.PropertyChangeEvent evt) {//GEN-FIRST:event_tblMembersPropertyChange
+        System.out.println("tblMembersPropertyChange: " + evt.getPropertyName());
+    }//GEN-LAST:event_tblMembersPropertyChange
+
+    private void tblMembersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblMembersMouseReleased
+        onMemSelChange();
+    }//GEN-LAST:event_tblMembersMouseReleased
+
     private void info(String msg) {
         JOptionPane.showMessageDialog(this, msg);
-    }
-
-    private void initUpdateThread() {
-        new Thread(() -> {
-            running = true;
-
-            Map<String, JcMember> memberMap = JcCoreService.getMemberMap();
-            while (running) {
-//                Set<String> keySet = memberMap.keySet();
-//                for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
-//                    String id = entry.getKey();
-//                    JcMember mem = entry.getValue();
-//
-//                }
-
-                SwingUtilities.invokeLater(() -> {
-                    List<JcMember> members = new ArrayList<>(memberMap.values());
-                    for (int i = 0; i < members.size(); i++) {
-                        tblMembers.setValueAt(members.get(i).getId(), i, 0);
-                        tblMembers.setValueAt(members.get(i).getDesc().getAppName(), i, 1);
-                        tblMembers.setValueAt(System.currentTimeMillis() - members.get(i).getLastSeen(), i, 2);
-                    }
-                });
-
-//                SwingUtilities.invokeLater(() -> lblVersion.setText("Generating version: " + um.getNewVersion()));
-                try {
-                    Thread.sleep(50);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-        ).start();
     }
 
     /**
@@ -606,7 +784,6 @@ public class JcTestWindow extends javax.swing.JFrame {
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 JcTestWindow jcTestWindow = new JcTestWindow();
-                jcTestWindow.initUpdateThread();
                 jcTestWindow.setVisible(true);
 
             }
@@ -617,6 +794,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addFilterValue1;
     private javax.swing.JButton addFilterValue2;
+    private javax.swing.JButton btnRefreshFilters;
     private javax.swing.JButton btnTestFilterNumver;
     private javax.swing.JButton btnTestFilterString;
     private javax.swing.JRadioButtonMenuItem darkModeRadio;
@@ -628,6 +806,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
+    private javax.swing.JLabel jLabel5;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenu jMenu3;
@@ -637,19 +816,23 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
-    private javax.swing.JRadioButton jRadioButton1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JTextArea jTextArea1;
     private javax.swing.JTextArea logContainer;
     private javax.swing.JButton removeFilterValue1;
+    private javax.swing.JTable tblFilterValues;
+    private javax.swing.JTable tblFilters;
     private javax.swing.JTable tblMembers;
     private javax.swing.JTextField testFilterARFIterName;
     private javax.swing.JTextField testFilterARFIterVal;
     private javax.swing.JSpinner testFilterARFIteration;
     private javax.swing.JSpinner testFilterARFIterationDelay;
     private javax.swing.JCheckBox testFilterARFIterationLog;
+    private javax.swing.JTextField txtFilterValues;
     // End of variables declaration//GEN-END:variables
 }

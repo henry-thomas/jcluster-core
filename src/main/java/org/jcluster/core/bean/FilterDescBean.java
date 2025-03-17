@@ -48,4 +48,8 @@ public class FilterDescBean {
         return transCount;
     }
 
+    public String getFilterName() {
+        return filterName;
+    }
+
 }

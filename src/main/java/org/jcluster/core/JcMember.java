@@ -15,6 +15,7 @@ import java.net.InetAddress;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.messages.JcDistMsg;
 import ch.qos.logback.classic.Logger;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -102,7 +103,7 @@ public class JcMember {
     }
 
     void verifyFilterIntegrity() {
-       
+
         filterMap.values().forEach((filter) -> {
             if (!filter.checkIntegrity()) {
                 filter.onSubsciptionRequest();
@@ -237,7 +238,7 @@ public class JcMember {
 
         RemMembFilter rmf = getOrCreateFilterTarget(filterName);
         rmf.onFilterPublishMsg(pm);
-        LOG.trace("Receive published Filter {}     Filter state", pm, rmf);
+        LOG.trace("Receive published Filter {} ", pm.getFilterName());
     }
 
     protected void onSubscResponseMsg(JcDistMsg msg) {
@@ -293,11 +294,7 @@ public class JcMember {
 
             List<JcDistMsg> toSend = JcDistMsg.createFragmentMessages(msg, fr);
             for (int i = 0; i < toSend.size(); i++) {
-                //TODO REMOVE DEBUG
-                //Simulate missing packet 
-                if (i == 1) {
-                    continue;
-                }
+
                 sendMessage(toSend.get(i), ip, port);
             }
 
@@ -391,6 +388,10 @@ public class JcMember {
 
     public long getLastSeen() {
         return lastSeen;
+    }
+    
+    public Collection<RemMembFilter> getFilterList(){
+        return filterMap.values();
     }
 
 }

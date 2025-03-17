@@ -4,7 +4,8 @@
  */
 package org.jcluster.core.monitor;
 
-import javax.ejb.Remote;
+import java.util.Map;
+import java.util.Set;
 import org.jcluster.core.bean.JcMetrics;
 import org.jcluster.lib.annotation.JcFilter;
 import org.jcluster.lib.annotation.JcRemote;
@@ -15,11 +16,15 @@ import org.jcluster.lib.annotation.JcRemote;
  */
 @JcRemote
 public interface AppMetricMonitorInterface {
+
     public static final String JC_INSTANCE_FILTER = "jcInstance";
 
-    
     public JcMetrics getMetricsMap(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
-    
+
     public String testReq(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
+
+    public Map<String, Integer> getFilterList(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
+
     
+    public Set<Object> getFilterValues(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String filterName);
 }

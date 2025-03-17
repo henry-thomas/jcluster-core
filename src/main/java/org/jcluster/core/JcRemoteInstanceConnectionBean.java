@@ -133,7 +133,7 @@ public class JcRemoteInstanceConnectionBean {
         try {
             socket.connect(socketAddress, 2000);
         } catch (IOException e) {
-            LOG.info("Attempt to connect fail: {0}", this);
+            LOG.info("Attempt to connect fail: {}", this);
             return null;
         }
         //after socket gets connected we have to receive first Handshake from the other site.
@@ -149,20 +149,20 @@ public class JcRemoteInstanceConnectionBean {
                 if (request.getMethodSignature().equals("handshake")) {
                     JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
                     if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
-                        LOG.info("Handshake Response with Invalid for instanceId: {0} found: {1}",
+                        LOG.info("Handshake Response with Invalid for instanceId: {} found: {}",
                                 new Object[]{desc.getInstanceId(), handshakeDesc.getInstanceId()});
                         return null;
                     }
 
-                    LOG.info("Handshake Request from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
+                    LOG.info("Handshake Request from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
 
                     JcHandhsakeFrame hf = new JcHandhsakeFrame(JcCoreService.getInstance().getSelfDesc());
 
                     if (fromIsolated) {
-                        LOG.info("Creating INBOUND connection from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
+                        LOG.info("Creating INBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
                         hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
                     } else {
-                        LOG.info("Creating OUTBOUND connection from instance: {0} -> {1}", new Object[]{desc.getAppName(), desc.getIpAddress()});
+                        LOG.info("Creating OUTBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
                         hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
                     }
 
@@ -186,7 +186,7 @@ public class JcRemoteInstanceConnectionBean {
         try {
             JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
             if (conn == null) {
-                LOG.error("Failed to connect to: {0} ", new Object[]{desc});
+                LOG.error("Failed to connect to: {} ", new Object[]{desc});
 
                 socket.close();
             } else {
@@ -297,6 +297,7 @@ public class JcRemoteInstanceConnectionBean {
     public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
         JcClientConnection conn = outboundList.getNext();
         if (conn == null) {
+            conRequested = true;
             throw new JcIOException("No outbound connections for: " + this.toString());
         }
         try {
