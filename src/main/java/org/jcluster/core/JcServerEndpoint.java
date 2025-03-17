@@ -56,17 +56,17 @@ public class JcServerEndpoint implements Runnable {
                 try {
                     LOG.info("New Connection Accepted Start Hanshaking");
                     JcHandhsakeFrame handshakeFrame = doHandshake(sock);
-                    LOG.info("New Connection Hanshaking Complete: {0}", handshakeFrame);
+                    LOG.info("New Connection Hanshaking Complete: {}", handshakeFrame);
 
                     JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame);
                     threadFactory.newThread(jcClientConnection).start();
 
-                    LOG.info("JcInstanceConnection connected.  {0}", jcClientConnection);
+                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
 
                     JcAppDescriptor remDesc = handshakeFrame.getRemoteAppDesc();
                     JcMember member = JcCoreService.getInstance().getMember(remDesc.getIpStrPortStr());
                     if (member == null) {
-                        LOG.warn("New Connection from invalid member: {0}", member);
+                        LOG.warn("New Connection from invalid member: {}", member);
                         continue;
                     }
 
@@ -101,7 +101,7 @@ public class JcServerEndpoint implements Runnable {
                 if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
                     return (JcHandhsakeFrame) handshakeResponse.getData();
                 } else {
-                    LOG.warn("Unknown Message Type on Handshake: {0}", handshakeResponse.getData().getClass().getName());
+                    LOG.warn("Unknown Message Type on Handshake: {}", handshakeResponse.getData().getClass().getName());
                 }
 
             } catch (IOException | ClassNotFoundException ex) {

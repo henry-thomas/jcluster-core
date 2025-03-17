@@ -6,7 +6,6 @@ package org.jcluster.core.bean;
 
 import java.io.Serializable;
 import org.jcluster.core.JcConnectionTypeEnum;
-import org.jcluster.core.JcFactory;
 
 /**
  *

@@ -24,15 +24,13 @@ public class JcAppConfig {
 
     private static final Logger LOG = Logger.getLogger(JcAppConfig.class.getName());
 
-    private final String jcPrimaryMemberAddress;
-    private final Integer port;
+    private final List<String> jcPrimaryMemberAddress;
     private final Integer minConnections;
-    private final String hostName;
+    private final String tcpServerListenAddr;
+    private final List<Integer> tcpServerListenPort;
     private final boolean isolated;
-    private final boolean primary;
     private final String appName;
     private final boolean debug;
-    private final List<Integer> portList = new ArrayList<>();
     private final List<String> pkgFilterList = new ArrayList<>();
     private final List<String> topicList = new ArrayList<>();
     private final Long jcLastSendMaxTimeout;
@@ -40,11 +38,10 @@ public class JcAppConfig {
     private static final JcAppConfig INSTANCE = new JcAppConfig();
 
     private JcAppConfig() {
-        this.primary = readProp("JC_IS_PRIMARY_MEMBER", false);
-        this.jcPrimaryMemberAddress = readProp("JC_PRIMARY_MEMBER_ADDRESS", "127.0.0.1");
-        this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
+        this.jcPrimaryMemberAddress = parseStrList(readProp("JC_PRIMARY_MEMBERS", "127.0.0.1:4445"));
+        this.tcpServerListenAddr = readProp("JC_TCP_LISTEN_IP", "127.0.0.1");
+        this.tcpServerListenPort = parseIntList(readProp("JC_TCP_LISTEN_PORTS", "2201"));
         this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "2"));
-        this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
         this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
         this.isolated = readProp("JC_ISOLATED", false);
         this.debug = readProp("JC_DEBUG", false);
@@ -53,6 +50,36 @@ public class JcAppConfig {
 
         initPkgFilterList();
         initTopicList();
+    }
+
+    private List<Integer> parseIntList(String str) {
+        List<Integer> intList = new ArrayList<>();
+        List<String> parseStrList = parseStrList(str);
+        for (String string : parseStrList) {
+            intList.add(Integer.valueOf(string));
+        }
+        return intList;
+
+    }
+
+    private List<String> parseStrList(String str) {
+        String[] split = null;
+        List<String> strList = new ArrayList<>();
+        if (str.contains(";")) {
+            split = str.split(";");
+        } else if (str.contains(",")) {
+            split = str.split(",");
+        } else if (str.contains(" ")) {
+            split = str.split(" ");
+        } else {
+            split = new String[]{str};
+        }
+
+        for (String string : split) {
+            strList.add(string.trim());
+        }
+
+        return strList;
     }
 
     private void initPkgFilterList() {
@@ -110,12 +137,12 @@ public class JcAppConfig {
         return readProp(propName, null);
     }
 
-    public boolean readProp(String propName, boolean defaultValue) {
+    public final boolean readProp(String propName, boolean defaultValue) {
         String readProp = readProp(propName, String.valueOf(defaultValue));
         return Boolean.parseBoolean(readProp);
     }
 
-    public String readProp(String propName, String defaultValue) {
+    public final String readProp(String propName, String defaultValue) {
         String prop = System.getProperty(propName);
         if (prop == null) {
             LOG.log(Level.SEVERE, "{0} property not set!", propName);
@@ -136,16 +163,8 @@ public class JcAppConfig {
         return INSTANCE;
     }
 
-    public String getJcHzPrimaryMember() {
-        return jcPrimaryMemberAddress;
-    }
-
-    public Integer getPort() {
-        return port;
-    }
-
-    public String getHostName() {
-        return hostName;
+    public String getTcpServerListenAddr() {
+        return tcpServerListenAddr;
     }
 
     public String getAppName() {
@@ -172,8 +191,12 @@ public class JcAppConfig {
         return debug;
     }
 
-    public boolean isPrimary() {
-        return primary;
+    public List<String> getJcPrimaryMemberAddress() {
+        return jcPrimaryMemberAddress;
+    }
+
+    public List<Integer> getTcpServerListenPort() {
+        return tcpServerListenPort;
     }
 
 }

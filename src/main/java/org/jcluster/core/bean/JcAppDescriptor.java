@@ -6,6 +6,7 @@ package org.jcluster.core.bean;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -26,20 +27,18 @@ public class JcAppDescriptor implements Serializable {
     private final Set<String> topicList = new HashSet<>();
     private final String instanceId;
     private String ipAddress;
+    private List<Integer> ipPortListenTCP;//this is list
     private int ipPortListenUDP;//this is list
 
-    private int ipPortListenTCP;//this is list
-
     public JcAppDescriptor() {
-        this.ipPortListenUDP = JcAppConfig.getINSTANCE().getPort();
-        this.ipAddress = JcAppConfig.getINSTANCE().getHostName();
-
+        this.ipAddress = JcAppConfig.getINSTANCE().getTcpServerListenAddr();
+        this.ipPortListenTCP = JcAppConfig.getINSTANCE().getTcpServerListenPort();
         this.appName = JcAppConfig.getINSTANCE().getAppName();
 
         this.instanceId = RandomStringUtils.random(16, true, true);
         this.isolated = JcAppConfig.getINSTANCE().isIsolated();
     }
- 
+
     public boolean isIsolated() {
         return isolated;
     }
@@ -54,6 +53,10 @@ public class JcAppDescriptor implements Serializable {
 
     public int getIpPortListenUDP() {
         return ipPortListenUDP;
+    }
+
+    public List<Integer> getIpPortListenTCP() {
+        return ipPortListenTCP;
     }
 
     public String getAppName() {
@@ -113,14 +116,6 @@ public class JcAppDescriptor implements Serializable {
 
     public String getIpStrPortStr() {
         return ipAddress + ":" + ipPortListenUDP;
-    }
-
-    public int getIpPortListenTCP() {
-        return ipPortListenTCP;
-    }
-
-    public void setIpPortListenTCP(int ipPortListenTCP) {
-        this.ipPortListenTCP = ipPortListenTCP;
     }
 
 }
