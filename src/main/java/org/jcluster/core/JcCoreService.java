@@ -120,6 +120,29 @@ public final class JcCoreService {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
 
+    public final void stop() throws Exception {
+        if (running) {
+            running = false;
+            memberMap.forEach((t, member) -> {
+                try {
+                    JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
+                    msg.setSrc(selfDesc);
+                    member.sendMessage(msg);
+
+                    onMemberRemove(member);
+                    
+                } catch (IOException ex) {
+                    java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            });
+            
+            
+            if (socketUdpRx != null) {
+                socketUdpRx.close();
+            }
+        }
+    }
+
     public final void start() throws Exception {
         start(null);
     }
@@ -465,7 +488,6 @@ public final class JcCoreService {
                     primaryMemberMap.put(memId, null);
                 }
                 onMemberRemove(mem);
-                mem.close();
             } else {
                 try {
                     mem.sendMessage(ping);
