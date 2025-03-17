@@ -5,12 +5,12 @@
 package org.jcluster.core.bean;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.jcluster.core.config.JcAppConfig;
 
 /**
  *
@@ -22,25 +22,15 @@ import org.jcluster.core.config.JcAppConfig;
 public class JcAppDescriptor implements Serializable {
     //add whatever we need to represent our instances
 
-    private final boolean isolated;
-    private final String appName;
+    private String appName = "unknown";
     private final Set<String> topicList = new HashSet<>();
     private final String instanceId;
     private String ipAddress;
-    private List<Integer> ipPortListenTCP;//this is list
+    private int ipPortListenTCP;
     private int ipPortListenUDP;//this is list
 
     public JcAppDescriptor() {
-        this.ipAddress = JcAppConfig.getINSTANCE().getTcpServerListenAddr();
-        this.ipPortListenTCP = JcAppConfig.getINSTANCE().getTcpServerListenPort();
-        this.appName = JcAppConfig.getINSTANCE().getAppName();
-
         this.instanceId = RandomStringUtils.random(16, true, true);
-        this.isolated = JcAppConfig.getINSTANCE().isIsolated();
-    }
-
-    public boolean isIsolated() {
-        return isolated;
     }
 
     public String getInstanceId() {
@@ -55,8 +45,12 @@ public class JcAppDescriptor implements Serializable {
         return ipPortListenUDP;
     }
 
-    public List<Integer> getIpPortListenTCP() {
+    public int getIpPortListenTCP() {
         return ipPortListenTCP;
+    }
+
+    public void setIpPortListenTCP(int ipPortListenTCP) {
+        this.ipPortListenTCP = ipPortListenTCP;
     }
 
     public String getAppName() {
@@ -116,6 +110,10 @@ public class JcAppDescriptor implements Serializable {
 
     public String getIpStrPortStr() {
         return ipAddress + ":" + ipPortListenUDP;
+    }
+
+    public void setAppName(String appName) {
+        this.appName = appName;
     }
 
 }

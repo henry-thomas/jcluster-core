@@ -322,14 +322,6 @@ public class JcMember {
         return desc;
     }
 
-    public void setDesc(JcAppDescriptor desc) {
-        this.desc = desc;
-        if (desc != null) {
-            conector.setDesc(desc);
-            id = desc.getIpStrPortStr();
-        }
-    }
-
     public boolean isLastSeenExpired() {
 
         return System.currentTimeMillis() - lastSeen > 30_000;
@@ -389,8 +381,8 @@ public class JcMember {
     public long getLastSeen() {
         return lastSeen;
     }
-    
-    public Collection<RemMembFilter> getFilterList(){
+
+    public Collection<RemMembFilter> getFilterList() {
         return filterMap.values();
     }
 

@@ -1,202 +1,179 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
-package org.jcluster.core.config;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-/**
- *
- * @autor Henry Thomas
- *
- * These properties should be stored in your server configuration. E.G. in
- * Payara, in DAC, in server-config -> System Properties Add them there. If
- * someone can think of a better way, please mention.
- *
- * They are read by JcAppConfig, so all accessible from there throughout the
- * project. add id conf
- */
-public class JcAppConfig {
-
-    private static final Logger LOG = Logger.getLogger(JcAppConfig.class.getName());
-
-    private final List<String> jcPrimaryMemberAddress;
-    private final Integer minConnections;
-    private final String tcpServerListenAddr;
-    private final List<Integer> tcpServerListenPort;
-    private final boolean isolated;
-    private final String appName;
-    private final boolean debug;
-    private final List<String> pkgFilterList = new ArrayList<>();
-    private final List<String> topicList = new ArrayList<>();
-    private final Long jcLastSendMaxTimeout;
-
-    private static final JcAppConfig INSTANCE = new JcAppConfig();
-
-    private JcAppConfig() {
-        this.jcPrimaryMemberAddress = parseStrList(readProp("JC_PRIMARY_MEMBERS", "127.0.0.1:4445"));
-        this.tcpServerListenAddr = readProp("JC_TCP_LISTEN_IP", "127.0.0.1");
-        this.tcpServerListenPort = parseIntList(readProp("JC_TCP_LISTEN_PORTS", "2201"));
-        this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "2"));
-        this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
-        this.isolated = readProp("JC_ISOLATED", false);
-        this.debug = readProp("JC_DEBUG", false);
-
-        this.jcLastSendMaxTimeout = Long.valueOf(readProp("JC_LAST_SEND_MAX_TIMEOUT", "5000"));
-
-        initPkgFilterList();
-        initTopicList();
-    }
-
-    private List<Integer> parseIntList(String str) {
-        List<Integer> intList = new ArrayList<>();
-        List<String> parseStrList = parseStrList(str);
-        for (String string : parseStrList) {
-            intList.add(Integer.valueOf(string));
-        }
-        return intList;
-
-    }
-
-    private List<String> parseStrList(String str) {
-        String[] split = null;
-        List<String> strList = new ArrayList<>();
-        if (str.contains(";")) {
-            split = str.split(";");
-        } else if (str.contains(",")) {
-            split = str.split(",");
-        } else if (str.contains(" ")) {
-            split = str.split(" ");
-        } else {
-            split = new String[]{str};
-        }
-
-        for (String string : split) {
-            strList.add(string.trim());
-        }
-
-        return strList;
-    }
-
-    private void initPkgFilterList() {
-        String pkgFilter = readProp("JC_SCAN_PKG_NAME", "");
-        if (pkgFilter.equals("")) {
-            pkgFilterList.add("");
-            LOG.warning("JCluster set to scan the entire package, this can slow down application startup. "
-                    + "Please set correct package to scan in domain.xml -> configs -> server-config example: "
-                    + "<system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
-        } else {
-            String[] split = null;
-            if (pkgFilter.contains(";")) {
-                split = pkgFilter.split(";");
-            } else if (pkgFilter.contains(",")) {
-                split = pkgFilter.split(",");
-            } else if (pkgFilter.contains(" ")) {
-                split = pkgFilter.split(" ");
-            } else {
-                split = new String[]{pkgFilter};
-            }
-
-            if (split != null) {
-                for (String pkg : split) {
-                    pkgFilterList.add(pkg.trim());
-                }
-            }
-        }
-    }
-
-    private void initTopicList() {
-        String topics = readProp("JC_TOPICS", "");
-        if (topics.equals("")) {
-            topicList.add("");
-        } else {
-            String[] split = null;
-            if (topics.contains(";")) {
-                split = topics.split(";");
-            } else if (topics.contains(",")) {
-                split = topics.split(",");
-            } else if (topics.contains(" ")) {
-                split = topics.split(" ");
-            } else {
-                split = new String[]{topics};
-            }
-
-            if (split != null) {
-                for (String pkg : split) {
-                    topicList.add(pkg.trim());
-                }
-            }
-        }
-    }
-
-    public String readProp(String propName) {
-        return readProp(propName, null);
-    }
-
-    public final boolean readProp(String propName, boolean defaultValue) {
-        String readProp = readProp(propName, String.valueOf(defaultValue));
-        return Boolean.parseBoolean(readProp);
-    }
-
-    public final String readProp(String propName, String defaultValue) {
-        String prop = System.getProperty(propName);
-        if (prop == null) {
-            LOG.log(Level.SEVERE, "{0} property not set!", propName);
-            return defaultValue;
-        }
-        return prop;
-    }
-
-    public Integer getMinConnections() {
-        return minConnections;
-    }
-
-    public boolean isIsolated() {
-        return isolated;
-    }
-
-    public static JcAppConfig getINSTANCE() {
-        return INSTANCE;
-    }
-
-    public String getTcpServerListenAddr() {
-        return tcpServerListenAddr;
-    }
-
-    public String getAppName() {
-        return appName;
-    }
-
-    public static Long getConnMaxTimeout() {
-        return INSTANCE.jcLastSendMaxTimeout;
-    }
-
-    public Long getJcLastSendMaxTimeout() {
-        return jcLastSendMaxTimeout;
-    }
-
-    public List<String> getPkgFilterList() {
-        return pkgFilterList;
-    }
-
-    public List<String> getTopicList() {
-        return topicList;
-    }
-
-    public boolean isDebug() {
-        return debug;
-    }
-
-    public List<String> getJcPrimaryMemberAddress() {
-        return jcPrimaryMemberAddress;
-    }
-
-    public List<Integer> getTcpServerListenPort() {
-        return tcpServerListenPort;
-    }
-
-}
+///*
+// * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+// * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+// */
+//package org.jcluster.core.config;
+//
+//import java.util.ArrayList;
+//import java.util.List;
+//import java.util.logging.Level;
+//import java.util.logging.Logger;
+//
+///**
+// *
+// * @autor Henry Thomas
+// *
+// * These properties should be stored in your server configuration. E.G. in
+// * Payara, in DAC, in server-config -> System Properties Add them there. If
+// * someone can think of a better way, please mention.
+// *
+// * They are read by JcAppConfig, so all accessible from there throughout the
+// * project. add id conf
+// */
+//public class JcAppConfig {
+//
+//    private static final Logger LOG = Logger.getLogger(JcAppConfig.class.getName());
+//
+//    private final String jcPrimaryMemberAddress;
+//    private final Integer port;
+//    private final Integer minConnections;
+//    private final String hostName;
+//    private final boolean isolated;
+//    private final boolean primary;
+//    private final String appName;
+//    private final boolean debug;
+//    private final List<Integer> portList = new ArrayList<>();
+//    private final List<String> pkgFilterList = new ArrayList<>();
+//    private final List<String> topicList = new ArrayList<>();
+//    private final Long jcLastSendMaxTimeout;
+//
+//    private static final JcAppConfig INSTANCE = new JcAppConfig();
+//
+//    private JcAppConfig() {
+//        this.primary = readProp("JC_IS_PRIMARY_MEMBER", false);
+//        this.jcPrimaryMemberAddress = readProp("JC_PRIMARY_MEMBER_ADDRESS", "127.0.0.1");
+//        this.port = Integer.valueOf(readProp("JC_PORT", "2200"));
+//        this.minConnections = Integer.valueOf(readProp("JC_MIN_CONNECTIONS", "2"));
+//        this.hostName = readProp("JC_HOSTNAME", "127.0.0.1");
+//        this.appName = readProp("JC_APP_NAME", "jcAppNameDefault");
+//        this.isolated = readProp("JC_ISOLATED", false);
+//        this.debug = readProp("JC_DEBUG", false);
+//
+//        this.jcLastSendMaxTimeout = Long.valueOf(readProp("JC_LAST_SEND_MAX_TIMEOUT", "5000"));
+//
+//        initPkgFilterList();
+//        initTopicList();
+//    }
+//
+//    private void initPkgFilterList() {
+//        String pkgFilter = readProp("JC_SCAN_PKG_NAME", "");
+//        if (pkgFilter.equals("")) {
+//            pkgFilterList.add("");
+//            LOG.warning("JCluster set to scan the entire package, this can slow down application startup. "
+//                    + "Please set correct package to scan in domain.xml -> configs -> server-config example: "
+//                    + "<system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
+//        } else {
+//            String[] split = null;
+//            if (pkgFilter.contains(";")) {
+//                split = pkgFilter.split(";");
+//            } else if (pkgFilter.contains(",")) {
+//                split = pkgFilter.split(",");
+//            } else if (pkgFilter.contains(" ")) {
+//                split = pkgFilter.split(" ");
+//            } else {
+//                split = new String[]{pkgFilter};
+//            }
+//
+//            if (split != null) {
+//                for (String pkg : split) {
+//                    pkgFilterList.add(pkg.trim());
+//                }
+//            }
+//        }
+//    }
+//
+//    private void initTopicList() {
+//        String topics = readProp("JC_TOPICS", "");
+//        if (topics.equals("")) {
+//            topicList.add("");
+//        } else {
+//            String[] split = null;
+//            if (topics.contains(";")) {
+//                split = topics.split(";");
+//            } else if (topics.contains(",")) {
+//                split = topics.split(",");
+//            } else if (topics.contains(" ")) {
+//                split = topics.split(" ");
+//            } else {
+//                split = new String[]{topics};
+//            }
+//
+//            if (split != null) {
+//                for (String pkg : split) {
+//                    topicList.add(pkg.trim());
+//                }
+//            }
+//        }
+//    }
+//
+//    public String readProp(String propName) {
+//        return readProp(propName, null);
+//    }
+//
+//    public final boolean readProp(String propName, boolean defaultValue) {
+//        String readProp = readProp(propName, String.valueOf(defaultValue));
+//        return Boolean.parseBoolean(readProp);
+//    }
+//
+//    public final String readProp(String propName, String defaultValue) {
+//        String prop = System.getProperty(propName);
+//        if (prop == null) {
+//            LOG.log(Level.SEVERE, "{0} property not set!", propName);
+//            return defaultValue;
+//        }
+//        return prop;
+//    }
+//
+//    public Integer getMinConnections() {
+//        return minConnections;
+//    }
+//
+//    public boolean isIsolated() {
+//        return isolated;
+//    }
+//
+//    public static JcAppConfig getINSTANCE() {
+//        return INSTANCE;
+//    }
+//
+//    public String getJcHzPrimaryMember() {
+//        return jcPrimaryMemberAddress;
+//    }
+//
+//    public Integer getPort() {
+//        return port;
+//    }
+//
+//    public String getHostName() {
+//        return hostName;
+//    }
+//
+//    public String getAppName() {
+//        return appName;
+//    }
+//
+//    public static Long getConnMaxTimeout() {
+//        return INSTANCE.jcLastSendMaxTimeout;
+//    }
+//
+//    public Long getJcLastSendMaxTimeout() {
+//        return jcLastSendMaxTimeout;
+//    }
+//
+//    public List<String> getPkgFilterList() {
+//        return pkgFilterList;
+//    }
+//
+//    public List<String> getTopicList() {
+//        return topicList;
+//    }
+//
+//    public boolean isDebug() {
+//        return debug;
+//    }
+//
+//    public boolean isPrimary() {
+//        return primary;
+//    }
+//
+//}

@@ -22,7 +22,7 @@ import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcConnectionMetrics;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
-import org.jcluster.core.config.JcAppConfig;
+//import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
@@ -81,7 +81,7 @@ public class JcRemoteInstanceConnectionBean {
         int actualCount = inboundList.size();
 
         //Incase there is another isolated app connected, don't create an inbound connection to that app
-        if (actualCount < minCount && !desc.isIsolated()) {
+        if (actualCount < minCount) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection(true);
                 if (conn != null) {
@@ -106,7 +106,7 @@ public class JcRemoteInstanceConnectionBean {
         int actualCount = outboundList.size();
 
         //The isolated app will take care of the connection count.
-        if (actualCount < minCount && !desc.isIsolated()) {
+        if (actualCount < minCount) {
             for (int i = 0; i < (minCount - actualCount); i++) {
                 JcClientConnection conn = startClientConnection();
                 if (conn != null) {
@@ -159,21 +159,23 @@ public class JcRemoteInstanceConnectionBean {
                     JcHandhsakeFrame hf = new JcHandhsakeFrame(JcCoreService.getInstance().getSelfDesc());
 
                     if (fromIsolated) {
-                        LOG.info("Creating INBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
+                        LOG.info("Creating OUTBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
                         hf.setRequestedConnType(JcConnectionTypeEnum.OUTBOUND); //send opposite connection type to the node
                     } else {
-                        LOG.info("Creating OUTBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
+                        LOG.info("Creating INBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
                         hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
                     }
 
                     JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
+
                     oos.writeObject(response);
                     oos.flush();
-                    if (fromIsolated) {
-                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.INBOUND);
-                    } else {
-                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
-                    }
+                    LOG.info("Responding handshake frame: {}", hf);
+//                    if (hf.getRequestedConnType()) {
+                    return new JcClientConnection(socket, desc, hf.getRequestedConnType());
+//                    } else {
+//                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
+//                    }
 
                 }
             } catch (IOException | ClassNotFoundException ex) {
@@ -277,7 +279,7 @@ public class JcRemoteInstanceConnectionBean {
             List<JcClientConnection> toRemove = new ArrayList<>();
 
             for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > JcAppConfig.getConnMaxTimeout()) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 5000) {
                     toRemove.add(conn);
                 }
             }

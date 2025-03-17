@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import java.io.IOException;
@@ -30,7 +31,7 @@ import org.slf4j.LoggerFactory;
  */
 public class JcServerEndpoint implements Runnable {
 
-    private static final ch.qos.logback.classic.Logger LOG = (Logger) LoggerFactory.getLogger(JcCoreService.class);
+    private static final ch.qos.logback.classic.Logger LOG = (Logger) LoggerFactory.getLogger(JcServerEndpoint.class);
 
     private boolean running;
     ServerSocket server;
@@ -39,6 +40,7 @@ public class JcServerEndpoint implements Runnable {
 
     public JcServerEndpoint(ThreadFactory threadFactory) {
         this.threadFactory = threadFactory;
+        LOG.setLevel(Level.ALL);
     }
 
     @Override
@@ -47,14 +49,17 @@ public class JcServerEndpoint implements Runnable {
             server = new ServerSocket();
             server.setReuseAddress(true);
 
-            InetSocketAddress address = new InetSocketAddress(JcCoreService.getInstance().getSelfDesc().getIpPortListenUDP());
+            JcAppDescriptor selfDesc = JcCoreService.getInstance().getSelfDesc();
+
+            InetSocketAddress address = new InetSocketAddress(selfDesc.getIpPortListenUDP());
             server.bind(address);
+            selfDesc.setIpPortListenTCP(selfDesc.getIpPortListenUDP());
+            LOG.info("TCP Server init successfully on port: {}", selfDesc.getIpPortListenTCP());
             running = true;
             while (running) {
 
                 Socket sock = server.accept();
                 try {
-                    LOG.info("New Connection Accepted Start Hanshaking");
                     JcHandhsakeFrame handshakeFrame = doHandshake(sock);
                     LOG.info("New Connection Hanshaking Complete: {}", handshakeFrame);
 
@@ -91,6 +96,7 @@ public class JcServerEndpoint implements Runnable {
 
         FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
             try {
+                LOG.info("New Connection Accepted Start Hanshaking");
                 JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
 
                 ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
@@ -105,7 +111,7 @@ public class JcServerEndpoint implements Runnable {
                 }
 
             } catch (IOException | ClassNotFoundException ex) {
-//                LOG.log(Level.SEVERE, "Could not handshake", ex);
+                LOG.error(null, ex);
             }
             return null;
 

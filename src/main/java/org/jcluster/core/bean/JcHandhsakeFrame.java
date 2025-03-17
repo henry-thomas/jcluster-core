@@ -15,7 +15,6 @@ public class JcHandhsakeFrame implements Serializable {
 
     private static final long serialVersionUID = -711425395787330558L;
 
-    private boolean accepted;
     private JcConnectionTypeEnum requestedConnType = null;
     private final JcAppDescriptor remoteAppDesc;
 
@@ -28,14 +27,6 @@ public class JcHandhsakeFrame implements Serializable {
         return remoteAppDesc;
     }
 
-    public boolean isAccepted() {
-        return accepted;
-    }
-
-    public void setAccepted(boolean accepted) {
-        this.accepted = accepted;
-    }
-
     public JcConnectionTypeEnum getRequestedConnType() {
         return requestedConnType;
     }
@@ -46,7 +37,7 @@ public class JcHandhsakeFrame implements Serializable {
 
     @Override
     public String toString() {
-        return "JcHandhsakeFrame{" + "accepted=" + accepted + ", requestedConnType=" + requestedConnType + ", remoteAppDesc=" + remoteAppDesc + '}';
+        return "JcHandhsakeFrame{requestedConnType=" + requestedConnType + ", remoteAppDesc=" + remoteAppDesc + '}';
     }
 
 }
