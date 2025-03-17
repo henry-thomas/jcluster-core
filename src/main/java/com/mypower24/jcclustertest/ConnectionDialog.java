@@ -22,7 +22,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
      */
     public ConnectionDialog() {
         initComponents();
-        connect();
+//        connect();
     }
 
     private void connect() {
@@ -63,8 +63,6 @@ public class ConnectionDialog extends javax.swing.JFrame {
         jSeparator1 = new javax.swing.JSeparator();
         txtSelfIp = new javax.swing.JTextField();
         jLabel2 = new javax.swing.JLabel();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jCheckBox1.setText("Isolated");
         jCheckBox1.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);

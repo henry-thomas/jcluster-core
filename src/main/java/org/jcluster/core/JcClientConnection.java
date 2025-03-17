@@ -227,7 +227,7 @@ public class JcClientConnection implements Runnable {
                 }
             } catch (IOException ex) {
                 destroy();
-                LOG.error(id, ex);
+//                LOG.error(id, ex);
                 metrics.incErrCount();
 
             } catch (ClassNotFoundException ex) {
