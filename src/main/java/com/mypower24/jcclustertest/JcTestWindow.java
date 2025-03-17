@@ -79,6 +79,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             return;
         }
         updateFilters();
+        updateVisibleMembersTable();
     }
 
     private void onSelectedFilterChange() {
@@ -121,6 +122,21 @@ public class JcTestWindow extends javax.swing.JFrame {
             dtm.addRow(new Object[]{fName.isBlank() ? "No Filter name" : fName, size});
         }
 
+    }
+
+    private void updateVisibleMembersTable() {
+        DefaultTableModel dtm = (DefaultTableModel) tblVisibleMembers.getModel();
+
+        Map<String, String> visibleMembers = metricsMonitor.getVisibleMembers(selectedMember.getDesc().getInstanceId());
+
+        dtm.getDataVector().clear();
+
+        for (Map.Entry<String, String> entry : visibleMembers.entrySet()) {
+            String id = entry.getKey();
+            String appName = entry.getValue();
+
+            dtm.addRow(new Object[]{appName, id});
+        }
     }
 
     private void onMemberEvent(MemberEvent ev) {
@@ -234,6 +250,10 @@ public class JcTestWindow extends javax.swing.JFrame {
         filterExec = new javax.swing.JTextField();
         btnTestFilterString = new javax.swing.JButton();
         btnTestFilterNumver = new javax.swing.JButton();
+        jPanel6 = new javax.swing.JPanel();
+        jScrollPane6 = new javax.swing.JScrollPane();
+        tblVisibleMembers = new javax.swing.JTable();
+        jButton4 = new javax.swing.JButton();
         jButton1 = new javax.swing.JButton();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblMembers = new javax.swing.JTable();
@@ -336,7 +356,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(btnRefreshFilters)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 50, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 32, Short.MAX_VALUE)
                         .addComponent(jLabel5)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(txtFilterValues, javax.swing.GroupLayout.PREFERRED_SIZE, 135, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -415,7 +435,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addContainerGap(45, Short.MAX_VALUE)
+                        .addContainerGap(27, Short.MAX_VALUE)
                         .addComponent(addFilterValue2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(addFilterValue1)
@@ -546,6 +566,60 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel4.getAccessibleContext().setAccessibleName("Execute");
 
         jTabbedPane1.addTab("Test", jPanel2);
+
+        tblVisibleMembers.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null},
+                {null, null},
+                {null, null},
+                {null, null}
+            },
+            new String [] {
+                "App Name", "Instance ID"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.String.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane6.setViewportView(tblVisibleMembers);
+
+        jButton4.setText("Refresh");
+
+        javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
+        jPanel6.setLayout(jPanel6Layout);
+        jPanel6Layout.setHorizontalGroup(
+            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel6Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane6, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
+                        .addGap(0, 203, Short.MAX_VALUE)
+                        .addComponent(jButton4)))
+                .addContainerGap())
+        );
+        jPanel6Layout.setVerticalGroup(
+            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel6Layout.createSequentialGroup()
+                .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, 515, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(jButton4)
+                .addGap(0, 17, Short.MAX_VALUE))
+        );
+
+        jTabbedPane1.addTab("Members", jPanel6);
 
         jButton1.setText("Connect");
         jButton1.addActionListener(new java.awt.event.ActionListener() {
@@ -802,6 +876,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
+    private javax.swing.JButton jButton4;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
@@ -816,11 +891,13 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
+    private javax.swing.JPanel jPanel6;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
+    private javax.swing.JScrollPane jScrollPane6;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JTextArea jTextArea1;
     private javax.swing.JTextArea logContainer;
@@ -828,6 +905,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JTable tblFilterValues;
     private javax.swing.JTable tblFilters;
     private javax.swing.JTable tblMembers;
+    private javax.swing.JTable tblVisibleMembers;
     private javax.swing.JTextField testFilterARFIterName;
     private javax.swing.JTextField testFilterARFIterVal;
     private javax.swing.JSpinner testFilterARFIteration;

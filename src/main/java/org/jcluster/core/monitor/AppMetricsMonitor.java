@@ -4,7 +4,6 @@
  */
 package org.jcluster.core.monitor;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -40,8 +39,8 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     }
 
     @Override
-    public Map<String, String> getVisibleMembers() {
-        return JcCoreService.getMemberMap().values().stream().collect(Collectors.toMap((t) -> t.getDesc().getAppName(), (u) -> u.getId()));
+    public Map<String, String> getVisibleMembers(String instanceId) {
+        return JcCoreService.getMemberMap().values().stream().collect(Collectors.toMap((u) -> u.getId(), (t) -> t.getDesc().getAppName()));
     }
 
 }
