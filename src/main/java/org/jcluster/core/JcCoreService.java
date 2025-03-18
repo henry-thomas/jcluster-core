@@ -148,6 +148,9 @@ public final class JcCoreService {
             if (socketUdpRx != null) {
                 socketUdpRx.close();
             }
+            if (serverEndpoint != null) {
+                serverEndpoint.destroy();
+            }
         } else {
             LOG.info("JCLUSTER -- Invalid Shutdown... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
 

@@ -62,6 +62,7 @@ public class JcServerEndpoint implements Runnable {
                     LOG.info("TCP Server init successfully on port: {}", port);
                     break;
                 } catch (IOException ex) {
+                    LOG.warn("TCP Server FAILED to connect on port: {}", port);
                     lastEx = ex;
                 }
             }
@@ -152,6 +153,7 @@ public class JcServerEndpoint implements Runnable {
         try {
             running = false;
             server.close();
+            LOG.trace("JcServerEndpoint destroyed");
         } catch (IOException ex) {
             LOG.error(null, ex);
         }
