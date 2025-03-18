@@ -212,7 +212,7 @@ public final class JcCoreService {
             //TCP server 
             serverEndpoint = new JcServerEndpoint(threadFactory, (List<Integer>) config.get("tcpListenPort"));
             Thread serverThread = threadFactory.newThread(serverEndpoint);
-            serverThread.setName("JcServerEndpoint");
+
             serverThread.start();
 
             metrics = new JcMetrics(selfDesc);
@@ -279,8 +279,8 @@ public final class JcCoreService {
 
     private void onPingMsg(JcDistMsg msg) {
         String srcId = msg.getSrc().getIpStrPortStr();
-        JcMember member = memberMap.get(srcId);
-        if (member == null) {
+        JcMember mem = memberMap.get(srcId);
+        if (mem == null) {
             try {
                 sendReqJoin(srcId);
                 LOG.info("Discovered member: [" + srcId + "] from ping msg");
@@ -288,7 +288,20 @@ public final class JcCoreService {
                 LOG.info(null, ex);
             }
         } else {
-            member.updateLastSeen();
+            if (msg.getSrc().getInstanceId().equals(mem.getDesc().getInstanceId())) {
+                mem.updateLastSeen();
+            } else {
+                LOG.warn("Jc Member:[{}]  InstanceID:[{}] incorect id!", mem.getDesc().getIpStrPortStr(), mem.getDesc().getInstanceId());
+                memberMap.remove(srcId);
+                onMemberRemove(mem);
+
+                try {
+                    sendReqJoin(srcId);
+                } catch (Exception ex) {
+                }
+                LOG.info("Try to reconnect to new member: [" + srcId + "] from ping invalid InstanceId msg");
+            }
+
         }
         try {
             List<String> ipStrList = (List<String>) msg.getData();
