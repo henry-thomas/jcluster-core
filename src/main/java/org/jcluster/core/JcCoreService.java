@@ -843,12 +843,20 @@ public final class JcCoreService {
         LOG.info("Shutting down {}", Thread.currentThread().getName());
     }
 
+    protected int getFilterValuesCount(String app, String fName) {
+        int totalFilterValueSize = memberMap.values().stream()
+                .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
+                .mapToInt((value) -> value.filterSetSize(fName))
+                .sum();
+
+        return totalFilterValueSize;
+    }
+
     protected boolean containsFilterValue(String app, String fName, Object fValue) {
         return memberMap.values().stream()
                 .anyMatch((mem) -> {
                     return Objects.equals(mem.getDesc().getAppName(), app) && mem.containsFilter(fName, fValue);
                 });
-
     }
 
     protected List<JcRemoteInstanceConnectionBean> getMemConByApp(String app) {
