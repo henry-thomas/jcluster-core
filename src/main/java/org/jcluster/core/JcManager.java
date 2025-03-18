@@ -257,4 +257,7 @@ public class JcManager {
         return JcCoreService.getInstance().containsFilterValue(app, fName, fValue);
     }
 
+    public static int getFilterValuesCount(String app, String fName) {
+        return JcCoreService.getInstance().getFilterValuesCount(app, fName);
+    }
 }

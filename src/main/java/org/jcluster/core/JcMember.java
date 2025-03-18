@@ -339,6 +339,14 @@ public class JcMember {
         return subscribtionSet;
     }
 
+    public int filterSetSize(String fName) {
+        RemMembFilter rf = this.filterMap.get(fName);
+        if (rf == null) {
+            return 0;
+        }
+        return rf.getValueSet().size();
+    }
+
     public boolean containsFilter(String fName, Object fValue) {
         RemMembFilter rf = this.filterMap.get(fName);
         if (rf == null) {
