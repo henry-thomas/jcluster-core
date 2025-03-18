@@ -11,6 +11,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Level;
+import javax.enterprise.concurrent.ManagedExecutorService;
+import javax.enterprise.concurrent.ManagedThreadFactory;
+import javax.naming.NamingException;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.exception.JcException;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -152,7 +156,7 @@ public class JcManager {
         return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler());
     }
 
-    protected static Map<String, Object> getDefaultConfig() {
+    protected static Map<String, Object> getDefaultConfig(boolean enterprice) {
         Map<String, Object> config = new HashMap();
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
         config.put("selfIpAddress", readProp("JC_HOSTNAME"));
@@ -172,6 +176,23 @@ public class JcManager {
             }
 
             config.put("primaryMembers", list);
+        }
+
+        ManagedExecutorService exs = null; //executorService
+        ManagedThreadFactory th = null;//threadFactory
+        //threadFactory
+
+        if (enterprice) {
+
+            try {
+                exs = (ManagedExecutorService) ServiceLookup.getServiceEnterprise("concurrent/__defaultManagedExecutorService", null);
+                th = (ManagedThreadFactory) ServiceLookup.getServiceEnterprise("concurrent/__defaultManagedThreadFactory", null);
+                config.put("executorService", exs);
+                config.put("threadFactory", th);
+
+            } catch (NamingException ex) {
+                LOG.error(null, ex);
+            }
         }
 
         return config;

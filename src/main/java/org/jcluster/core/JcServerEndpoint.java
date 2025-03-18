@@ -6,13 +6,13 @@ package org.jcluster.core;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import javax.enterprise.concurrent.ManagedThreadFactory;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadFactory;
@@ -37,9 +37,11 @@ public class JcServerEndpoint implements Runnable {
     ServerSocket server;
 
     private final ThreadFactory threadFactory;
+    private final List<Integer> tcpListenPorts;
 
-    public JcServerEndpoint(ThreadFactory threadFactory) {
+    public JcServerEndpoint(ThreadFactory threadFactory, List<Integer> tcpListenPorts) {
         this.threadFactory = threadFactory;
+        this.tcpListenPorts = tcpListenPorts;
         LOG.setLevel(Level.ALL);
     }
 
@@ -51,10 +53,22 @@ public class JcServerEndpoint implements Runnable {
 
             JcAppDescriptor selfDesc = JcCoreService.getInstance().getSelfDesc();
 
-            InetSocketAddress address = new InetSocketAddress(selfDesc.getIpPortListenUDP());
-            server.bind(address);
-            selfDesc.setIpPortListenTCP(selfDesc.getIpPortListenUDP());
-            LOG.info("TCP Server init successfully on port: {}", selfDesc.getIpPortListenTCP());
+            IOException lastEx = null;
+            for (Integer port : tcpListenPorts) {
+                try {
+                    InetSocketAddress address = new InetSocketAddress(selfDesc.getIpAddress(), port);
+                    server.bind(address);
+                    selfDesc.setIpPortListenTCP(port);
+                    LOG.info("TCP Server init successfully on port: {}", port);
+                    break;
+                } catch (IOException ex) {
+                    lastEx = ex;
+                }
+            }
+            if (!server.isBound() && lastEx != null) {
+                throw lastEx;
+            }
+
             running = true;
             while (running) {
 
@@ -85,10 +99,15 @@ public class JcServerEndpoint implements Runnable {
 
             }
 
-            server.close();
         } catch (IOException ex) {
             running = false;
-//            Logger.getLogger(JcServerEndpoint.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.warn(null, ex);
+        } finally {
+            try {
+                server.close();
+            } catch (IOException ex) {
+                LOG.warn(null, ex);
+            }
         }
     }
 
