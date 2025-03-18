@@ -605,7 +605,8 @@ public final class JcCoreService {
                 break;
 
             default:
-                throw new AssertionError();
+                LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
+//                throw new AssertionError();
         }
     }
 
