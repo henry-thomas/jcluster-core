@@ -222,7 +222,7 @@ public class JcClientConnection implements Runnable {
                     metrics.incRxCount();
                     lastDataTimestamp = currentTimeMillis();
                     JcCoreService.getInstance().getExecutorService()
-                            .submit(new JcInboundMethodExecutor(request, this));
+                            .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
                 }
             } catch (IOException ex) {
                 destroy();
