@@ -12,14 +12,9 @@ import org.jcluster.core.bean.JcAppDescriptor;
  *
  * @autor Henry Thomas
  */
-public class JcConnectionMetrics implements Serializable {
+public class JcMemberMetricsInOut implements Serializable {
 
-    private final String homeServerName = null;
-    private final String remoteServerName = null;
-    private final String instanceId;
-    private final String ipAddress;
-    private final String appName;
-    private final JcConnectionTypeEnum connType;
+    private JcConnectionTypeEnum connType;
     private int txCount = 0;
     private int rxCount = 0;
     private int errCount = 0;
@@ -28,16 +23,10 @@ public class JcConnectionMetrics implements Serializable {
     private int recreateCount = 0;
     private long lastConnAttempt = 0;
 
-    public JcConnectionMetrics(JcAppDescriptor desc, JcConnectionTypeEnum connType) {
-//        this.remoteServerName = desc.getServerName();
-//        this.homeServerName = JcFactory.getManager().getInstanceAppDesc().getServerName();
-        this.connType = connType;
-        this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPortListenUDP();
-        this.appName = desc.getAppName();
-        this.instanceId = desc.getInstanceId();
+    public JcMemberMetricsInOut() {
     }
-    
-    public void addMetrics(JcConnectionMetrics metrics) {
+
+    public void addMetrics(JcMemberMetricsInOut metrics) {
         txCount += metrics.txCount;
         rxCount += metrics.rxCount;
         errCount += metrics.errCount;
@@ -47,10 +36,6 @@ public class JcConnectionMetrics implements Serializable {
 
     public JcConnectionTypeEnum getConnType() {
         return connType;
-    }
-
-    public String getInstanceId() {
-        return instanceId;
     }
 
     public long getLastConnAttempt() {
@@ -93,28 +78,12 @@ public class JcConnectionMetrics implements Serializable {
         return timeoutCount;
     }
 
-    public String getIpAddress() {
-        return ipAddress;
-    }
-
-    public String getAppName() {
-        return appName;
-    }
-
     public int getReqRespMapSize() {
         return reqRespMapSize;
     }
 
     public void setReqRespMapSize(int reqRespMapSize) {
         this.reqRespMapSize = reqRespMapSize;
-    }
-
-    public String getHomeServerName() {
-        return homeServerName;
-    }
-
-    public String getRemoteServerName() {
-        return remoteServerName;
     }
 
     public int getRecreateCount() {

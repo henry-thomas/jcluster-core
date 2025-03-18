@@ -25,7 +25,7 @@ import org.jcluster.core.JcManager;
 import org.jcluster.core.JcMember;
 import org.jcluster.core.MemberEvent;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
-import org.jcluster.core.monitor.JcConnectionMetrics;
+import org.jcluster.core.monitor.JcMemberMetricsInOut;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
 
@@ -97,32 +97,27 @@ public class JcTestWindow extends javax.swing.JFrame {
             String memId = entry.getKey();
             JcMemberMetrics met = entry.getValue();
             //Map<ID, Map<ConnType, Metrics>>
-            Map<String, Map<String, JcConnectionMetrics>> connMetrics = met.getConnMetrics();
 
-            for (Map.Entry<String, Map<String, JcConnectionMetrics>> metEntry : connMetrics.entrySet()) {
-                String id = metEntry.getKey();
-                Map<String, JcConnectionMetrics> value = metEntry.getValue();
 
-                JcConnectionMetrics inboundMetrics = value.get(JcConnectionTypeEnum.INBOUND.name());
-                JcConnectionMetrics outboundMetrics = value.get(JcConnectionTypeEnum.OUTBOUND.name());
+            JcMemberMetricsInOut inboundMetrics = met.getInbound();
+            JcMemberMetricsInOut outboundMetrics = met.getOutbound();
 
-                System.out.println("Got metrics for: " + memId);
+            System.out.println("Got metrics for: " + memId);
 
-                dtmInbound.addRow(new Object[]{
-                    id,
-                     inboundMetrics.getRxCount(),
-                     inboundMetrics.getTxCount(),
-                     inboundMetrics.getErrCount(),
-                     inboundMetrics.getReqRespMapSize()});
-                dtmOutbound.addRow(new Object[]{
-                    id,
-                     outboundMetrics.getRxCount(),
-                     outboundMetrics.getTxCount(),
-                     outboundMetrics.getErrCount(),
-                     inboundMetrics.getReqRespMapSize()});
-            }
+            dtmInbound.addRow(new Object[]{
+                memId,
+                inboundMetrics.getRxCount(),
+                inboundMetrics.getTxCount(),
+                inboundMetrics.getErrCount(),
+                inboundMetrics.getReqRespMapSize()});
+            dtmOutbound.addRow(new Object[]{
+                memId,
+                outboundMetrics.getRxCount(),
+                outboundMetrics.getTxCount(),
+                outboundMetrics.getErrCount(),
+                inboundMetrics.getReqRespMapSize()});
         }
-        
+
         dtmInbound.fireTableDataChanged();
         dtmOutbound.fireTableDataChanged();
     }
@@ -333,6 +328,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jLabel8 = new javax.swing.JLabel();
         jScrollPane9 = new javax.swing.JScrollPane();
         tblOutbountMetrics = new javax.swing.JTable();
+        jPanel7 = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblMembers = new javax.swing.JTable();
         jPanel5 = new javax.swing.JPanel();
@@ -773,6 +769,19 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("Members", jPanel6);
 
+        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
+        jPanel7.setLayout(jPanel7Layout);
+        jPanel7Layout.setHorizontalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 454, Short.MAX_VALUE)
+        );
+        jPanel7Layout.setVerticalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 570, Short.MAX_VALUE)
+        );
+
+        jTabbedPane1.addTab("Metrics", jPanel7);
+
         tblMembers.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
@@ -820,7 +829,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 970, Short.MAX_VALUE)
+                .addComponent(jScrollPane3)
                 .addContainerGap())
         );
         jPanel5Layout.setVerticalGroup(
@@ -919,10 +928,10 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 441, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jPanel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 533, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jTabbedPane1)
                         .addContainerGap())
                     .addComponent(jPanel5, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
@@ -1027,7 +1036,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_tblFiltersMouseReleased
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-       updateVisibleMembersTable();
+        updateVisibleMembersTable();
         updateMetrics();
     }//GEN-LAST:event_jButton4ActionPerformed
 
@@ -1097,6 +1106,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
     private javax.swing.JPanel jPanel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;

@@ -15,10 +15,10 @@ import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcAppDescriptor;
 import ch.qos.logback.classic.Logger;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.jcluster.core.monitor.JcConnectionMetrics;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
+import org.jcluster.core.monitor.JcMemberMetrics;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -42,18 +42,18 @@ public class JcClientConnection implements Runnable {
 
     private boolean running = true;
     private final JcConnectionTypeEnum connType;
-    private final JcConnectionMetrics metrics;
+    private final JcMemberMetrics metrics;
     protected long lastDataTimestamp = currentTimeMillis();
 
     private final Object writeLock = new Object();
 
     private final ConcurrentHashMap<Long, JcMessage> reqRespMap = new ConcurrentHashMap<>();
 
-    public JcClientConnection(Socket sock, JcHandhsakeFrame handshakeFrame) throws IOException {
-        this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType());
+    public JcClientConnection(Socket sock, JcHandhsakeFrame handshakeFrame, JcMemberMetrics met) throws IOException {
+        this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType(), met);
     }
 
-    public JcClientConnection(Socket sock, JcAppDescriptor desc, JcConnectionTypeEnum conType) throws IOException {
+    public JcClientConnection(Socket sock, JcAppDescriptor desc, JcConnectionTypeEnum conType, JcMemberMetrics met) throws IOException {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
 
         this.socket = sock;
@@ -71,9 +71,8 @@ public class JcClientConnection implements Runnable {
                 + "-" + (this.connType == JcConnectionTypeEnum.INBOUND ? "INBOUND" : "OUTBOUND")
                 + "-" + (conIdUniqueCounter++);
 
-        metrics = new JcConnectionMetrics(desc, this.connType);
         LOG.trace(id + " New JcClientConnection: {}", connId);
-
+        this.metrics = met;
     }
 
     //Called from Client Thread
@@ -92,21 +91,10 @@ public class JcClientConnection implements Runnable {
             oos.flush();
             oos.reset();
         }
-        metrics.incTxCount();
+        metrics.getOutbound().incTxCount();
     }
 
-    public boolean sendPing() {
-//        LOG.log(Level.WARNING, "Sending ping message: {}ms Message ID:{} Thread-ID: {}");
-        JcMsgResponse resp;
-        metrics.setReqRespMapSize(reqRespMap.size());
-        try {
-
-            resp = send(JcMessage.createPingMsg(), 1000);
-            return !(resp == null || resp.getData() == null || !resp.getData().equals("pong"));
-        } catch (IOException ex) {
-        }
-        return false;
-    }
+   
 
     public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
         if (timeoutMs == null) {
@@ -127,7 +115,7 @@ public class JcClientConnection implements Runnable {
 //            LOG.log(Level.FINE, "ReqResp Map Size for: {} is [{}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
             if (msg.getResponse() == null) {
                 reqRespMap.remove(msg.getRequestId());
-                metrics.incTimeoutCount();
+                metrics.getOutbound().incTimeoutCount();
                 LOG.warn(id + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {}", new Object[]{System.currentTimeMillis() - start, msg.getRequestId(), Thread.currentThread().getName()});
 
                 throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
@@ -187,7 +175,7 @@ public class JcClientConnection implements Runnable {
                     lastDataTimestamp = currentTimeMillis();
 
                     Object readObject = ois.readObject();
-                    metrics.incRxCount();
+                    metrics.getOutbound().incRxCount();
 
                     JcMsgResponse response = (JcMsgResponse) readObject;
 
@@ -202,7 +190,7 @@ public class JcClientConnection implements Runnable {
                     }
 
                 } catch (IOException ex) {
-                    metrics.incErrCount();
+                    metrics.getOutbound().incErrCount();
                     destroy();
                 } catch (ClassNotFoundException ex) {
                     LOG.warn(id, ex);
@@ -219,7 +207,7 @@ public class JcClientConnection implements Runnable {
             try {
                 if (socket.isConnected()) {
                     JcMessage request = (JcMessage) ois.readObject();
-                    metrics.incRxCount();
+                    metrics.getInbound().incRxCount();
                     lastDataTimestamp = currentTimeMillis();
                     JcCoreService.getInstance().getExecutorService()
                             .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
@@ -227,7 +215,7 @@ public class JcClientConnection implements Runnable {
             } catch (IOException ex) {
                 destroy();
 //                LOG.error(id, ex);
-                metrics.incErrCount();
+                metrics.getInbound().incErrCount();
 
             } catch (ClassNotFoundException ex) {
                 LOG.warn(id, ex);
@@ -261,7 +249,7 @@ public class JcClientConnection implements Runnable {
         return lastDataTimestamp;
     }
 
-    public JcConnectionMetrics getMetrics() {
+    public JcMemberMetrics getMetrics() {
         return metrics;
     }
 

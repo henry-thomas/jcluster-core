@@ -37,6 +37,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
         config.put("primaryMembers", getList(primaryMember.getText()));
         config.put("appName", appName.getText());
         config.put("selfIpAddress", txtSelfIp.getText());
+        config.put("tcpListenPort", portList);
         try {
             JcCoreService.getInstance().start(config);
         } catch (Exception ex) {

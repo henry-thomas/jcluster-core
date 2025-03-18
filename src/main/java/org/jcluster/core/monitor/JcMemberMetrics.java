@@ -5,7 +5,6 @@
 package org.jcluster.core.monitor;
 
 import java.io.Serializable;
-import java.util.Map;
 
 /**
  *
@@ -16,7 +15,27 @@ public class JcMemberMetrics implements Serializable {
     private static final long serialVersionUID = 3468516841763326041L;
 
     private Integer filterSize;
-    private Map<String, Map<String, JcConnectionMetrics>> connMetrics;
+    private String appName;
+    private String instanceId;
+
+    private final JcMemberMetricsInOut inbound = new JcMemberMetricsInOut();
+    private final JcMemberMetricsInOut outbound = new JcMemberMetricsInOut();
+
+    public String getAppName() {
+        return appName;
+    }
+
+    public String getInstanceId() {
+        return instanceId;
+    }
+
+    public JcMemberMetricsInOut getInbound() {
+        return inbound;
+    }
+
+    public JcMemberMetricsInOut getOutbound() {
+        return outbound;
+    }
 
     public Integer getFilterSize() {
         return filterSize;
@@ -26,12 +45,12 @@ public class JcMemberMetrics implements Serializable {
         this.filterSize = filterSize;
     }
 
-    public Map<String, Map<String, JcConnectionMetrics>> getConnMetrics() {
-        return connMetrics;
+    public void setAppName(String appName) {
+        this.appName = appName;
     }
 
-    public void setConnMetrics(Map<String, Map<String, JcConnectionMetrics>> connMetrics) {
-        this.connMetrics = connMetrics;
+    public void setInstanceId(String instanceId) {
+        this.instanceId = instanceId;
     }
 
 }

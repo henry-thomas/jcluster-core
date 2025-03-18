@@ -19,7 +19,7 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
     @Override
     public JcMetrics getMetrics(String instanceId) {
-        return JcCoreService.getInstance().getMetrics();
+        return JcCoreService.getInstance().getAllMetrics();
     }
 
     @Override

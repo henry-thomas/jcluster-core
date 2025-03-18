@@ -23,6 +23,8 @@ import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.exception.sockets.JcSocketConnectException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
+import org.jcluster.core.monitor.JcMemberMetrics;
+import org.jcluster.core.monitor.JcMetrics;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -80,7 +82,15 @@ public class JcServerEndpoint implements Runnable {
                     JcHandhsakeFrame handshakeFrame = doHandshake(sock);
                     LOG.info("New Connection Hanshaking Complete: {}", handshakeFrame);
 
-                    JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame);
+                    JcMetrics metrics = JcCoreService.getInstance().getAllMetrics();
+                    String memId = handshakeFrame.getRemoteAppDesc().getIpStrPortStr();
+                    JcMemberMetrics met = metrics.getMemMetricsMap().get(handshakeFrame.getRemoteAppDesc().getIpStrPortStr());
+                    if (met == null) {
+                        met = new JcMemberMetrics();
+                        metrics.getMemMetricsMap().put(memId, met);
+                    }
+
+                    JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame, met);
                     threadFactory.newThread(jcClientConnection).start();
 
                     LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);

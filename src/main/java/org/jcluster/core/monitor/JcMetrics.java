@@ -16,8 +16,11 @@ import org.jcluster.core.bean.JcAppDescriptor;
  */
 public class JcMetrics implements Serializable {
 
-    private final HashMap<String, List<JcConnectionMetrics>> connMetricsMap = new HashMap<>();
+    private static final long serialVersionUID = -3877967371056615756L;
+
+    private final HashMap<String, List<JcMemberMetricsInOut>> connMetricsMap = new HashMap<>();
     private final HashMap<String, JcMemberMetrics> memMetricsMap = new HashMap<>();
+    
     private final InstanceResMonitorBean resBean;
     private final JcAppDescriptor desc;
 
@@ -30,21 +33,11 @@ public class JcMetrics implements Serializable {
         return memMetricsMap;
     }
 
-    public void updateMemMetrics(JcMember mem) {
-        JcMemberMetrics met = memMetricsMap.get(mem.getId());
-        if (met == null) {
-            met = new JcMemberMetrics();
-            memMetricsMap.put(mem.getId(), met);
-        }
-        met.setFilterSize(mem.getSubscribtionSet().size());
-        met.setConnMetrics(mem.getConector().getAllMetrics());
-    }
-
     public JcAppDescriptor getDesc() {
         return desc;
     }
 
-    public HashMap<String, List<JcConnectionMetrics>> getConnMetricsMap() {
+    public HashMap<String, List<JcMemberMetricsInOut>> getConnMetricsMap() {
         return connMetricsMap;
     }
 

@@ -59,6 +59,7 @@ import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
+import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
 
 /**
@@ -124,7 +125,7 @@ public final class JcCoreService {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
 
-    public final JcMetrics getMetrics() {
+    public final JcMetrics getAllMetrics() {
         return metrics;
     }
 
@@ -219,7 +220,7 @@ public final class JcCoreService {
             serverThread.start();
 
             metrics = new JcMetrics(selfDesc);
-            
+
             JcManager.getInstance().registerLocalClassImplementation(AppMetricsMonitor.class);
 
         }
@@ -269,7 +270,16 @@ public final class JcCoreService {
     private JcMember onMemberJoinMsg(JcDistMsg msg, String memId) {
         JcMember mem = memberMap.get(memId);
         if (mem == null) {
-            mem = new JcMember(msg.getSrc(), this);
+            JcMemberMetrics met = metrics.getMemMetricsMap().get(memId);
+            if (met == null) {
+                met = new JcMemberMetrics();
+                metrics.getMemMetricsMap().put(memId, met);
+            }
+            mem = new JcMember(msg.getSrc(), this, met);
+
+            met.setAppName(mem.getDesc().getAppName());
+            met.setInstanceId(mem.getDesc().getInstanceId());
+
             memberMap.put(memId, mem);
         }
         if (primaryMemberMap.containsKey(memId)) {
@@ -538,8 +548,6 @@ public final class JcCoreService {
                 }
 
                 mem.verifyRxFrag();
-                metrics.updateMemMetrics(mem);
-
             }
         }
 //        LOG.debug(strMembLog);
@@ -575,7 +583,6 @@ public final class JcCoreService {
         socketUdpRx.send(p);
     }
 
-    
     private void processRecMsg(JcDistMsg msg, String memId) {
 
         JcMember mem = memberMap.get(memId);
