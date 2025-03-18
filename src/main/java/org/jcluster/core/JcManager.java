@@ -253,4 +253,8 @@ public class JcManager {
         return prop;
     }
 
+    public static boolean containsFilterValue(String app, String fName, Object fValue) {
+        return JcCoreService.getInstance().containsFilterValue(app, fName, fValue);
+    }
+
 }

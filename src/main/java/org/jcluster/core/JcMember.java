@@ -339,6 +339,18 @@ public class JcMember {
         return subscribtionSet;
     }
 
+    public boolean containsFilter(String fName, Object fValue) {
+        RemMembFilter rf = this.filterMap.get(fName);
+        if (rf == null) {
+            return false;
+        }
+        if (!rf.containsFilterValue(fValue)) {
+            return false;
+        }
+
+        return true;
+    }
+
     public boolean containsFilter(Map<String, Object> fMap) {
         for (Map.Entry<String, Object> entry : fMap.entrySet()) {
             String fName = entry.getKey();

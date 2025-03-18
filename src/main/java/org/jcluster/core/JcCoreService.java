@@ -157,7 +157,7 @@ public final class JcCoreService {
             }
             if (config.containsKey("selfIpAddress")) {
                 selfDesc.setIpAddress((String) config.get("selfIpAddress"));
-            }else{
+            } else {
                 throw new JcRuntimeException("Missing property for [selfIpAddress]");
             }
 
@@ -843,10 +843,18 @@ public final class JcCoreService {
         LOG.info("Shutting down {}", Thread.currentThread().getName());
     }
 
+    protected boolean containsFilterValue(String app, String fName, Object fValue) {
+        return memberMap.values().stream()
+                .anyMatch((mem) -> {
+                    return Objects.equals(mem.getDesc().getAppName(), app) && mem.containsFilter(fName, fValue);
+                });
+
+    }
+
     protected List<JcRemoteInstanceConnectionBean> getMemConByApp(String app) {
         List<JcRemoteInstanceConnectionBean> riList = memberMap.values().stream()
                 .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
-                .filter((mem) -> mem.getConector().isOutboundAvailable())
+                //                .filter((mem) -> mem.getConector().isOutboundAvailable())
                 .map((mem) -> mem.getConector())
                 .collect(Collectors.toList());
 
@@ -855,7 +863,7 @@ public final class JcCoreService {
 
     protected List<JcRemoteInstanceConnectionBean> getMemConByTopic(String topic) {
         List<JcRemoteInstanceConnectionBean> riList = memberMap.values().stream()
-                .filter((mem) -> mem.getConector().isOutboundAvailable())
+                //                .filter((mem) -> mem.getConector().isOutboundAvailable())
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
                 .map((mem) -> mem.getConector())
                 .collect(Collectors.toList());

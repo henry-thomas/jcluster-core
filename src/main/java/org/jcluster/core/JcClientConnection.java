@@ -11,7 +11,6 @@ import static java.lang.System.currentTimeMillis;
 import java.net.Socket;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcAppDescriptor;
 import ch.qos.logback.classic.Logger;
