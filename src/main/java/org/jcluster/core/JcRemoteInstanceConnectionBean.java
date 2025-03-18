@@ -13,13 +13,15 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.bean.JcConnectionMetrics;
+import org.jcluster.core.monitor.JcConnectionMetrics;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
 //import org.jcluster.core.config.JcAppConfig;
@@ -52,6 +54,8 @@ public class JcRemoteInstanceConnectionBean {
     //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
     private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
 
+    private final Map<String, Map<String, JcConnectionMetrics>> metricsMap = new HashMap<>();
+
     private JcAppDescriptor desc = null;
 
     public boolean isOnDemandConnection() {
@@ -66,12 +70,29 @@ public class JcRemoteInstanceConnectionBean {
         this.desc = desc;
     }
 
-    public List<JcConnectionMetrics> getAllMetrics() {
-        List<JcConnectionMetrics> metricList = new ArrayList<>();
+    /**
+     *
+     * @return Map that contains the string for the remote app instance ID
+     * mapped to map of inbound and outbound connection metrics separately.
+     *
+     * Keys for each instance map are always INBOUND and OUTBOUND
+     */
+    public Map<String, Map<String, JcConnectionMetrics>> getAllMetrics() {
+
         for (JcClientConnection conn : allConnections) {
-            metricList.add(conn.getMetrics());
+            Map<String, JcConnectionMetrics> metMap = metricsMap.get(conn.getRemoteAppDesc().getIpStrPortStr());
+            if (metMap == null) {
+                Map<String, JcConnectionMetrics> instMetrics = new HashMap<>();
+                instMetrics.put(JcConnectionTypeEnum.INBOUND.name(), new JcConnectionMetrics(desc, JcConnectionTypeEnum.INBOUND));
+                instMetrics.put(JcConnectionTypeEnum.OUTBOUND.name(), new JcConnectionMetrics(desc, JcConnectionTypeEnum.OUTBOUND));
+                metMap = instMetrics;
+                metricsMap.put(conn.getRemoteAppDesc().getIpStrPortStr(), instMetrics);
+            }
+
+            metMap.get(conn.getConnType().name()).addMetrics(conn.getMetrics());
         }
-        return metricList;
+
+        return metricsMap;
     }
 
     protected void validateInboundConnectionCount(int minCount) {
@@ -148,7 +169,7 @@ public class JcRemoteInstanceConnectionBean {
                 JcMessage request = (JcMessage) ois.readObject();
                 if (request.getMethodSignature().equals("handshake")) {
                     JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
-                   
+
                     if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
                         LOG.info("Handshake Response with Invalid for instanceId: {} found: {}",
                                 new Object[]{desc.getInstanceId(), handshakeDesc.getInstanceId()});

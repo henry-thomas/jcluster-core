@@ -6,7 +6,6 @@ package org.jcluster.core.monitor;
 
 import java.util.Map;
 import java.util.Set;
-import org.jcluster.core.bean.JcMetrics;
 import org.jcluster.lib.annotation.JcFilter;
 import org.jcluster.lib.annotation.JcRemote;
 
@@ -19,7 +18,7 @@ public interface AppMetricMonitorInterface {
 
     public static final String JC_INSTANCE_FILTER = "jcInstance";
 
-    public JcMetrics getMetricsMap(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
+    public JcMetrics getMetrics(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 
     public String testReq(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 

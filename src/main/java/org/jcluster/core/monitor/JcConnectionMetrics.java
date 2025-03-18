@@ -2,10 +2,11 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package org.jcluster.core.bean;
+package org.jcluster.core.monitor;
 
 import java.io.Serializable;
 import org.jcluster.core.JcConnectionTypeEnum;
+import org.jcluster.core.bean.JcAppDescriptor;
 
 /**
  *
@@ -15,7 +16,6 @@ public class JcConnectionMetrics implements Serializable {
 
     private final String homeServerName = null;
     private final String remoteServerName = null;
-    private final String connId;
     private final String instanceId;
     private final String ipAddress;
     private final String appName;
@@ -25,20 +25,24 @@ public class JcConnectionMetrics implements Serializable {
     private int errCount = 0;
     private int timeoutCount = 0;
     private int reqRespMapSize = 0;
+    private int recreateCount = 0;
     private long lastConnAttempt = 0;
 
-    public JcConnectionMetrics(JcAppDescriptor desc, JcConnectionTypeEnum connType, String connId) {
+    public JcConnectionMetrics(JcAppDescriptor desc, JcConnectionTypeEnum connType) {
 //        this.remoteServerName = desc.getServerName();
 //        this.homeServerName = JcFactory.getManager().getInstanceAppDesc().getServerName();
-        this.connId = connId;
         this.connType = connType;
         this.ipAddress = desc.getIpAddress() + ":" + desc.getIpPortListenUDP();
         this.appName = desc.getAppName();
         this.instanceId = desc.getInstanceId();
     }
-
-    public String getConnId() {
-        return connId;
+    
+    public void addMetrics(JcConnectionMetrics metrics) {
+        txCount += metrics.txCount;
+        rxCount += metrics.rxCount;
+        errCount += metrics.errCount;
+        timeoutCount += metrics.timeoutCount;
+        reqRespMapSize += metrics.reqRespMapSize;
     }
 
     public JcConnectionTypeEnum getConnType() {
@@ -111,6 +115,14 @@ public class JcConnectionMetrics implements Serializable {
 
     public String getRemoteServerName() {
         return remoteServerName;
+    }
+
+    public int getRecreateCount() {
+        return recreateCount;
+    }
+
+    public void setRecreateCount(int recreateCount) {
+        this.recreateCount = recreateCount;
     }
 
 }

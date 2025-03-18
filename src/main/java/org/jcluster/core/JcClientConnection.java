@@ -15,7 +15,7 @@ import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcAppDescriptor;
 import ch.qos.logback.classic.Logger;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.jcluster.core.bean.JcConnectionMetrics;
+import org.jcluster.core.monitor.JcConnectionMetrics;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
@@ -71,7 +71,7 @@ public class JcClientConnection implements Runnable {
                 + "-" + (this.connType == JcConnectionTypeEnum.INBOUND ? "INBOUND" : "OUTBOUND")
                 + "-" + (conIdUniqueCounter++);
 
-        metrics = new JcConnectionMetrics(desc, this.connType, connId);
+        metrics = new JcConnectionMetrics(desc, this.connType);
         LOG.trace(id + " New JcClientConnection: {}", connId);
 
     }

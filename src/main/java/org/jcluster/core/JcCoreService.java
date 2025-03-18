@@ -58,6 +58,7 @@ import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
+import org.jcluster.core.monitor.JcMetrics;
 
 /**
  *
@@ -81,6 +82,8 @@ public final class JcCoreService {
     private final Map<String, JcMember> memberMap = new ConcurrentHashMap<>();
 
     private final Map<String, JcMember> primaryMemberMap = new HashMap<>();
+
+    private JcMetrics metrics;
 
     protected final JcAppDescriptor selfDesc = new JcAppDescriptor();
     private long lastPrimaryMemUpdate = 0l;
@@ -119,9 +122,9 @@ public final class JcCoreService {
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
-    
-    public final void getMetrics(){
-        
+
+    public final JcMetrics getMetrics() {
+        return metrics;
     }
 
     public final void stop() throws Exception {
@@ -204,6 +207,7 @@ public final class JcCoreService {
             serverThread.setName("JcServerEndpoint");
             serverThread.start();
 
+            metrics = new JcMetrics(selfDesc);
             JcManager.getInstance().registerLocalClassImplementation(AppMetricsMonitor.class);
 
         }
@@ -509,6 +513,7 @@ public final class JcCoreService {
                 }
 
                 mem.verifyRxFrag();
+                metrics.updateMemMetrics(mem);
 
             }
         }

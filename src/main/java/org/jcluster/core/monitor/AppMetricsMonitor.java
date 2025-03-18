@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.jcluster.core.JcCoreService;
-import org.jcluster.core.bean.JcMetrics;
 
 /**
  *
@@ -17,8 +16,8 @@ import org.jcluster.core.bean.JcMetrics;
 public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
     @Override
-    public JcMetrics getMetricsMap(String instanceId) {
-        return null;
+    public JcMetrics getMetrics(String instanceId) {
+        return JcCoreService.getInstance().getMetrics();
     }
 
     @Override
