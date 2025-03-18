@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
+import javax.naming.NamingException;
 import org.jcluster.core.bean.FilterDescBean;
 //import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -96,7 +97,7 @@ public final class JcCoreService {
     public static final int UDP_FRAME_MAX_SIZE = 65535 - 28;
     public static final int UDP_FRAME_FRAGMENTATION_SIZE = UDP_FRAME_MAX_SIZE - 2048;
 
-    private byte[] buf = new byte[UDP_FRAME_MAX_SIZE];  //UDP frame 4byte, IP frame 16byte, 
+    private final byte[] buf = new byte[UDP_FRAME_MAX_SIZE];  //UDP frame 4byte, IP frame 16byte, 
 
     //to keep track on response meessages
     protected final Map<String, JcDistMsg> requestMsgMap = new HashMap<>();
@@ -129,6 +130,7 @@ public final class JcCoreService {
 
     public final void stop() throws Exception {
         if (running) {
+            LOG.info("JCLUSTER -- Shutdown... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
             running = false;
             memberMap.forEach((t, member) -> {
                 try {
@@ -146,16 +148,19 @@ public final class JcCoreService {
             if (socketUdpRx != null) {
                 socketUdpRx.close();
             }
+        } else {
+            LOG.info("JCLUSTER -- Invalid Shutdown... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
+
         }
     }
 
     public final void start() throws Exception {
-        start(JcManager.getDefaultConfig());
+        start(null);
     }
 
     public final void start(Map<String, Object> config) throws Exception {
         if (config == null) {
-            config = JcManager.getDefaultConfig();
+            config = JcManager.getDefaultConfig(enterprise);
         }
 
         if (!running) {
@@ -829,7 +834,7 @@ public final class JcCoreService {
 
     private void startTcpConnectionMonitor() {
         LOG.info("JCLUSTER Health Checker Startup...");
-        Thread.currentThread().setName("J-CLUSTER_RenCon_Health");
+        Thread.currentThread().setName("JC_TCP_CON_Health");
         while (running) {
             long beginCycle = System.currentTimeMillis();
             //LOG.info("JCluster Health_Checker cycle");
