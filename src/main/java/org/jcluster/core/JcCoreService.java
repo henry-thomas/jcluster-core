@@ -574,7 +574,6 @@ public final class JcCoreService {
         socketUdpRx.send(p);
     }
 
-    
     private void processRecMsg(JcDistMsg msg, String memId) {
 
         JcMember mem = memberMap.get(memId);
@@ -831,7 +830,6 @@ public final class JcCoreService {
         return true;
     }
 
-//   
     private void tcpConnectionMonitorLoop() {
 
         for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
