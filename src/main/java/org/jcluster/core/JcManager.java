@@ -155,12 +155,10 @@ public class JcManager {
     protected static Map<String, Object> getDefaultConfig() {
         Map<String, Object> config = new HashMap();
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
+        config.put("selfIpAddress", readProp("JC_HOSTNAME"));
 
         config.put("udpListenPort", getConfigUdpListenerPorts("JC_UDPLISTENER_PORTS", "4445-4448"));
         config.put("tcpListenPort", getConfigUdpListenerPorts("JC_TCPLISTENER_PORTS", "2201"));
-
-        
-        config.put("selfIpAddress", readProp("JC_SELF_IP"));
 
         String primMemberStr = readProp("JC_PRIMARY_MEMBER_ADDRESS");
         if (primMemberStr != null) {
