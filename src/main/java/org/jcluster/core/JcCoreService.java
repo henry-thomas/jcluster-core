@@ -167,6 +167,9 @@ public final class JcCoreService {
             if (config.containsKey("appName")) {
                 selfDesc.setAppName((String) config.get("appName"));
             }
+//            if (config.containsKey("tcpListenPort")) {
+//                selfDesc.setIpPortListenTCP((int) config.get("tcpListenPort"));
+//            }
             if (config.containsKey("selfIpAddress")) {
                 selfDesc.setIpAddress((String) config.get("selfIpAddress"));
             } else {
@@ -207,6 +210,7 @@ public final class JcCoreService {
             Thread jcRemConThread = threadFactory.newThread(this::startTcpConnectionMonitor);
             jcRemConThread.start();
             //TCP server 
+//            serverEndpoint = new JcServerEndpoint(threadFactory, (List<Integer>) config.get("tcpListenPort"));
             serverEndpoint = new JcServerEndpoint(threadFactory);
             Thread serverThread = threadFactory.newThread(serverEndpoint);
 
@@ -568,6 +572,7 @@ public final class JcCoreService {
         socketUdpRx.send(p);
     }
 
+    
     private void processRecMsg(JcDistMsg msg, String memId) {
 
         JcMember mem = memberMap.get(memId);

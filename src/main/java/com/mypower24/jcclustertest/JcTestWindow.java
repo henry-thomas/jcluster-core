@@ -333,10 +333,6 @@ public class JcTestWindow extends javax.swing.JFrame {
         jLabel8 = new javax.swing.JLabel();
         jScrollPane9 = new javax.swing.JScrollPane();
         tblOutbountMetrics = new javax.swing.JTable();
-        jPanel7 = new javax.swing.JPanel();
-        jLabel6 = new javax.swing.JLabel();
-        jScrollPane8 = new javax.swing.JScrollPane();
-        jTable2 = new javax.swing.JTable();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblMembers = new javax.swing.JTable();
         jPanel5 = new javax.swing.JPanel();
@@ -702,6 +698,11 @@ public class JcTestWindow extends javax.swing.JFrame {
         jScrollPane6.setViewportView(tblVisibleMembers);
 
         jButton4.setText("Refresh");
+        jButton4.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton4ActionPerformed(evt);
+            }
+        });
 
         tblInboundMetrics.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -771,47 +772,6 @@ public class JcTestWindow extends javax.swing.JFrame {
         );
 
         jTabbedPane1.addTab("Members", jPanel6);
-
-        jLabel6.setText("Self Metrics");
-
-        jTable2.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null},
-                {null, null},
-                {null, null},
-                {null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2"
-            }
-        ));
-        jScrollPane8.setViewportView(jTable2);
-
-        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
-        jPanel7.setLayout(jPanel7Layout);
-        jPanel7Layout.setHorizontalGroup(
-            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel7Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel7Layout.createSequentialGroup()
-                        .addComponent(jLabel6)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(jPanel7Layout.createSequentialGroup()
-                        .addComponent(jScrollPane8, javax.swing.GroupLayout.PREFERRED_SIZE, 329, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
-        );
-        jPanel7Layout.setVerticalGroup(
-            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel7Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jLabel6)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane8, javax.swing.GroupLayout.PREFERRED_SIZE, 98, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(444, Short.MAX_VALUE))
-        );
-
-        jTabbedPane1.addTab("Metrics", jPanel7);
 
         tblMembers.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -1000,50 +960,6 @@ public class JcTestWindow extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_darkModeRadioActionPerformed
 
-    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        Map<String, JcMember> memberMap = JcCoreService.getInstance().getMemberMap();
-        for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
-            String key = entry.getKey();
-            JcMember mem = entry.getValue();
-            String msg = metricsMonitor.testReq(mem.getDesc().getInstanceId());
-            info(msg);
-            return;
-        }
-    }//GEN-LAST:event_jButton2ActionPerformed
-
-    private void btnTestFilterStringActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTestFilterStringActionPerformed
-        info(filterTestIFace.getStringFilter1(filterExec.getText()));
-    }//GEN-LAST:event_btnTestFilterStringActionPerformed
-
-    private void btnTestFilterNumverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTestFilterNumverActionPerformed
-        info(filterTestIFace.getStringFilter2(Integer.valueOf(filterExec.getText())));
-    }//GEN-LAST:event_btnTestFilterNumverActionPerformed
-
-
-    private void removeFilterValue1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeFilterValue1ActionPerformed
-        onAddRemoveOperation(false);
-    }//GEN-LAST:event_removeFilterValue1ActionPerformed
-
-    private void addFilterValue1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addFilterValue1ActionPerformed
-        onAddRemoveOperation(true);
-    }//GEN-LAST:event_addFilterValue1ActionPerformed
-
-    private void addFilterValue2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addFilterValue2ActionPerformed
-        JcManager.addFilter(testFilterARFIterName.getText(), "skip");
-    }//GEN-LAST:event_addFilterValue2ActionPerformed
-
-    private void btnRefreshFiltersActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshFiltersActionPerformed
-        updateFilters();
-        updateSelectedFilterValues();
-    }//GEN-LAST:event_btnRefreshFiltersActionPerformed
-
-    private void txtFilterValuesKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtFilterValuesKeyReleased
-        updateSelectedFilterValues();
-    }//GEN-LAST:event_txtFilterValuesKeyReleased
-
-    private void tblFiltersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblFiltersMouseReleased
-        onSelectedFilterChange();
-    }//GEN-LAST:event_tblFiltersMouseReleased
 
     private void tblMembersPropertyChange(java.beans.PropertyChangeEvent evt) {//GEN-FIRST:event_tblMembersPropertyChange
         System.out.println("tblMembersPropertyChange: " + evt.getPropertyName());
@@ -1065,6 +981,55 @@ public class JcTestWindow extends javax.swing.JFrame {
     private void tblVisibleMembersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblVisibleMembersMouseReleased
         onSelectedMetricsMemberChange();
     }//GEN-LAST:event_tblVisibleMembersMouseReleased
+
+    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+        Map<String, JcMember> memberMap = JcCoreService.getInstance().getMemberMap();
+        for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
+            String key = entry.getKey();
+            JcMember mem = entry.getValue();
+            String msg = metricsMonitor.testReq(mem.getDesc().getInstanceId());
+            info(msg);
+            return;
+        }
+    }//GEN-LAST:event_jButton2ActionPerformed
+
+    private void btnTestFilterNumverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTestFilterNumverActionPerformed
+        info(filterTestIFace.getStringFilter2(Integer.valueOf(filterExec.getText())));
+    }//GEN-LAST:event_btnTestFilterNumverActionPerformed
+
+    private void btnTestFilterStringActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTestFilterStringActionPerformed
+        info(filterTestIFace.getStringFilter1(filterExec.getText()));
+    }//GEN-LAST:event_btnTestFilterStringActionPerformed
+
+    private void addFilterValue2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addFilterValue2ActionPerformed
+        JcManager.addFilter(testFilterARFIterName.getText(), "skip");
+    }//GEN-LAST:event_addFilterValue2ActionPerformed
+
+    private void removeFilterValue1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeFilterValue1ActionPerformed
+        onAddRemoveOperation(false);
+    }//GEN-LAST:event_removeFilterValue1ActionPerformed
+
+    private void addFilterValue1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addFilterValue1ActionPerformed
+        onAddRemoveOperation(true);
+    }//GEN-LAST:event_addFilterValue1ActionPerformed
+
+    private void btnRefreshFiltersActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshFiltersActionPerformed
+        updateFilters();
+        updateSelectedFilterValues();
+    }//GEN-LAST:event_btnRefreshFiltersActionPerformed
+
+    private void txtFilterValuesKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtFilterValuesKeyReleased
+        updateSelectedFilterValues();
+    }//GEN-LAST:event_txtFilterValuesKeyReleased
+
+    private void tblFiltersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblFiltersMouseReleased
+        onSelectedFilterChange();
+    }//GEN-LAST:event_tblFiltersMouseReleased
+
+    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
+       updateVisibleMembersTable();
+        updateMetrics();
+    }//GEN-LAST:event_jButton4ActionPerformed
 
     private void info(String msg) {
         JOptionPane.showMessageDialog(this, msg);
@@ -1118,7 +1083,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
@@ -1133,7 +1097,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
-    private javax.swing.JPanel jPanel7;
     private javax.swing.JPanel jPanel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
@@ -1142,10 +1105,8 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JScrollPane jScrollPane6;
     private javax.swing.JScrollPane jScrollPane7;
-    private javax.swing.JScrollPane jScrollPane8;
     private javax.swing.JScrollPane jScrollPane9;
     private javax.swing.JTabbedPane jTabbedPane1;
-    private javax.swing.JTable jTable2;
     private javax.swing.JTextArea jTextArea1;
     private javax.swing.JLabel lblAddress;
     private javax.swing.JLabel lblAppName;
