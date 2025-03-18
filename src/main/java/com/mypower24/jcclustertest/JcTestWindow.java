@@ -68,6 +68,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             dtm.getDataVector().clear();
             dtm = (DefaultTableModel) tblFilterValues.getModel();
             dtm.getDataVector().clear();
+            dtm.fireTableDataChanged();
             return;
         }
 
@@ -121,6 +122,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
             dtm.addRow(new Object[]{fName.isBlank() ? "No Filter name" : fName, size});
         }
+        dtm.fireTableDataChanged();
 
     }
 
