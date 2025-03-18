@@ -7,12 +7,14 @@ package org.jcluster.core.monitor;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.ejb.Stateless;
 import org.jcluster.core.JcCoreService;
 
 /**
  *
  * @author henry
  */
+@Stateless
 public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
     @Override

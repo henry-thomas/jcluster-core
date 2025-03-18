@@ -219,6 +219,7 @@ public final class JcCoreService {
             serverThread.start();
 
             metrics = new JcMetrics(selfDesc);
+            
             JcManager.getInstance().registerLocalClassImplementation(AppMetricsMonitor.class);
 
         }

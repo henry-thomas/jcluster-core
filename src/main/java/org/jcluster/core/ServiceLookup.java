@@ -95,7 +95,10 @@ public class ServiceLookup {
             try {
                 serviceObj = ctx.lookup(jndiName);
             } catch (NamingException e) {
-                throw e;
+                serviceObj = INSTANCE.localInterfaceInstanceMap.get(className);
+                if (serviceObj == null) {
+                    throw e;
+                }
             }
 
             INSTANCE.jndiLookupMap.put(jndiName, serviceObj);
@@ -133,7 +136,7 @@ public class ServiceLookup {
             for (Parameter param : method.getParameters()) {
                 JcFilter parAnn = param.getAnnotation(JcFilter.class);
                 if (parAnn != null) {
-                    if (!classAnnot.appName().isEmpty() ) {
+                    if (!classAnnot.appName().isEmpty()) {
                         JcCoreService.getInstance().subscribeToAppFilter(classAnnot.appName(), parAnn.filterName());
                     }
                     if (!classAnnot.topic().isEmpty()) {
