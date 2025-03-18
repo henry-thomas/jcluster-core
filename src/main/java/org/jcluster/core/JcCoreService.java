@@ -310,13 +310,13 @@ public final class JcCoreService {
             int ttl = msg.getTtl();
             for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
                 String memId = entry.getKey();
-                JcMember mem = entry.getValue();
+                JcMember m = entry.getValue();
 
                 //forward to ones we don't have in our list
                 if (!ipStrList.contains(memId)) {
 
                     if (!memId.equals(selfDesc.getIpStrPortStr())) {
-                        mem.sendMessage(msg);
+                        m.sendMessage(msg);
                         msg.setTtl(ttl);
                     } else {
                         LOG.warn("Received ping from self.");
