@@ -48,10 +48,12 @@ public class JcServerEndpoint implements Runnable {
     @Override
     public void run() {
         try {
+
             server = new ServerSocket();
             server.setReuseAddress(true);
 
             JcAppDescriptor selfDesc = JcCoreService.getInstance().getSelfDesc();
+            Thread.currentThread().setName("JC_TCP_Server@" + selfDesc.getIpPortListenUDP());
 
             IOException lastEx = null;
             for (Integer port : tcpListenPorts) {
@@ -100,6 +102,7 @@ public class JcServerEndpoint implements Runnable {
 
             }
 
+            server.close();
         } catch (IOException ex) {
             running = false;
             LOG.warn(null, ex);
