@@ -119,6 +119,10 @@ public final class JcCoreService {
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
+    
+    public final void getMetrics(){
+        
+    }
 
     public final void stop() throws Exception {
         if (running) {
