@@ -22,7 +22,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
      */
     public ConnectionDialog() {
         initComponents();
-//        connect();
+        connect();
     }
 
     private void connect() {
@@ -101,7 +101,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
             }
         });
 
-        primaryMember.setText("127.0.0.1:4446");
+        primaryMember.setText("192.168.100.15:8381");
         primaryMember.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 primaryMemberActionPerformed(evt);
@@ -114,7 +114,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
 
         jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
 
-        txtSelfIp.setText("127.0.0.1");
+        txtSelfIp.setText("192.168.100.15");
 
         jLabel2.setText("Self IP");
 

@@ -20,8 +20,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.logging.Level;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.monitor.JcMemberMetricsInOut;
+import org.jcluster.core.monitor.JcConnMetrics;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
 //import org.jcluster.core.config.JcAppConfig;
@@ -135,6 +136,10 @@ public class JcRemoteInstanceConnectionBean {
         try {
             socket.connect(socketAddress, 2000);
         } catch (IOException e) {
+            try {
+                socket.close();
+            } catch (IOException ex) {
+            }
             LOG.info("Attempt to connect fail: {} PORT: {}", this, desc.getIpPortListenTCP());
             return null;
         }

@@ -18,8 +18,11 @@ public class JcMemberMetrics implements Serializable {
     private String appName;
     private String instanceId;
 
-    private final JcMemberMetricsInOut inbound = new JcMemberMetricsInOut();
-    private final JcMemberMetricsInOut outbound = new JcMemberMetricsInOut();
+    private final JcConnMetrics inbound = new JcConnMetrics();
+    private final JcConnMetrics outbound = new JcConnMetrics();
+
+    public JcMemberMetrics() {
+    }
 
     public String getAppName() {
         return appName;
@@ -29,11 +32,11 @@ public class JcMemberMetrics implements Serializable {
         return instanceId;
     }
 
-    public JcMemberMetricsInOut getInbound() {
+    public JcConnMetrics getInbound() {
         return inbound;
     }
 
-    public JcMemberMetricsInOut getOutbound() {
+    public JcConnMetrics getOutbound() {
         return outbound;
     }
 

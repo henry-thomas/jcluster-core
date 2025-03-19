@@ -24,7 +24,7 @@ import org.jcluster.core.JcManager;
 import org.jcluster.core.JcMember;
 import org.jcluster.core.MemberEvent;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
-import org.jcluster.core.monitor.JcMemberMetricsInOut;
+import org.jcluster.core.monitor.JcConnMetrics;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
 import org.jcluster.core.monitor.MethodExecMetric;
@@ -76,14 +76,17 @@ public class JcTestWindow extends javax.swing.JFrame {
     }
 
     private void updateAll() {
-        if (selectedMember != null) {
-            metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
-            updateMetrics();
-            updateFilters();
-            updateVisibleMembersTable();
-            updateSelMemberMetrics();
-            updateSelectedFilterValues();
-        }
+        SwingUtilities.invokeLater(() -> {
+            if (selectedMember != null) {
+                metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
+                updateFilters();
+                updateVisibleMembersTable();
+                updateSelectedFilterValues();
+                updateSelMemberMetrics();
+                updateMetrics();
+            }
+        });
+
     }
 
     private void onSelectedMetricsMemberChange() {
@@ -106,8 +109,8 @@ public class JcTestWindow extends javax.swing.JFrame {
 
     private void updateMetrics() {
         if (metrics == null) {
-            metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
         }
+        metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
 
         DefaultTableModel dtmOutbound = (DefaultTableModel) tblOutbountMetrics.getModel();
         DefaultTableModel dtmInbound = (DefaultTableModel) tblInboundMetrics.getModel();
@@ -122,52 +125,54 @@ public class JcTestWindow extends javax.swing.JFrame {
         dtmMetOutbound.getDataVector().clear();
         dtmMetInbound.getDataVector().clear();
 
-        for (Map.Entry<String, JcMemberMetrics> entry : memMetricsMap.entrySet()) {
-            String memId = entry.getKey();
-            JcMemberMetrics met = entry.getValue();
+        JcMemberMetrics met = memMetricsMap.get(selectedMetricsMember);
+//        for (Map.Entry<String, JcMemberMetrics> entry : memMetricsMap.entrySet()) {
+//            String memId = entry.getKey();
+//            JcMemberMetrics met = entry.getValue();
+        if (met == null) {
+            return;
+        }
+        JcConnMetrics inboundMetrics = met.getInbound();
+        JcConnMetrics outboundMetrics = met.getOutbound();
 
-            JcMemberMetricsInOut inboundMetrics = met.getInbound();
-            JcMemberMetricsInOut outboundMetrics = met.getOutbound();
+        dtmInbound.addRow(new Object[]{
+            met.getAppName(),
+            inboundMetrics.getRxCount(),
+            inboundMetrics.getTxCount(),
+            inboundMetrics.getErrCount(),
+            inboundMetrics.getReqRespMapSize()});
+        dtmOutbound.addRow(new Object[]{
+            met.getAppName(),
+            outboundMetrics.getRxCount(),
+            outboundMetrics.getTxCount(),
+            outboundMetrics.getErrCount(),
+            inboundMetrics.getReqRespMapSize()});
 
-            dtmInbound.addRow(new Object[]{
-                memId,
-                inboundMetrics.getRxCount(),
-                inboundMetrics.getTxCount(),
-                inboundMetrics.getErrCount(),
-                inboundMetrics.getReqRespMapSize()});
-            dtmOutbound.addRow(new Object[]{
-                memId,
-                outboundMetrics.getRxCount(),
-                outboundMetrics.getTxCount(),
-                outboundMetrics.getErrCount(),
-                inboundMetrics.getReqRespMapSize()});
+        Map<String, MethodExecMetric> outBoundMethods = outboundMetrics.getMethodExecMap();
+        Map<String, MethodExecMetric> inboundMethods = inboundMetrics.getMethodExecMap();
 
-            Map<String, MethodExecMetric> outBoundMethods = outboundMetrics.getMethodExecMap();
-            Map<String, MethodExecMetric> inboundMethods = inboundMetrics.getMethodExecMap();
+        for (Map.Entry<String, MethodExecMetric> entry1 : inboundMethods.entrySet()) {
+            String methodName = entry1.getKey();
+            MethodExecMetric metric = entry1.getValue();
 
-            for (Map.Entry<String, MethodExecMetric> entry1 : inboundMethods.entrySet()) {
-                String methodName = entry1.getKey();
-                MethodExecMetric metric = entry1.getValue();
+            dtmMetInbound.addRow(new Object[]{
+                methodName,
+                metric.getExecCount(),
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
 
-                dtmMetInbound.addRow(new Object[]{
-                    methodName,
-                    metric.getExecCount(),
-                    metric.getTotalExecTime() / metric.getExecCount()});
+        }
+        for (Map.Entry<String, MethodExecMetric> entry1 : outBoundMethods.entrySet()) {
+            String methodName = entry1.getKey();
+            MethodExecMetric metric = entry1.getValue();
 
-            }
-            for (Map.Entry<String, MethodExecMetric> entry1 : outBoundMethods.entrySet()) {
-                String methodName = entry1.getKey();
-                MethodExecMetric metric = entry1.getValue();
-
-                dtmMetOutbound.addRow(new Object[]{
-                    methodName,
-                    metric.getExecCount(),
-                    metric.getTotalExecTime() / metric.getExecCount()});
-
-            }
+            dtmMetOutbound.addRow(new Object[]{
+                methodName,
+                metric.getExecCount(),
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
 
         }
 
+//        }
         dtmInbound.fireTableDataChanged();
         dtmOutbound.fireTableDataChanged();
         dtmMetInbound.fireTableDataChanged();
@@ -176,8 +181,8 @@ public class JcTestWindow extends javax.swing.JFrame {
 
     private void updateSelMemberMetrics() {
         if (metrics == null) {
-            metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
         }
+        metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
 
         DefaultTableModel dtmOutboundMet = (DefaultTableModel) tblOutbountMetricsTotal.getModel();
         DefaultTableModel dtmInboundMet = (DefaultTableModel) tblInboundMetricsTotal.getModel();
@@ -185,15 +190,14 @@ public class JcTestWindow extends javax.swing.JFrame {
         DefaultTableModel dtmOutbound = (DefaultTableModel) tblOutboundMethodExecTotal.getModel();
         DefaultTableModel dtmInbound = (DefaultTableModel) tblInboundMethodExecTotal.getModel();
 
-        JcMemberMetrics met = metrics.getSelfMetrics();
-
+//        JcMemberMetrics met = metrics;
         dtmOutbound.getDataVector().clear();
         dtmInbound.getDataVector().clear();
         dtmOutboundMet.getDataVector().clear();
         dtmInboundMet.getDataVector().clear();
 
-        JcMemberMetricsInOut inboundMetrics = met.getInbound();
-        JcMemberMetricsInOut outboundMetrics = met.getOutbound();
+        JcConnMetrics inboundMetrics = metrics.getInbound();
+        JcConnMetrics outboundMetrics = metrics.getOutbound();
 
         dtmInboundMet.addRow(new Object[]{
             inboundMetrics.getRxCount(),
@@ -216,7 +220,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             dtmInbound.addRow(new Object[]{
                 methodName,
                 metric.getExecCount(),
-                metric.getTotalExecTime() / metric.getExecCount()});
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
 
         }
         for (Map.Entry<String, MethodExecMetric> entry1 : outBoundMethods.entrySet()) {
@@ -226,7 +230,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             dtmOutbound.addRow(new Object[]{
                 methodName,
                 metric.getExecCount(),
-                metric.getTotalExecTime() / metric.getExecCount()});
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
 
         }
 

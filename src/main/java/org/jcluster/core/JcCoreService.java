@@ -158,7 +158,9 @@ public final class JcCoreService {
         }
     }
 
-    public final void startWithArgs(String[] args) throws Exception {
+    public final void startWithArgs(String[] args) throws Exception 
+    {
+//        appName=myPower24-lws selfIpAddress=192.168.100.15 udpListenPort=8381 tcpListenPort=2205 primaryMembers=192.168.100.15:8381
         start(JcManager.getDefaultConfig(args, false));
     }
 

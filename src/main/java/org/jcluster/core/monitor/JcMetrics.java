@@ -6,7 +6,9 @@ package org.jcluster.core.monitor;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.jcluster.core.bean.JcAppDescriptor;
 
 /**
@@ -18,7 +20,9 @@ public class JcMetrics implements Serializable {
     private static final long serialVersionUID = -3877967371056615756L;
 
     private final HashMap<String, JcMemberMetrics> memMetricsMap = new HashMap<>();
-    private JcMemberMetrics selfMetrics;
+
+    private final JcConnMetrics inbound = new JcConnMetrics();
+    private final JcConnMetrics outbound = new JcConnMetrics();
 
     private final InstanceResMonitorBean resBean;
     private final JcAppDescriptor desc;
@@ -28,26 +32,8 @@ public class JcMetrics implements Serializable {
         this.resBean = new InstanceResMonitorBean(desc.getIpStrPortStr());
     }
 
-    public void calcSelfMetrics() {
-        selfMetrics = new JcMemberMetrics();
-        selfMetrics.setAppName(desc.getAppName());
-        selfMetrics.setInstanceId(desc.getInstanceId());
-        
-        for (Map.Entry<String, JcMemberMetrics> entry : memMetricsMap.entrySet()) {
-            JcMemberMetrics met = entry.getValue();
-
-            selfMetrics.getInbound().addMetrics(met.getInbound());
-            selfMetrics.getOutbound().addMetrics(met.getOutbound());
-        }
-    }
-
     public HashMap<String, JcMemberMetrics> getMemMetricsMap() {
         return memMetricsMap;
-    }
-
-    public JcMemberMetrics getSelfMetrics() {
-        calcSelfMetrics();
-        return selfMetrics;
     }
 
     public JcAppDescriptor getDesc() {
@@ -56,6 +42,14 @@ public class JcMetrics implements Serializable {
 
     public InstanceResMonitorBean getResBean() {
         return resBean;
+    }
+
+    public JcConnMetrics getInbound() {
+        return inbound.sumMetrics(memMetricsMap.values().stream().map(m -> m.getInbound()).collect(Collectors.toList()));
+    }
+
+    public JcConnMetrics getOutbound() {
+        return outbound.sumMetrics(memMetricsMap.values().stream().map(m -> m.getOutbound()).collect(Collectors.toList()));
     }
 
 }

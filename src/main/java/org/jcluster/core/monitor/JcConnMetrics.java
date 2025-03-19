@@ -5,16 +5,19 @@
 package org.jcluster.core.monitor;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jcluster.core.JcConnectionTypeEnum;
-import org.jcluster.core.bean.JcAppDescriptor;
 
 /**
  *
  * @autor Henry Thomas
  */
-public class JcMemberMetricsInOut implements Serializable {
+public class JcConnMetrics implements Serializable {
+
+    private static final long serialVersionUID = 4063085972825278316L;
 
     private JcConnectionTypeEnum connType;
     private int txCount = 0;
@@ -26,24 +29,23 @@ public class JcMemberMetricsInOut implements Serializable {
     private long lastConnAttempt = 0;
     private final Map<String, MethodExecMetric> methodExecMap = new HashMap<>();
 
-    public void addMetrics(JcMemberMetricsInOut metrics) {
-        txCount += metrics.txCount;
-        rxCount += metrics.rxCount;
-        errCount += metrics.errCount;
-        timeoutCount += metrics.timeoutCount;
-        reqRespMapSize += metrics.reqRespMapSize;
+    public JcConnMetrics() {
+    }
 
-        for (Map.Entry<String, MethodExecMetric> entry : metrics.getMethodExecMap().entrySet()) {
-            String methodName = entry.getKey();
-            MethodExecMetric execMetric = entry.getValue();
+    public JcConnMetrics sumMetrics(Collection<JcConnMetrics> list) {
 
-            MethodExecMetric m = methodExecMap.get(methodName);
-            if (m == null) {
-                methodExecMap.put(methodName, execMetric);
-                continue;
-            }
-            m.addMetric(execMetric);
-        }
+        txCount = list.stream().mapToInt(m -> m.txCount).sum();
+        rxCount = list.stream().mapToInt(m -> m.rxCount).sum();
+        errCount = list.stream().mapToInt(m -> m.errCount).sum();
+        timeoutCount = list.stream().mapToInt(m -> m.timeoutCount).sum();
+        reqRespMapSize = list.stream().mapToInt(m -> m.reqRespMapSize).sum();
+
+        list.stream()
+                .map(JcConnMetrics::getMethodExecMap)
+                .flatMap(map -> map.entrySet().stream())
+                .forEach(entry -> methodExecMap.merge(entry.getKey(), entry.getValue(), MethodExecMetric::addMetric));
+        
+        return this;
     }
 
     public JcConnectionTypeEnum getConnType() {
