@@ -29,6 +29,7 @@ import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.monitor.JcMemberMetrics;
+import org.jcluster.core.monitor.MethodExecMetric;
 import org.jcluster.core.proxy.JcProxyMethod;
 import org.slf4j.LoggerFactory;
 
@@ -129,12 +130,12 @@ public class JcRemoteInstanceConnectionBean {
             return null;
         }
 
-        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenUDP());
+        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenTCP());
         Socket socket = new Socket();
         try {
             socket.connect(socketAddress, 2000);
         } catch (IOException e) {
-            LOG.info("Attempt to connect fail: {}", this);
+            LOG.info("Attempt to connect fail: {} PORT: {}", this, desc.getIpPortListenTCP());
             return null;
         }
         //after socket gets connected we have to receive first Handshake from the other site.
@@ -286,9 +287,25 @@ public class JcRemoteInstanceConnectionBean {
             conRequested = true;
             throw new JcIOException("No outbound connections for: " + this.toString());
         }
+
+        Map<String, MethodExecMetric> execMetricMap = metrics.getOutbound().getMethodExecMap();
+        String[] split = proxyMethod.getClassName().split("\\.");
+        String className = split[split.length - 1];
+        MethodExecMetric execMetric = execMetricMap.get(className + "." + proxyMethod.getMethodSignature());
+        if (execMetric == null) {
+            execMetric = new MethodExecMetric();
+            execMetricMap.put(className + "." + proxyMethod.getMethodSignature(), execMetric);
+        }
+
         try {
             JcMessage msg = new JcMessage(proxyMethod.getMethodSignature(), proxyMethod.getClassName(), args);
-            return conn.send(msg, proxyMethod.getTimeout()).getData();
+
+            long start = System.currentTimeMillis();
+            Object result = conn.send(msg, proxyMethod.getTimeout()).getData();
+
+            execMetric.setLastExecTime(System.currentTimeMillis() - start);
+
+            return result;
         } catch (IOException ex) {
             removeConnection(conn);
             throw new JcIOException(ex.getMessage());

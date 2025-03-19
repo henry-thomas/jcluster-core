@@ -38,6 +38,8 @@ import org.slf4j.LoggerFactory;
 public class JcManager {
 
     private static final ch.qos.logback.classic.Logger LOG = (Logger) LoggerFactory.getLogger(JcManager.class);
+    private static final Properties startupProp = new Properties();
+
     private static final JcManager INSTANCE = new JcManager();
 
     private JcManager() {
@@ -157,7 +159,50 @@ public class JcManager {
     }
 
     protected static Map<String, Object> getDefaultConfig(boolean enterprice) {
+        return getDefaultConfig(null, enterprice);
+    }
+
+    public static void processStartupArgs(String[] args) {
+        Map<String, String> argMap = new HashMap<>();
+        for (int i = 0; i < args.length; i++) {
+            String[] strArr = args[i].split("=");
+
+            if (strArr.length == 2) {
+                argMap.put(strArr[0], strArr[1]);
+            } else if (strArr.length == 1) {
+                argMap.put(strArr[0], null);
+            }
+        }
+
+        String prop = argMap.get("appName");
+        if (prop != null) {
+            startupProp.put("JC_APP_NAME", prop);
+        }
+        prop = argMap.get("primaryMembers");
+        if (prop != null) {
+            startupProp.put("JC_PRIMARY_MEMBER_ADDRESS", prop);
+        }
+        prop = argMap.get("udpListenPort");
+        if (prop != null) {
+            startupProp.put("JC_UDPLISTENER_PORTS", prop);
+        }
+        prop = argMap.get("tcpListenPort");
+        if (prop != null) {
+            startupProp.put("JC_TCPLISTENER_PORTS", prop);
+        }
+        prop = argMap.get("selfIpAddress");
+        if (prop != null) {
+            startupProp.put("JC_HOSTNAME", prop);
+        }
+    }
+
+    protected static Map<String, Object> getDefaultConfig(String[] args, boolean enterprice) {
         Map<String, Object> config = new HashMap();
+
+        if (args != null) {
+            processStartupArgs(args);
+        }
+
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
         config.put("selfIpAddress", readProp("JC_HOSTNAME"));
 
@@ -260,14 +305,17 @@ public class JcManager {
         return readProp(propName, null);
     }
 
-    private static final boolean readProp(String propName, boolean defaultValue) {
+    private static boolean readProp(String propName, boolean defaultValue) {
         String readProp = readProp(propName, String.valueOf(defaultValue));
         return Boolean.parseBoolean(readProp);
     }
 
-    private static final String readProp(String propName, String defaultValue) {
+    private static String readProp(String propName, String defaultValue) {
         Properties properties = System.getProperties();
         String prop = properties.getProperty(propName);
+        if (prop == null) {
+            prop = startupProp.getProperty(propName);
+        }
         if (prop == null) {
             LOG.warn("{} property not set!", propName);
             return defaultValue;

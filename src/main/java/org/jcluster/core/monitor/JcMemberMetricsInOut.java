@@ -5,6 +5,8 @@
 package org.jcluster.core.monitor;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import org.jcluster.core.JcConnectionTypeEnum;
 import org.jcluster.core.bean.JcAppDescriptor;
 
@@ -22,9 +24,7 @@ public class JcMemberMetricsInOut implements Serializable {
     private int reqRespMapSize = 0;
     private int recreateCount = 0;
     private long lastConnAttempt = 0;
-
-    public JcMemberMetricsInOut() {
-    }
+    private final Map<String, MethodExecMetric> methodExecMap = new HashMap<>();
 
     public void addMetrics(JcMemberMetricsInOut metrics) {
         txCount += metrics.txCount;
@@ -32,6 +32,18 @@ public class JcMemberMetricsInOut implements Serializable {
         errCount += metrics.errCount;
         timeoutCount += metrics.timeoutCount;
         reqRespMapSize += metrics.reqRespMapSize;
+
+        for (Map.Entry<String, MethodExecMetric> entry : metrics.getMethodExecMap().entrySet()) {
+            String methodName = entry.getKey();
+            MethodExecMetric execMetric = entry.getValue();
+
+            MethodExecMetric m = methodExecMap.get(methodName);
+            if (m == null) {
+                methodExecMap.put(methodName, execMetric);
+                continue;
+            }
+            m.addMetric(execMetric);
+        }
     }
 
     public JcConnectionTypeEnum getConnType() {
@@ -92,6 +104,10 @@ public class JcMemberMetricsInOut implements Serializable {
 
     public void setRecreateCount(int recreateCount) {
         this.recreateCount = recreateCount;
+    }
+
+    public Map<String, MethodExecMetric> getMethodExecMap() {
+        return methodExecMap;
     }
 
 }

@@ -158,6 +158,10 @@ public final class JcCoreService {
         }
     }
 
+    public final void startWithArgs(String[] args) throws Exception {
+        start(JcManager.getDefaultConfig(args, false));
+    }
+
     public final void start() throws Exception {
         start(null);
     }
