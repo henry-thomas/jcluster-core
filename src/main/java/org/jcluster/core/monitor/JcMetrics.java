@@ -51,5 +51,13 @@ public class JcMetrics implements Serializable {
     public JcConnMetrics getOutbound() {
         return outbound.sumMetrics(memMetricsMap.values().stream().map(m -> m.getOutbound()).collect(Collectors.toList()));
     }
+    
+    public void clearAllMetrics(){
+        inbound.clear();
+        outbound.clear();
+        memMetricsMap.entrySet().stream().map(entry -> entry.getValue()).forEachOrdered(met -> {
+            met.clear();
+        });
+    }
 
 }

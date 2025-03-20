@@ -24,7 +24,7 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
     @Override
     public String testReq(String instanceId) {
-        return "Hello from me";
+        return "Hello from me: " + JcCoreService.getInstance().getSelfDesc().getIpStrPortStr();
     }
 
     @Override
@@ -42,6 +42,11 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     @Override
     public Map<String, String> getVisibleMembers(String instanceId) {
         return JcCoreService.getMemberMap().values().stream().collect(Collectors.toMap((u) -> u.getId(), (t) -> t.getDesc().getAppName()));
+    }
+
+    @Override
+    public void clearAllMetrics(String instanceId) {
+        JcCoreService.getInstance().getAllMetrics().clearAllMetrics();
     }
 
 }

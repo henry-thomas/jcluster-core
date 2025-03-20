@@ -32,6 +32,17 @@ public class JcConnMetrics implements Serializable {
     public JcConnMetrics() {
     }
 
+    public void clear() {
+        txCount = 0;
+        rxCount = 0;
+        errCount = 0;
+        timeoutCount = 0;
+        reqRespMapSize = 0;
+        recreateCount = 0;
+        lastConnAttempt = 0;
+        methodExecMap.clear();
+    }
+
     public JcConnMetrics sumMetrics(Collection<JcConnMetrics> list) {
 
         txCount = list.stream().mapToInt(m -> m.txCount).sum();
@@ -44,7 +55,7 @@ public class JcConnMetrics implements Serializable {
                 .map(JcConnMetrics::getMethodExecMap)
                 .flatMap(map -> map.entrySet().stream())
                 .forEach(entry -> methodExecMap.merge(entry.getKey(), entry.getValue(), MethodExecMetric::addMetric));
-        
+
         return this;
     }
 

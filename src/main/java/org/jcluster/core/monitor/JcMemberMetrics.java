@@ -24,6 +24,11 @@ public class JcMemberMetrics implements Serializable {
     public JcMemberMetrics() {
     }
 
+    public void clear() {
+        inbound.clear();
+        outbound.clear();
+    }
+
     public String getAppName() {
         return appName;
     }
