@@ -250,6 +250,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         String memId = tblMembers.getValueAt(rowIdx, 0).toString();
         log.info("onMemberSelect {}", memId);
         selectedMember = JcCoreService.getMemberMap().get(memId);
+        selectedFilter = null;
         if (selectedMember == null) {
             log.info("Selected member is null: {}", memId);
             return;
