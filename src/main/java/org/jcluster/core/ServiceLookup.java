@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import org.jcluster.core.exception.JcException;
@@ -45,8 +46,9 @@ public class ServiceLookup {
         try {
             Class iFaceClass = null;
             Class[] interfaces = clazz.getInterfaces();
+             JcRemote annotation = null;
             for (Class aInterface : interfaces) {
-                Annotation annotation = aInterface.getAnnotation(JcRemote.class);
+                 annotation = (JcRemote) aInterface.getAnnotation(JcRemote.class);
                 if (annotation != null) {
                     iFaceClass = aInterface;
                     break;
@@ -55,6 +57,11 @@ public class ServiceLookup {
             if (iFaceClass == null) {
                 throw new JcException("Can not find suitable interface for class: " + clazz.getName());
             }
+            
+            if(!annotation.topic().isEmpty()){
+                JcCoreService.getInstance().getSelfDesc().getTopicList().add(annotation.topic());
+            }
+            
             Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
             for (Constructor<?> constr : declaredConstructors) {
                 Parameter[] parameters = constr.getParameters();
@@ -63,7 +70,7 @@ public class ServiceLookup {
                     localInterfaceInstanceMap.put(iFaceClass.getName(), ob);
 
                     //subscribe here if has not been done yet
-                    scanAnnotationFilters(iFaceClass);
+//                    scanAnnotationFilters(iFaceClass);
                     return;
                 }
             }
@@ -124,7 +131,9 @@ public class ServiceLookup {
         return methodMap.get(methodSignature);
     }
 
-    protected void scanAnnotationFilters(Class iClazz) {
+    protected void scanProxyAnnotationFilters(Class iClazz) {
+        HashMap<String, Set<String>> hashMap = new HashMap<String, Set<String>>();
+        
         JcRemote classAnnot = (JcRemote) iClazz.getAnnotation(JcRemote.class);
 
         for (Method method : iClazz.getMethods()) {

@@ -8,9 +8,11 @@ import ch.qos.logback.classic.Logger;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.Level;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
@@ -114,14 +116,14 @@ public class JcManager {
 
     public static Object send(JcProxyMethod pm, Object[] args) throws JcRuntimeException {
 
-        if (pm.isInstanceFilter()) {//no app name needed if send is specific for remote instance
-            return filteredSend(pm, args);
-        } else if (pm.isBroadcast()) {
+        if (pm.isBroadcast()) {
             int broadcastSend = broadcastSend(pm, args);
             if (broadcastSend == 0) {
                 throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + pm.getAppName());
             }
             return broadcastSend;
+        } else if (pm.isInstanceFilter()) {//no app name needed if send is specific for remote instance
+            return filteredSend(pm, args);
         } else {
             JcRemoteInstanceConnectionBean ri = null;
             if (!pm.isGlobal()) {
@@ -144,7 +146,7 @@ public class JcManager {
         }
     }
 
-    public final void registerLocalClassImplementation(Class clazz) throws JcException {
+    public static final void registerLocalClassImplementation(Class clazz) throws JcException {
         ServiceLookup.getINSTANCE().registerLocalClassImplementation(clazz);
     }
 
@@ -154,7 +156,7 @@ public class JcManager {
             throw new JcRuntimeException("Invalid class, JcRemote annotation expected.");
         }
 
-        ServiceLookup.getINSTANCE().scanAnnotationFilters(iClazz);
+        ServiceLookup.getINSTANCE().scanProxyAnnotationFilters(iClazz);
         return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler());
     }
 
@@ -239,7 +241,15 @@ public class JcManager {
                 LOG.error(null, ex);
             }
         }
-
+        String topicStr = readProp("JC_TOPICS");
+        if (topicStr != null) {
+            Set<String> tset = new HashSet<>();
+            String tarr[] = topicStr.split(",");
+            for (String t : tarr) {
+                tset.add(t.trim());
+            }
+            config.put("topics", tset);
+        }
         return config;
     }
 

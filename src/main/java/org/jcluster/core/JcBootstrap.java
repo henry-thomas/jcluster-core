@@ -11,7 +11,6 @@ import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 import java.io.IOException;
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -22,7 +21,6 @@ import javax.ejb.LocalBean;
 
 //import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.lib.annotation.JcRemote;
-import org.jcluster.core.proxy.JcRemoteInvocationHandler;
 
 /**
  *
@@ -98,7 +96,8 @@ public class JcBootstrap implements Extension {
                 LOG.log(Level.INFO, "JcRemote annotation found without appName|topic specified: {0}. Adding as GLOBAL", jcRClass.getName());
             }
 
-            Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteInvocationHandler());
+            Object newProxyInstance = JcManager.generateProxy(jcRClass);
+//            Object newProxyInstance = Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{jcRClass}, new JcRemoteInvocationHandler());
             event.addBean().types(jcRClass).createWith(e -> newProxyInstance);
             LOG.log(Level.INFO, "JcBootstrap add Remote interface implementation for: [{0}]", new Object[]{jcRClass.getName()});
         }

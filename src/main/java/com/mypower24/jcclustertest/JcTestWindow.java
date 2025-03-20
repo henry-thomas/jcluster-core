@@ -1525,14 +1525,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_tblVisibleMembersMouseReleased
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        Map<String, JcMember> memberMap = JcCoreService.getInstance().getMemberMap();
-        for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
-            String key = entry.getKey();
-            JcMember mem = entry.getValue();
-            String msg = metricsMonitor.testReq(mem.getDesc().getInstanceId());
-            info(msg);
-            return;
-        }
+        info(metricsMonitor.testReq(selectedMember.getDesc().getInstanceId()));
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void btnTestFilterNumverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTestFilterNumverActionPerformed

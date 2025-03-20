@@ -158,8 +158,7 @@ public final class JcCoreService {
         }
     }
 
-    public final void startWithArgs(String[] args) throws Exception 
-    {
+    public final void startWithArgs(String[] args) throws Exception {
 //        appName=myPower24-lws selfIpAddress=192.168.100.15 udpListenPort=8381 tcpListenPort=2205 primaryMembers=192.168.100.15:8381
         start(JcManager.getDefaultConfig(args, false));
     }
@@ -177,16 +176,17 @@ public final class JcCoreService {
             if (config.containsKey("appName")) {
                 selfDesc.setAppName((String) config.get("appName"));
             }
-//            if (config.containsKey("tcpListenPort")) {
-//                selfDesc.setIpPortListenTCP((int) config.get("tcpListenPort"));
-//            }
+            Object topics = config.get("topics");
+            if (topics != null) {
+                selfDesc.getTopicList().addAll((Collection<String>) topics);
+            }
             if (config.containsKey("selfIpAddress")) {
                 selfDesc.setIpAddress((String) config.get("selfIpAddress"));
             } else {
                 throw new JcRuntimeException("Missing property for [selfIpAddress]");
             }
 
-            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
+            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]\n\tTopics: {}", selfDesc.getAppName(), selfDesc.getInstanceId(),selfDesc.getTopicList());
 
             ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
             if (mes != null) {
@@ -227,7 +227,7 @@ public final class JcCoreService {
 
             metrics = new JcMetrics(selfDesc);
 
-            JcManager.getInstance().registerLocalClassImplementation(AppMetricsMonitor.class);
+            JcManager.registerLocalClassImplementation(AppMetricsMonitor.class);
 
         }
     }
@@ -921,8 +921,13 @@ public final class JcCoreService {
     protected List<JcRemoteInstanceConnectionBean> getMemConByTopic(String topic) {
         List<JcRemoteInstanceConnectionBean> riList = memberMap.values().stream()
                 //                .filter((mem) -> mem.getConector().isOutboundAvailable())
-                .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
-                .map((mem) -> mem.getConector())
+                .filter(
+                        (mem)
+                        -> mem.getDesc().getTopicList().contains(topic)
+                )
+                .map(
+                        (mem) -> mem.getConector()
+                )
                 .collect(Collectors.toList());
 
         return riList;
@@ -985,7 +990,9 @@ public final class JcCoreService {
                 .filter((mem)
                         -> Objects.equals(mem.getDesc().getAppName(), app)
                 )
-                .filter((mem) -> mem.containsFilter(fMap))
+                .filter((mem)
+                        -> mem.containsFilter(fMap)
+                )
                 .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
 
         if (foundMem == null) {
