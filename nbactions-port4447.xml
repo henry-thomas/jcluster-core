@@ -13,7 +13,7 @@
                 <exec.vmArgs></exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
                 <exec.appArgs>udpListenPort=4447 primaryMember=127.0.0.1:4446</exec.appArgs>
-                <exec.mainClass>${packageClassName}</exec.mainClass>
+                <exec.mainClass>com.mypower24.jcclustertest.JcTestWindow</exec.mainClass>
                 <exec.executable>java</exec.executable>
             </properties>
         </action>
