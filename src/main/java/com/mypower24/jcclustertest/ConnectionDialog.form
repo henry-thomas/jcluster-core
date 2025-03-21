@@ -161,7 +161,7 @@
         </Component>
         <Component class="javax.swing.JTextField" name="udpListenPort">
           <Properties>
-            <Property name="text" type="java.lang.String" value="4445"/>
+            <Property name="text" type="java.lang.String" value="8381"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="udpListenPortActionPerformed"/>
@@ -193,7 +193,7 @@
         </Component>
         <Component class="javax.swing.JTextField" name="primaryMember">
           <Properties>
-            <Property name="text" type="java.lang.String" value="192.168.100.15:8381"/>
+            <Property name="text" type="java.lang.String" value="192.168.24.34:8381"/>
           </Properties>
           <Events>
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="primaryMemberActionPerformed"/>
@@ -219,7 +219,7 @@
         </Component>
         <Component class="javax.swing.JTextField" name="txtSelfIp">
           <Properties>
-            <Property name="text" type="java.lang.String" value="192.168.100.15"/>
+            <Property name="text" type="java.lang.String" value="192.168.24.34"/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel2">

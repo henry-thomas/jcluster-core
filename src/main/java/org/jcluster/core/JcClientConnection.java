@@ -232,6 +232,10 @@ public class JcClientConnection implements Runnable {
         }
 
     }
+    
+    public boolean isClosed(){
+        return socket.isClosed();
+    }
 
     public JcAppDescriptor getRemoteAppDesc() {
         return remoteAppDesc;

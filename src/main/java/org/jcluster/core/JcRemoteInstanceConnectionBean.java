@@ -13,16 +13,13 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.monitor.JcConnMetrics;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
 //import org.jcluster.core.config.JcAppConfig;
@@ -269,7 +266,10 @@ public class JcRemoteInstanceConnectionBean {
             List<JcClientConnection> toRemove = new ArrayList<>();
 
             for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
+                    if(conn.isClosed()){
+                        LOG.warn("Connection is connected, but closed. Removing: {}", conn.getConnId());
+                    }
                     toRemove.add(conn);
                 }
             }

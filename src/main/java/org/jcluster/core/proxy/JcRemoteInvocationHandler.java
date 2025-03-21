@@ -11,7 +11,6 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import org.jcluster.core.JcCoreService;
-import org.jcluster.core.JcFactory;
 import org.jcluster.core.JcManager;
 //import org.jcluster.core.config.JcAppConfig;
 import org.slf4j.LoggerFactory;

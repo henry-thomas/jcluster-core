@@ -44,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
-import javax.naming.NamingException;
 import org.jcluster.core.bean.FilterDescBean;
 //import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -399,6 +398,7 @@ public final class JcCoreService {
 
     private void onMemberAdd(JcMember mem) {
         //Add from remote since we have him already
+//        mem.close();
         RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
         filter.addFilterValue(mem.getDesc().getInstanceId());
 
