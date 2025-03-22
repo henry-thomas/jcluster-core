@@ -6,6 +6,7 @@ package com.mypower24.jcclustertest;
 
 import com.formdev.flatlaf.FlatDarculaLaf;
 import com.formdev.flatlaf.FlatLightLaf;
+import com.mypower24.jcclustertest.controller.SystemPropManager;
 import com.mypower24.jcclustertest.customComp.JLogInterface;
 import com.mypower24.jcclustertest.customComp.LogTextArea;
 import java.util.HashMap;
@@ -47,14 +48,19 @@ public class JcTestWindow extends javax.swing.JFrame {
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
 
+    private ConnectionDialog connDlg = new ConnectionDialog();
+
+    private SystemPropManager prop = SystemPropManager.getINSTANCE();
+
     private final JLogInterface log;
 
     public JcTestWindow() {
         initComponents();
         log = (LogTextArea) logContainer;
+        initCompValues();
 
         JcCoreService.getInstance().addMemberEventListener(this::onMemberEvent);
-        new ConnectionDialog();
+
         tblMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblVisibleMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -72,6 +78,15 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         });
         t.start();
+    }
+
+    private void initCompValues() {
+        autoConnectOnStart.setSelected(prop.loadParamAsBoolean("autoConnectOnStart", false));
+
+        if (autoConnectOnStart.isSelected()) {
+            log.info("Connecting on startup");
+            connDlg.connect();
+        }
     }
 
     private void updateAll() {
@@ -487,6 +502,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jMenu1 = new javax.swing.JMenu();
         jMenu2 = new javax.swing.JMenu();
         jMenuItem1 = new javax.swing.JMenuItem();
+        autoConnectOnStart = new javax.swing.JCheckBoxMenuItem();
         jMenu3 = new javax.swing.JMenu();
         darkModeRadio = new javax.swing.JRadioButtonMenuItem();
 
@@ -1436,6 +1452,15 @@ public class JcTestWindow extends javax.swing.JFrame {
         });
         jMenu2.add(jMenuItem1);
 
+        autoConnectOnStart.setSelected(true);
+        autoConnectOnStart.setText("Auto connect on start");
+        autoConnectOnStart.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                autoConnectOnStartActionPerformed(evt);
+            }
+        });
+        jMenu2.add(autoConnectOnStart);
+
         jMenuBar1.add(jMenu2);
 
         jMenu3.setText("View");
@@ -1513,7 +1538,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
     private void jMenuItem1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem1ActionPerformed
         try {
-            ConnectionDialog connDlg = new ConnectionDialog();
+
             connDlg.setVisible(true);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, e, e.getMessage(), JOptionPane.WARNING_MESSAGE);
@@ -1570,6 +1595,10 @@ public class JcTestWindow extends javax.swing.JFrame {
         metricsMonitor.clearAllMetrics(selectedMember.getDesc().getInstanceId());
     }//GEN-LAST:event_btnClearMetricsActionPerformed
 
+    private void autoConnectOnStartActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_autoConnectOnStartActionPerformed
+        prop.saveParam("autoConnectOnStart", autoConnectOnStart.isSelected());
+    }//GEN-LAST:event_autoConnectOnStartActionPerformed
+
     private void info(String msg) {
         JOptionPane.showMessageDialog(this, msg);
     }
@@ -1606,6 +1635,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addFilterValue1;
     private javax.swing.JButton addFilterValue2;
+    private javax.swing.JCheckBoxMenuItem autoConnectOnStart;
     private javax.swing.JButton btnClearMetrics;
     private javax.swing.JButton btnRefreshFilters;
     private javax.swing.JButton btnTestFilterNumver;

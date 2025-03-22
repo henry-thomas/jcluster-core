@@ -4,9 +4,12 @@
  */
 package com.mypower24.jcclustertest;
 
+import com.mypower24.jcclustertest.controller.SystemPropManager;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import org.jcluster.core.JcCoreService;
 
@@ -19,12 +22,14 @@ public class ConnectionDialog extends javax.swing.JFrame {
     /**
      * Creates new form ConnectionDialog
      */
+    SystemPropManager prop = SystemPropManager.getINSTANCE();
+
     public ConnectionDialog() {
         initComponents();
-        connect();
+
     }
 
-    private void connect() {
+    protected void connect() {
         Map<String, Object> config = new HashMap<>();
         ArrayList<Integer> portList = new ArrayList<>();
         for (String string : getList(udpListenPort.getText())) {
@@ -73,14 +78,14 @@ public class ConnectionDialog extends javax.swing.JFrame {
             }
         });
 
-        appName.setText("jcMissionControl");
+        appName.setText(prop.loadParamAsString("appName", "jcMissionControl"));
         appName.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 appNameActionPerformed(evt);
             }
         });
 
-        udpListenPort.setText("8381");
+        udpListenPort.setText(prop.loadParamAsString("udpListenPort", "8380"));
         udpListenPort.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 udpListenPortActionPerformed(evt);
@@ -101,7 +106,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
             }
         });
 
-        primaryMember.setText("192.168.24.34:8381");
+        primaryMember.setText(prop.loadParamAsString("primaryMember", "192.168.24.34:8381"));
         primaryMember.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 primaryMemberActionPerformed(evt);
@@ -114,7 +119,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
 
         jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
 
-        txtSelfIp.setText("192.168.24.34");
+        txtSelfIp.setText(prop.loadParamAsString("txtSelfIp","192.168.24.34"));
 
         jLabel2.setText("Self IP");
 
@@ -220,6 +225,18 @@ public class ConnectionDialog extends javax.swing.JFrame {
     }//GEN-LAST:event_jCheckBox1ActionPerformed
 
     private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        // Variables declaration - do not modify                     
+
+        prop.saveParam("appName", appName.getText());
+        prop.saveParam("primaryMember", primaryMember.getText());
+        prop.saveParam("txtSelfIp", txtSelfIp.getText());
+        prop.saveParam("txtSelfIp", txtSelfIp.getText());
+
+        try {
+            JcCoreService.getInstance().stop();
+        } catch (Exception ex) {
+            Logger.getLogger(ConnectionDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
         connect();
     }//GEN-LAST:event_jButton3ActionPerformed
 

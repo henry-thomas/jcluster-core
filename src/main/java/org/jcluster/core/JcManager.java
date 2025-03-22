@@ -119,7 +119,7 @@ public class JcManager {
         if (pm.isBroadcast()) {
             int broadcastSend = broadcastSend(pm, args);
             if (broadcastSend == 0) {
-                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + pm.getAppName());
+                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + pm);
             }
             return broadcastSend;
         } else if (pm.isInstanceFilter()) {//no app name needed if send is specific for remote instance
