@@ -7,7 +7,8 @@ package org.jcluster.core.monitor;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
-import org.jcluster.core.JcMember;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.jcluster.core.bean.JcAppDescriptor;
 
 /**
@@ -16,40 +17,47 @@ import org.jcluster.core.bean.JcAppDescriptor;
  */
 public class JcMetrics implements Serializable {
 
-    private final HashMap<String, List<JcConnectionMetrics>> connMetricsMap = new HashMap<>();
+    private static final long serialVersionUID = -3877967371056615756L;
+
     private final HashMap<String, JcMemberMetrics> memMetricsMap = new HashMap<>();
+
+    private final JcConnMetrics inbound = new JcConnMetrics();
+    private final JcConnMetrics outbound = new JcConnMetrics();
+
     private final InstanceResMonitorBean resBean;
     private final JcAppDescriptor desc;
 
     public JcMetrics(JcAppDescriptor desc) {
         this.desc = desc;
-        resBean = new InstanceResMonitorBean(desc.getIpStrPortStr());
+        this.resBean = new InstanceResMonitorBean(desc.getIpStrPortStr());
     }
 
     public HashMap<String, JcMemberMetrics> getMemMetricsMap() {
         return memMetricsMap;
     }
 
-    public void updateMemMetrics(JcMember mem) {
-        JcMemberMetrics met = memMetricsMap.get(mem.getId());
-        if (met == null) {
-            met = new JcMemberMetrics();
-            memMetricsMap.put(mem.getId(), met);
-        }
-        met.setFilterSize(mem.getSubscribtionSet().size());
-        met.setConnMetrics(mem.getConector().getAllMetrics());
-    }
-
     public JcAppDescriptor getDesc() {
         return desc;
     }
 
-    public HashMap<String, List<JcConnectionMetrics>> getConnMetricsMap() {
-        return connMetricsMap;
-    }
-
     public InstanceResMonitorBean getResBean() {
         return resBean;
+    }
+
+    public JcConnMetrics getInbound() {
+        return inbound.sumMetrics(memMetricsMap.values().stream().map(m -> m.getInbound()).collect(Collectors.toList()));
+    }
+
+    public JcConnMetrics getOutbound() {
+        return outbound.sumMetrics(memMetricsMap.values().stream().map(m -> m.getOutbound()).collect(Collectors.toList()));
+    }
+    
+    public void clearAllMetrics(){
+        inbound.clear();
+        outbound.clear();
+        memMetricsMap.entrySet().stream().map(entry -> entry.getValue()).forEachOrdered(met -> {
+            met.clear();
+        });
     }
 
 }

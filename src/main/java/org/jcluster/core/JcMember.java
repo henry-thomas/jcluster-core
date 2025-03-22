@@ -30,6 +30,7 @@ import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.JcMsgFragmentData;
 import org.jcluster.core.messages.JcMsgFrgResendReq;
 import org.jcluster.core.messages.PublishMsg;
+import org.jcluster.core.monitor.JcMemberMetrics;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -50,23 +51,27 @@ public class JcMember {
     private final Map<String, JcMsgFragment> txFragList = new HashMap<>();
     private final Map<String, JcMsgFragment> rxFragList = new HashMap<>();
 
-    private final JcRemoteInstanceConnectionBean conector = new JcRemoteInstanceConnectionBean();
+    private final JcRemoteInstanceConnectionBean conector;
 
     //this is for verification and keep track if we are subscribe or not to a filter 
     //at this specific member
     //value is filterName
     private final Set<String> subscribtionSet = new HashSet<>();
 
+    private final JcMemberMetrics metrics;
+
     private final Map<String, RemMembFilter> filterMap = new HashMap<>();
 
-    public JcMember(JcAppDescriptor desc, JcCoreService core) {
+    public JcMember(JcAppDescriptor desc, JcCoreService core, JcMemberMetrics metrics) {
         LOG.setLevel(Level.ALL);
         this.desc = desc;
         this.core = core;
+        conector = new JcRemoteInstanceConnectionBean(metrics);
         if (desc != null) {
             conector.setDesc(desc);
             id = desc.getIpStrPortStr();
         }
+        this.metrics = metrics;
     }
 
     public JcRemoteInstanceConnectionBean getConector() {
@@ -404,6 +409,10 @@ public class JcMember {
 
     public Collection<RemMembFilter> getFilterList() {
         return filterMap.values();
+    }
+
+    public JcMemberMetrics getMetrics() {
+        return metrics;
     }
 
 }

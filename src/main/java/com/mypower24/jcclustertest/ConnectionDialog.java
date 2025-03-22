@@ -4,7 +4,6 @@
  */
 package com.mypower24.jcclustertest;
 
-import java.awt.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +21,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
      */
     public ConnectionDialog() {
         initComponents();
-//        connect();
+        connect();
     }
 
     private void connect() {
@@ -30,13 +29,15 @@ public class ConnectionDialog extends javax.swing.JFrame {
         ArrayList<Integer> portList = new ArrayList<>();
         for (String string : getList(udpListenPort.getText())) {
             portList.add(Integer.valueOf(string));
-            portList.add(Integer.valueOf(string) + 1);
+            portList.add(Integer.parseInt(string) + 1);
+            portList.add(Integer.parseInt(string) + 10);
         }
 
         config.put("udpListenPort", portList);
         config.put("primaryMembers", getList(primaryMember.getText()));
         config.put("appName", appName.getText());
         config.put("selfIpAddress", txtSelfIp.getText());
+        config.put("tcpListenPort", portList);
         try {
             JcCoreService.getInstance().start(config);
         } catch (Exception ex) {
@@ -79,7 +80,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
             }
         });
 
-        udpListenPort.setText("4445");
+        udpListenPort.setText("8381");
         udpListenPort.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 udpListenPortActionPerformed(evt);
@@ -100,7 +101,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
             }
         });
 
-        primaryMember.setText("127.0.0.1:4446");
+        primaryMember.setText("192.168.24.34:8381");
         primaryMember.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 primaryMemberActionPerformed(evt);
@@ -113,7 +114,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
 
         jSeparator1.setOrientation(javax.swing.SwingConstants.VERTICAL);
 
-        txtSelfIp.setText("127.0.0.1");
+        txtSelfIp.setText("192.168.24.34");
 
         jLabel2.setText("Self IP");
 

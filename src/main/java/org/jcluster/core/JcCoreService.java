@@ -58,6 +58,7 @@ import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
+import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
 
 /**
@@ -123,7 +124,7 @@ public final class JcCoreService {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
     }
 
-    public final JcMetrics getMetrics() {
+    public final JcMetrics getAllMetrics() {
         return metrics;
     }
 
@@ -156,6 +157,11 @@ public final class JcCoreService {
         }
     }
 
+    public final void startWithArgs(String[] args) throws Exception {
+//        appName=myPower24-lws selfIpAddress=192.168.100.15 udpListenPort=8381 tcpListenPort=2205 primaryMembers=192.168.100.15:8381
+        start(JcManager.getDefaultConfig(args, false));
+    }
+
     public final void start() throws Exception {
         start(null);
     }
@@ -169,16 +175,17 @@ public final class JcCoreService {
             if (config.containsKey("appName")) {
                 selfDesc.setAppName((String) config.get("appName"));
             }
-//            if (config.containsKey("tcpListenPort")) {
-//                selfDesc.setIpPortListenTCP((int) config.get("tcpListenPort"));
-//            }
+            Object topics = config.get("topics");
+            if (topics != null) {
+                selfDesc.getTopicList().addAll((Collection<String>) topics);
+            }
             if (config.containsKey("selfIpAddress")) {
                 selfDesc.setIpAddress((String) config.get("selfIpAddress"));
             } else {
                 throw new JcRuntimeException("Missing property for [selfIpAddress]");
             }
 
-            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
+            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]\n\tTopics: {}", selfDesc.getAppName(), selfDesc.getInstanceId(),selfDesc.getTopicList());
 
             ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
             if (mes != null) {
@@ -218,7 +225,8 @@ public final class JcCoreService {
             serverThread.start();
 
             metrics = new JcMetrics(selfDesc);
-            JcManager.getInstance().registerLocalClassImplementation(AppMetricsMonitor.class);
+
+            JcManager.registerLocalClassImplementation(AppMetricsMonitor.class);
 
         }
     }
@@ -267,7 +275,16 @@ public final class JcCoreService {
     private JcMember onMemberJoinMsg(JcDistMsg msg, String memId) {
         JcMember mem = memberMap.get(memId);
         if (mem == null) {
-            mem = new JcMember(msg.getSrc(), this);
+            JcMemberMetrics met = metrics.getMemMetricsMap().get(memId);
+            if (met == null) {
+                met = new JcMemberMetrics();
+                metrics.getMemMetricsMap().put(memId, met);
+            }
+            mem = new JcMember(msg.getSrc(), this, met);
+
+            met.setAppName(mem.getDesc().getAppName());
+            met.setInstanceId(mem.getDesc().getInstanceId());
+
             memberMap.put(memId, mem);
         }
         if (primaryMemberMap.containsKey(memId)) {
@@ -381,6 +398,7 @@ public final class JcCoreService {
 
     private void onMemberAdd(JcMember mem) {
         //Add from remote since we have him already
+//        mem.close();
         RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
         filter.addFilterValue(mem.getDesc().getInstanceId());
 
@@ -536,8 +554,6 @@ public final class JcCoreService {
                 }
 
                 mem.verifyRxFrag();
-                metrics.updateMemMetrics(mem);
-
             }
         }
 //        LOG.debug(strMembLog);
@@ -904,8 +920,13 @@ public final class JcCoreService {
     protected List<JcRemoteInstanceConnectionBean> getMemConByTopic(String topic) {
         List<JcRemoteInstanceConnectionBean> riList = memberMap.values().stream()
                 //                .filter((mem) -> mem.getConector().isOutboundAvailable())
-                .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
-                .map((mem) -> mem.getConector())
+                .filter(
+                        (mem)
+                        -> mem.getDesc().getTopicList().contains(topic)
+                )
+                .map(
+                        (mem) -> mem.getConector()
+                )
                 .collect(Collectors.toList());
 
         return riList;
@@ -968,7 +989,9 @@ public final class JcCoreService {
                 .filter((mem)
                         -> Objects.equals(mem.getDesc().getAppName(), app)
                 )
-                .filter((mem) -> mem.containsFilter(fMap))
+                .filter((mem)
+                        -> mem.containsFilter(fMap)
+                )
                 .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
 
         if (foundMem == null) {

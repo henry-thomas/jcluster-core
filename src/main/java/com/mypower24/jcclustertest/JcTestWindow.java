@@ -19,15 +19,15 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.table.DefaultTableModel;
-import org.jcluster.core.JcConnectionTypeEnum;
 import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcManager;
 import org.jcluster.core.JcMember;
 import org.jcluster.core.MemberEvent;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
-import org.jcluster.core.monitor.JcConnectionMetrics;
+import org.jcluster.core.monitor.JcConnMetrics;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
+import org.jcluster.core.monitor.MethodExecMetric;
 
 /**
  *
@@ -40,6 +40,7 @@ public class JcTestWindow extends javax.swing.JFrame {
      */
     private volatile boolean running = false;
     AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
+
     FilterTestIFace filterTestIFace = JcManager.generateProxy(FilterTestIFace.class);
     private final Set<JcMember> memberList = new HashSet<>();
     private JcMember selectedMember = null;
@@ -53,13 +54,38 @@ public class JcTestWindow extends javax.swing.JFrame {
         log = (LogTextArea) logContainer;
 
         JcCoreService.getInstance().addMemberEventListener(this::onMemberEvent);
-
-        ConnectionDialog connDlg = new ConnectionDialog();
-
+        new ConnectionDialog();
         tblMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblVisibleMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-//        connDlg.setVisible(true);
+
+        running = true;
+        Thread t = new Thread(() -> {
+            while (running) {
+                updateAll();
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+        });
+        t.start();
+    }
+
+    private void updateAll() {
+        SwingUtilities.invokeLater(() -> {
+            if (selectedMember != null) {
+                JcMetrics metrics1 = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
+                updateFilters();
+                updateVisibleMembersTable();
+                updateSelectedFilterValues();
+                updateTotalMetrics(metrics1);
+                updateMetrics(metrics1);
+            }
+        });
+
     }
 
     private void onSelectedMetricsMemberChange() {
@@ -76,55 +102,137 @@ public class JcTestWindow extends javax.swing.JFrame {
         }
 
         selectedMetricsMember = tblVisibleMembers.getValueAt(rowIdx, 1).toString();
-        updateMetrics();
+        updateMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
 
     }
 
-    private void updateMetrics() {
+    private void updateMetrics(JcMetrics metrics) {
 
         DefaultTableModel dtmOutbound = (DefaultTableModel) tblOutbountMetrics.getModel();
         DefaultTableModel dtmInbound = (DefaultTableModel) tblInboundMetrics.getModel();
 
-        JcMetrics metrics = metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId());
-        HashMap<String, JcMemberMetrics> memMetricsMap = metrics.getMemMetricsMap();
+        DefaultTableModel dtmMetOutbound = (DefaultTableModel) tblOutboundMethodExec.getModel();
+        DefaultTableModel dtmMetInbound = (DefaultTableModel) tblInboundMethodExec.getModel();
 
-        System.out.println("Got metrics for: " + metrics.getDesc().getIpStrPortStr());
+        HashMap<String, JcMemberMetrics> memMetricsMap = metrics.getMemMetricsMap();
 
         dtmOutbound.getDataVector().clear();
         dtmInbound.getDataVector().clear();
+        dtmMetOutbound.getDataVector().clear();
+        dtmMetInbound.getDataVector().clear();
 
-        for (Map.Entry<String, JcMemberMetrics> entry : memMetricsMap.entrySet()) {
-            String memId = entry.getKey();
-            JcMemberMetrics met = entry.getValue();
-            //Map<ID, Map<ConnType, Metrics>>
-            Map<String, Map<String, JcConnectionMetrics>> connMetrics = met.getConnMetrics();
-
-            for (Map.Entry<String, Map<String, JcConnectionMetrics>> metEntry : connMetrics.entrySet()) {
-                String id = metEntry.getKey();
-                Map<String, JcConnectionMetrics> value = metEntry.getValue();
-
-                JcConnectionMetrics inboundMetrics = value.get(JcConnectionTypeEnum.INBOUND.name());
-                JcConnectionMetrics outboundMetrics = value.get(JcConnectionTypeEnum.OUTBOUND.name());
-
-                System.out.println("Got metrics for: " + memId);
-
-                dtmInbound.addRow(new Object[]{
-                    id,
-                     inboundMetrics.getRxCount(),
-                     inboundMetrics.getTxCount(),
-                     inboundMetrics.getErrCount(),
-                     inboundMetrics.getReqRespMapSize()});
-                dtmOutbound.addRow(new Object[]{
-                    id,
-                     outboundMetrics.getRxCount(),
-                     outboundMetrics.getTxCount(),
-                     outboundMetrics.getErrCount(),
-                     inboundMetrics.getReqRespMapSize()});
-            }
+        JcMemberMetrics met = memMetricsMap.get(selectedMetricsMember);
+//        for (Map.Entry<String, JcMemberMetrics> entry : memMetricsMap.entrySet()) {
+//            String memId = entry.getKey();
+//            JcMemberMetrics met = entry.getValue();
+        if (met == null) {
+            return;
         }
-        
+        JcConnMetrics inboundMetrics = met.getInbound();
+        JcConnMetrics outboundMetrics = met.getOutbound();
+
+        dtmInbound.addRow(new Object[]{
+            met.getAppName(),
+            inboundMetrics.getRxCount(),
+            inboundMetrics.getTxCount(),
+            inboundMetrics.getErrCount(),
+            inboundMetrics.getReqRespMapSize()});
+        dtmOutbound.addRow(new Object[]{
+            met.getAppName(),
+            outboundMetrics.getRxCount(),
+            outboundMetrics.getTxCount(),
+            outboundMetrics.getErrCount(),
+            inboundMetrics.getReqRespMapSize()});
+
+        Map<String, MethodExecMetric> outBoundMethods = outboundMetrics.getMethodExecMap();
+        Map<String, MethodExecMetric> inboundMethods = inboundMetrics.getMethodExecMap();
+
+        for (Map.Entry<String, MethodExecMetric> entry1 : inboundMethods.entrySet()) {
+            String methodName = entry1.getKey();
+            MethodExecMetric metric = entry1.getValue();
+
+            dtmMetInbound.addRow(new Object[]{
+                methodName,
+                metric.getExecCount(),
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
+
+        }
+        for (Map.Entry<String, MethodExecMetric> entry1 : outBoundMethods.entrySet()) {
+            String methodName = entry1.getKey();
+            MethodExecMetric metric = entry1.getValue();
+
+            dtmMetOutbound.addRow(new Object[]{
+                methodName,
+                metric.getExecCount(),
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
+
+        }
+
+//        }
         dtmInbound.fireTableDataChanged();
         dtmOutbound.fireTableDataChanged();
+        dtmMetInbound.fireTableDataChanged();
+        dtmMetOutbound.fireTableDataChanged();
+
+        updateTotalMetrics(metrics);
+    }
+
+    private void updateTotalMetrics(JcMetrics metrics) {
+
+        DefaultTableModel dtmOutboundMet = (DefaultTableModel) tblOutbountMetricsTotal.getModel();
+        DefaultTableModel dtmInboundMet = (DefaultTableModel) tblInboundMetricsTotal.getModel();
+
+        DefaultTableModel dtmOutbound = (DefaultTableModel) tblOutboundMethodExecTotal.getModel();
+        DefaultTableModel dtmInbound = (DefaultTableModel) tblInboundMethodExecTotal.getModel();
+
+//        JcMemberMetrics met = metrics;
+        dtmOutbound.getDataVector().clear();
+        dtmInbound.getDataVector().clear();
+        dtmOutboundMet.getDataVector().clear();
+        dtmInboundMet.getDataVector().clear();
+
+        JcConnMetrics inboundMetrics = metrics.getInbound();
+        JcConnMetrics outboundMetrics = metrics.getOutbound();
+
+        dtmInboundMet.addRow(new Object[]{
+            inboundMetrics.getRxCount(),
+            inboundMetrics.getTxCount(),
+            inboundMetrics.getErrCount(),
+            inboundMetrics.getReqRespMapSize()});
+        dtmOutboundMet.addRow(new Object[]{
+            outboundMetrics.getRxCount(),
+            outboundMetrics.getTxCount(),
+            outboundMetrics.getErrCount(),
+            inboundMetrics.getReqRespMapSize()});
+
+        Map<String, MethodExecMetric> outBoundMethods = outboundMetrics.getMethodExecMap();
+        Map<String, MethodExecMetric> inboundMethods = inboundMetrics.getMethodExecMap();
+
+        for (Map.Entry<String, MethodExecMetric> entry1 : inboundMethods.entrySet()) {
+            String methodName = entry1.getKey();
+            MethodExecMetric metric = entry1.getValue();
+
+            dtmInbound.addRow(new Object[]{
+                methodName,
+                metric.getExecCount(),
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
+
+        }
+        for (Map.Entry<String, MethodExecMetric> entry1 : outBoundMethods.entrySet()) {
+            String methodName = entry1.getKey();
+            MethodExecMetric metric = entry1.getValue();
+
+            dtmOutbound.addRow(new Object[]{
+                methodName,
+                metric.getExecCount(),
+                metric.getExecCount() > 0 ? metric.getTotalExecTime() / metric.getExecCount() : 0});
+
+        }
+
+        dtmInbound.fireTableDataChanged();
+        dtmOutbound.fireTableDataChanged();
+        dtmInboundMet.fireTableDataChanged();
+        dtmOutboundMet.fireTableDataChanged();
     }
 
     private void onMemSelChange() {
@@ -142,12 +250,14 @@ public class JcTestWindow extends javax.swing.JFrame {
         String memId = tblMembers.getValueAt(rowIdx, 0).toString();
         log.info("onMemberSelect {}", memId);
         selectedMember = JcCoreService.getMemberMap().get(memId);
+        selectedFilter = null;
         if (selectedMember == null) {
             log.info("Selected member is null: {}", memId);
             return;
         }
         updateFilters();
         updateVisibleMembersTable();
+        updateTotalMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
     }
 
     private void onSelectedFilterChange() {
@@ -323,16 +433,44 @@ public class JcTestWindow extends javax.swing.JFrame {
         btnTestFilterString = new javax.swing.JButton();
         btnTestFilterNumver = new javax.swing.JButton();
         jButton2 = new javax.swing.JButton();
+        jPanel21 = new javax.swing.JPanel();
+        jTabbedPane4 = new javax.swing.JTabbedPane();
         jPanel6 = new javax.swing.JPanel();
         jScrollPane6 = new javax.swing.JScrollPane();
         tblVisibleMembers = new javax.swing.JTable();
         jButton4 = new javax.swing.JButton();
+        jTabbedPane2 = new javax.swing.JTabbedPane();
+        jPanel11 = new javax.swing.JPanel();
+        jPanel13 = new javax.swing.JPanel();
         jScrollPane7 = new javax.swing.JScrollPane();
         tblInboundMetrics = new javax.swing.JTable();
-        jLabel7 = new javax.swing.JLabel();
-        jLabel8 = new javax.swing.JLabel();
+        jPanel14 = new javax.swing.JPanel();
         jScrollPane9 = new javax.swing.JScrollPane();
         tblOutbountMetrics = new javax.swing.JTable();
+        jPanel12 = new javax.swing.JPanel();
+        jPanel10 = new javax.swing.JPanel();
+        jScrollPane8 = new javax.swing.JScrollPane();
+        tblInboundMethodExec = new javax.swing.JTable();
+        jPanel9 = new javax.swing.JPanel();
+        jScrollPane10 = new javax.swing.JScrollPane();
+        tblOutboundMethodExec = new javax.swing.JTable();
+        jPanel7 = new javax.swing.JPanel();
+        jTabbedPane3 = new javax.swing.JTabbedPane();
+        jPanel15 = new javax.swing.JPanel();
+        jPanel16 = new javax.swing.JPanel();
+        jScrollPane11 = new javax.swing.JScrollPane();
+        tblInboundMetricsTotal = new javax.swing.JTable();
+        jPanel17 = new javax.swing.JPanel();
+        jScrollPane12 = new javax.swing.JScrollPane();
+        tblOutbountMetricsTotal = new javax.swing.JTable();
+        btnClearMetrics = new javax.swing.JButton();
+        jPanel18 = new javax.swing.JPanel();
+        jPanel20 = new javax.swing.JPanel();
+        jScrollPane14 = new javax.swing.JScrollPane();
+        tblOutboundMethodExecTotal = new javax.swing.JTable();
+        jPanel19 = new javax.swing.JPanel();
+        jScrollPane13 = new javax.swing.JScrollPane();
+        tblInboundMethodExecTotal = new javax.swing.JTable();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblMembers = new javax.swing.JTable();
         jPanel5 = new javax.swing.JPanel();
@@ -441,7 +579,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(btnRefreshFilters)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 199, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jLabel5)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(txtFilterValues, javax.swing.GroupLayout.PREFERRED_SIZE, 135, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -520,7 +658,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addContainerGap(194, Short.MAX_VALUE)
+                        .addContainerGap(214, Short.MAX_VALUE)
                         .addComponent(addFilterValue2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(addFilterValue1)
@@ -704,6 +842,8 @@ public class JcTestWindow extends javax.swing.JFrame {
             }
         });
 
+        jPanel13.setBorder(javax.swing.BorderFactory.createTitledBorder("Inbound"));
+
         tblInboundMetrics.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null, null},
@@ -717,9 +857,23 @@ public class JcTestWindow extends javax.swing.JFrame {
         ));
         jScrollPane7.setViewportView(tblInboundMetrics);
 
-        jLabel7.setText("Outbound");
+        javax.swing.GroupLayout jPanel13Layout = new javax.swing.GroupLayout(jPanel13);
+        jPanel13.setLayout(jPanel13Layout);
+        jPanel13Layout.setHorizontalGroup(
+            jPanel13Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel13Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane7, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel13Layout.setVerticalGroup(
+            jPanel13Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel13Layout.createSequentialGroup()
+                .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 158, Short.MAX_VALUE)
+                .addContainerGap())
+        );
 
-        jLabel8.setText("Inbound");
+        jPanel14.setBorder(javax.swing.BorderFactory.createTitledBorder("Outbound"));
 
         tblOutbountMetrics.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -734,6 +888,161 @@ public class JcTestWindow extends javax.swing.JFrame {
         ));
         jScrollPane9.setViewportView(tblOutbountMetrics);
 
+        javax.swing.GroupLayout jPanel14Layout = new javax.swing.GroupLayout(jPanel14);
+        jPanel14.setLayout(jPanel14Layout);
+        jPanel14Layout.setHorizontalGroup(
+            jPanel14Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel14Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 434, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel14Layout.setVerticalGroup(
+            jPanel14Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel14Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 152, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        javax.swing.GroupLayout jPanel11Layout = new javax.swing.GroupLayout(jPanel11);
+        jPanel11.setLayout(jPanel11Layout);
+        jPanel11Layout.setHorizontalGroup(
+            jPanel11Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel11Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel11Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel14, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jPanel13, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+        );
+        jPanel11Layout.setVerticalGroup(
+            jPanel11Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel11Layout.createSequentialGroup()
+                .addComponent(jPanel14, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel13, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
+        jTabbedPane2.addTab("RX/TX", jPanel11);
+
+        jPanel10.setBorder(javax.swing.BorderFactory.createTitledBorder("Inbound"));
+
+        tblInboundMethodExec.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null},
+                {null, null, null},
+                {null, null, null},
+                {null, null, null}
+            },
+            new String [] {
+                "Method Name", "Exec Count", "Avg. Exec Time"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.Object.class, java.lang.Object.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane8.setViewportView(tblInboundMethodExec);
+
+        javax.swing.GroupLayout jPanel10Layout = new javax.swing.GroupLayout(jPanel10);
+        jPanel10.setLayout(jPanel10Layout);
+        jPanel10Layout.setHorizontalGroup(
+            jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel10Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane8, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel10Layout.setVerticalGroup(
+            jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel10Layout.createSequentialGroup()
+                .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 158, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        jPanel9.setBorder(javax.swing.BorderFactory.createTitledBorder("Outbound"));
+        jPanel9.setPreferredSize(new java.awt.Dimension(446, 187));
+
+        tblOutboundMethodExec.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null},
+                {null, null, null},
+                {null, null, null},
+                {null, null, null}
+            },
+            new String [] {
+                "Method Name", "Exec Count", "Avg. Exec Time"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.Object.class, java.lang.Object.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane10.setViewportView(tblOutboundMethodExec);
+
+        javax.swing.GroupLayout jPanel9Layout = new javax.swing.GroupLayout(jPanel9);
+        jPanel9.setLayout(jPanel9Layout);
+        jPanel9Layout.setHorizontalGroup(
+            jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel9Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 434, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel9Layout.setVerticalGroup(
+            jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel9Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 152, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        javax.swing.GroupLayout jPanel12Layout = new javax.swing.GroupLayout(jPanel12);
+        jPanel12.setLayout(jPanel12Layout);
+        jPanel12Layout.setHorizontalGroup(
+            jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel12Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 456, Short.MAX_VALUE)
+                    .addComponent(jPanel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+        );
+        jPanel12Layout.setVerticalGroup(
+            jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel12Layout.createSequentialGroup()
+                .addComponent(jPanel9, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel10, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
+        jPanel12Layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {jPanel10, jPanel9});
+
+        jTabbedPane2.addTab("Methods", jPanel12);
+
         javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
         jPanel6.setLayout(jPanel6Layout);
         jPanel6Layout.setHorizontalGroup(
@@ -741,37 +1050,271 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel6Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane6, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 442, Short.MAX_VALUE)
+                    .addComponent(jScrollPane6, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(jButton4))
-                    .addGroup(jPanel6Layout.createSequentialGroup()
-                        .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel7)
-                            .addComponent(jLabel8))
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 442, Short.MAX_VALUE)
-                    .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 442, Short.MAX_VALUE))
+                    .addComponent(jTabbedPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
                 .addContainerGap())
         );
         jPanel6Layout.setVerticalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel6Layout.createSequentialGroup()
-                .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, 193, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(jLabel7)
-                .addGap(3, 3, 3)
-                .addComponent(jScrollPane9, javax.swing.GroupLayout.PREFERRED_SIZE, 111, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, 148, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jLabel8)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane7, javax.swing.GroupLayout.PREFERRED_SIZE, 111, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(53, 53, 53)
+                .addComponent(jTabbedPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 417, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(102, 102, 102)
                 .addComponent(jButton4)
-                .addGap(0, 14, Short.MAX_VALUE))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
-        jTabbedPane1.addTab("Members", jPanel6);
+        jTabbedPane4.addTab("Member Metrics", jPanel6);
+
+        jPanel16.setBorder(javax.swing.BorderFactory.createTitledBorder("Inbound"));
+
+        tblInboundMetricsTotal.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "RX", "TX", "ERR", "REQ/RESP Size"
+            }
+        ));
+        jScrollPane11.setViewportView(tblInboundMetricsTotal);
+
+        javax.swing.GroupLayout jPanel16Layout = new javax.swing.GroupLayout(jPanel16);
+        jPanel16.setLayout(jPanel16Layout);
+        jPanel16Layout.setHorizontalGroup(
+            jPanel16Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel16Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane11, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel16Layout.setVerticalGroup(
+            jPanel16Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel16Layout.createSequentialGroup()
+                .addComponent(jScrollPane11, javax.swing.GroupLayout.DEFAULT_SIZE, 167, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        jPanel17.setBorder(javax.swing.BorderFactory.createTitledBorder("Outbound"));
+
+        tblOutbountMetricsTotal.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "RX", "TX", "ERR", "REQ/RESP Size"
+            }
+        ));
+        jScrollPane12.setViewportView(tblOutbountMetricsTotal);
+
+        javax.swing.GroupLayout jPanel17Layout = new javax.swing.GroupLayout(jPanel17);
+        jPanel17.setLayout(jPanel17Layout);
+        jPanel17Layout.setHorizontalGroup(
+            jPanel17Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel17Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 434, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel17Layout.setVerticalGroup(
+            jPanel17Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel17Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 161, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        btnClearMetrics.setText("Clear All");
+        btnClearMetrics.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnClearMetricsActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel15Layout = new javax.swing.GroupLayout(jPanel15);
+        jPanel15.setLayout(jPanel15Layout);
+        jPanel15Layout.setHorizontalGroup(
+            jPanel15Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel15Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel15Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel17, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jPanel16, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel15Layout.createSequentialGroup()
+                        .addComponent(btnClearMetrics)
+                        .addGap(0, 0, Short.MAX_VALUE))))
+        );
+        jPanel15Layout.setVerticalGroup(
+            jPanel15Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel15Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jPanel17, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel16, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(btnClearMetrics)
+                .addContainerGap(246, Short.MAX_VALUE))
+        );
+
+        jPanel15Layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {jPanel16, jPanel17});
+
+        jTabbedPane3.addTab("RX/TX", jPanel15);
+
+        jPanel20.setBorder(javax.swing.BorderFactory.createTitledBorder("Outbound"));
+        jPanel20.setPreferredSize(new java.awt.Dimension(446, 187));
+
+        tblOutboundMethodExecTotal.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null},
+                {null, null, null},
+                {null, null, null},
+                {null, null, null}
+            },
+            new String [] {
+                "Method Name", "Exec Count", "Avg. Exec Time"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.Object.class, java.lang.Object.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane14.setViewportView(tblOutboundMethodExecTotal);
+
+        javax.swing.GroupLayout jPanel20Layout = new javax.swing.GroupLayout(jPanel20);
+        jPanel20.setLayout(jPanel20Layout);
+        jPanel20Layout.setHorizontalGroup(
+            jPanel20Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel20Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 434, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel20Layout.setVerticalGroup(
+            jPanel20Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel20Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 217, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        jPanel19.setBorder(javax.swing.BorderFactory.createTitledBorder("Inbound"));
+
+        tblInboundMethodExecTotal.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null},
+                {null, null, null},
+                {null, null, null},
+                {null, null, null}
+            },
+            new String [] {
+                "Method Name", "Exec Count", "Avg. Exec Time"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.Object.class, java.lang.Object.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jScrollPane13.setViewportView(tblInboundMethodExecTotal);
+
+        javax.swing.GroupLayout jPanel19Layout = new javax.swing.GroupLayout(jPanel19);
+        jPanel19.setLayout(jPanel19Layout);
+        jPanel19Layout.setHorizontalGroup(
+            jPanel19Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel19Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane13, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel19Layout.setVerticalGroup(
+            jPanel19Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel19Layout.createSequentialGroup()
+                .addComponent(jScrollPane13, javax.swing.GroupLayout.DEFAULT_SIZE, 223, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+
+        javax.swing.GroupLayout jPanel18Layout = new javax.swing.GroupLayout(jPanel18);
+        jPanel18.setLayout(jPanel18Layout);
+        jPanel18Layout.setHorizontalGroup(
+            jPanel18Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel18Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel18Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 456, Short.MAX_VALUE)
+                    .addComponent(jPanel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+        );
+        jPanel18Layout.setVerticalGroup(
+            jPanel18Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel18Layout.createSequentialGroup()
+                .addComponent(jPanel20, javax.swing.GroupLayout.PREFERRED_SIZE, 252, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel19, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(169, Short.MAX_VALUE))
+        );
+
+        jTabbedPane3.addTab("Methods", jPanel18);
+
+        javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
+        jPanel7.setLayout(jPanel7Layout);
+        jPanel7Layout.setHorizontalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jTabbedPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+        jPanel7Layout.setVerticalGroup(
+            jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel7Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jTabbedPane3)
+                .addContainerGap())
+        );
+
+        jTabbedPane4.addTab("Metric Totals", jPanel7);
+
+        javax.swing.GroupLayout jPanel21Layout = new javax.swing.GroupLayout(jPanel21);
+        jPanel21.setLayout(jPanel21Layout);
+        jPanel21Layout.setHorizontalGroup(
+            jPanel21Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jTabbedPane4, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 474, Short.MAX_VALUE)
+        );
+        jPanel21Layout.setVerticalGroup(
+            jPanel21Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jTabbedPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 761, Short.MAX_VALUE)
+        );
+
+        jTabbedPane1.addTab("Metrics", jPanel21);
 
         tblMembers.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -820,7 +1363,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 970, Short.MAX_VALUE)
+                .addComponent(jScrollPane3)
                 .addContainerGap())
         );
         jPanel5Layout.setVerticalGroup(
@@ -919,10 +1462,10 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 441, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jPanel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 533, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jTabbedPane1)
                         .addContainerGap())
                     .addComponent(jPanel5, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
@@ -962,7 +1505,6 @@ public class JcTestWindow extends javax.swing.JFrame {
 
 
     private void tblMembersPropertyChange(java.beans.PropertyChangeEvent evt) {//GEN-FIRST:event_tblMembersPropertyChange
-        System.out.println("tblMembersPropertyChange: " + evt.getPropertyName());
     }//GEN-LAST:event_tblMembersPropertyChange
 
     private void tblMembersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblMembersMouseReleased
@@ -983,14 +1525,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_tblVisibleMembersMouseReleased
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        Map<String, JcMember> memberMap = JcCoreService.getInstance().getMemberMap();
-        for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
-            String key = entry.getKey();
-            JcMember mem = entry.getValue();
-            String msg = metricsMonitor.testReq(mem.getDesc().getInstanceId());
-            info(msg);
-            return;
-        }
+        info(metricsMonitor.testReq(selectedMember.getDesc().getInstanceId()));
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void btnTestFilterNumverActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTestFilterNumverActionPerformed
@@ -1027,9 +1562,13 @@ public class JcTestWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_tblFiltersMouseReleased
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-       updateVisibleMembersTable();
-        updateMetrics();
+        updateVisibleMembersTable();
+        updateMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
     }//GEN-LAST:event_jButton4ActionPerformed
+
+    private void btnClearMetricsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnClearMetricsActionPerformed
+        metricsMonitor.clearAllMetrics(selectedMember.getDesc().getInstanceId());
+    }//GEN-LAST:event_btnClearMetricsActionPerformed
 
     private void info(String msg) {
         JOptionPane.showMessageDialog(this, msg);
@@ -1067,6 +1606,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addFilterValue1;
     private javax.swing.JButton addFilterValue2;
+    private javax.swing.JButton btnClearMetrics;
     private javax.swing.JButton btnRefreshFilters;
     private javax.swing.JButton btnTestFilterNumver;
     private javax.swing.JButton btnTestFilterString;
@@ -1083,8 +1623,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel7;
-    private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
@@ -1092,21 +1630,44 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel10;
+    private javax.swing.JPanel jPanel11;
+    private javax.swing.JPanel jPanel12;
+    private javax.swing.JPanel jPanel13;
+    private javax.swing.JPanel jPanel14;
+    private javax.swing.JPanel jPanel15;
+    private javax.swing.JPanel jPanel16;
+    private javax.swing.JPanel jPanel17;
+    private javax.swing.JPanel jPanel18;
+    private javax.swing.JPanel jPanel19;
     private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel jPanel20;
+    private javax.swing.JPanel jPanel21;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
     private javax.swing.JPanel jPanel8;
+    private javax.swing.JPanel jPanel9;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane10;
+    private javax.swing.JScrollPane jScrollPane11;
+    private javax.swing.JScrollPane jScrollPane12;
+    private javax.swing.JScrollPane jScrollPane13;
+    private javax.swing.JScrollPane jScrollPane14;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JScrollPane jScrollPane6;
     private javax.swing.JScrollPane jScrollPane7;
+    private javax.swing.JScrollPane jScrollPane8;
     private javax.swing.JScrollPane jScrollPane9;
     private javax.swing.JTabbedPane jTabbedPane1;
+    private javax.swing.JTabbedPane jTabbedPane2;
+    private javax.swing.JTabbedPane jTabbedPane3;
+    private javax.swing.JTabbedPane jTabbedPane4;
     private javax.swing.JTextArea jTextArea1;
     private javax.swing.JLabel lblAddress;
     private javax.swing.JLabel lblAppName;
@@ -1114,9 +1675,15 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JButton removeFilterValue1;
     private javax.swing.JTable tblFilterValues;
     private javax.swing.JTable tblFilters;
+    private javax.swing.JTable tblInboundMethodExec;
+    private javax.swing.JTable tblInboundMethodExecTotal;
     private javax.swing.JTable tblInboundMetrics;
+    private javax.swing.JTable tblInboundMetricsTotal;
     private javax.swing.JTable tblMembers;
+    private javax.swing.JTable tblOutboundMethodExec;
+    private javax.swing.JTable tblOutboundMethodExecTotal;
     private javax.swing.JTable tblOutbountMetrics;
+    private javax.swing.JTable tblOutbountMetricsTotal;
     private javax.swing.JTable tblVisibleMembers;
     private javax.swing.JTextField testFilterARFIterName;
     private javax.swing.JTextField testFilterARFIterVal;

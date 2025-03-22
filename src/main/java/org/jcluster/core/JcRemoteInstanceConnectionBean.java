@@ -13,7 +13,6 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -21,13 +20,14 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.monitor.JcConnectionMetrics;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
 //import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
+import org.jcluster.core.monitor.JcMemberMetrics;
+import org.jcluster.core.monitor.MethodExecMetric;
 import org.jcluster.core.proxy.JcProxyMethod;
 import org.slf4j.LoggerFactory;
 
@@ -54,9 +54,13 @@ public class JcRemoteInstanceConnectionBean {
     //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
     private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
 
-    private final Map<String, Map<String, JcConnectionMetrics>> metricsMap = new HashMap<>();
+    private final JcMemberMetrics metrics;
 
     private JcAppDescriptor desc = null;
+
+    public JcRemoteInstanceConnectionBean(JcMemberMetrics metrics) {
+        this.metrics = metrics;
+    }
 
     public boolean isOnDemandConnection() {
         return onDemandConnection;
@@ -68,31 +72,6 @@ public class JcRemoteInstanceConnectionBean {
 
     public void setDesc(JcAppDescriptor desc) {
         this.desc = desc;
-    }
-
-    /**
-     *
-     * @return Map that contains the string for the remote app instance ID
-     * mapped to map of inbound and outbound connection metrics separately.
-     *
-     * Keys for each instance map are always INBOUND and OUTBOUND
-     */
-    public Map<String, Map<String, JcConnectionMetrics>> getAllMetrics() {
-
-        for (JcClientConnection conn : allConnections) {
-            Map<String, JcConnectionMetrics> metMap = metricsMap.get(conn.getRemoteAppDesc().getIpStrPortStr());
-            if (metMap == null) {
-                Map<String, JcConnectionMetrics> instMetrics = new HashMap<>();
-                instMetrics.put(JcConnectionTypeEnum.INBOUND.name(), new JcConnectionMetrics(desc, JcConnectionTypeEnum.INBOUND));
-                instMetrics.put(JcConnectionTypeEnum.OUTBOUND.name(), new JcConnectionMetrics(desc, JcConnectionTypeEnum.OUTBOUND));
-                metMap = instMetrics;
-                metricsMap.put(conn.getRemoteAppDesc().getIpStrPortStr(), instMetrics);
-            }
-
-            metMap.get(conn.getConnType().name()).addMetrics(conn.getMetrics());
-        }
-
-        return metricsMap;
     }
 
     protected void validateInboundConnectionCount(int minCount) {
@@ -149,12 +128,16 @@ public class JcRemoteInstanceConnectionBean {
             return null;
         }
 
-        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenUDP());
+        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenTCP());
         Socket socket = new Socket();
         try {
             socket.connect(socketAddress, 2000);
         } catch (IOException e) {
-            LOG.info("Attempt to connect fail: {}", this);
+            try {
+                socket.close();
+            } catch (IOException ex) {
+            }
+            LOG.info("Attempt to connect fail: {} PORT: {}", this, desc.getIpPortListenTCP());
             return null;
         }
         //after socket gets connected we have to receive first Handshake from the other site.
@@ -190,7 +173,7 @@ public class JcRemoteInstanceConnectionBean {
                     oos.flush();
                     LOG.info("Responding handshake frame: {}", hf);
 //                    if (hf.getRequestedConnType()) {
-                    return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
+                    return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND, metrics);
 //                    } else {
 //                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
 //                    }
@@ -210,6 +193,7 @@ public class JcRemoteInstanceConnectionBean {
 
                 socket.close();
             } else {
+
                 return conn;
             }
 
@@ -276,28 +260,16 @@ public class JcRemoteInstanceConnectionBean {
         }
     }
 
-    public void pingAllOutbound() {
-        synchronized (this) {
-            List<JcClientConnection> toRemove = new ArrayList<>();
-            for (JcClientConnection conn : outboundList) {
-                if (!conn.sendPing()) {
-                    toRemove.add(conn);
-                }
-            }
-
-            for (JcClientConnection jcClientConnection : toRemove) {
-                removeConnection(jcClientConnection);
-            }
-        }
-    }
-
     public void validateTimeoutsAllConn() {
         synchronized (this) {
 
             List<JcClientConnection> toRemove = new ArrayList<>();
 
             for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
+                    if(conn.isClosed()){
+                        LOG.warn("Connection is connected, but closed. Removing: {}", conn.getConnId());
+                    }
                     toRemove.add(conn);
                 }
             }
@@ -320,9 +292,25 @@ public class JcRemoteInstanceConnectionBean {
             conRequested = true;
             throw new JcIOException("No outbound connections for: " + this.toString());
         }
+
+        Map<String, MethodExecMetric> execMetricMap = metrics.getOutbound().getMethodExecMap();
+        String[] split = proxyMethod.getClassName().split("\\.");
+        String className = split[split.length - 1];
+        MethodExecMetric execMetric = execMetricMap.get(className + "." + proxyMethod.getMethodSignature());
+        if (execMetric == null) {
+            execMetric = new MethodExecMetric();
+            execMetricMap.put(className + "." + proxyMethod.getMethodSignature(), execMetric);
+        }
+
         try {
             JcMessage msg = new JcMessage(proxyMethod.getMethodSignature(), proxyMethod.getClassName(), args);
-            return conn.send(msg, proxyMethod.getTimeout()).getData();
+
+            long start = System.currentTimeMillis();
+            Object result = conn.send(msg, proxyMethod.getTimeout()).getData();
+
+            execMetric.setLastExecTime(System.currentTimeMillis() - start);
+
+            return result;
         } catch (IOException ex) {
             removeConnection(conn);
             throw new JcIOException(ex.getMessage());

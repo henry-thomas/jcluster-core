@@ -158,4 +158,11 @@ public class JcProxyMethod {
         return proxyMethod;
     }
 
+    @Override
+    public String toString() {
+        return "JcProxyMethod{" + "appName=" + appName + ", topicName=" + topicName + ", className=" + className + ", methodSignature=" + methodSignature + ", timeout=" + timeout + '}';
+    }
+    
+    
+
 }
