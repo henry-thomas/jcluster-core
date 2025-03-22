@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.logging.Level;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
@@ -282,4 +281,5 @@ public class JcManager {
     public static int getFilterValuesCount(String app, String fName) {
         return JcCoreService.getInstance().getFilterValuesCount(app, fName);
     }
+    
 }
