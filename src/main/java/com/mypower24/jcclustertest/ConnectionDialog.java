@@ -230,7 +230,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
         prop.saveParam("appName", appName.getText());
         prop.saveParam("primaryMember", primaryMember.getText());
         prop.saveParam("txtSelfIp", txtSelfIp.getText());
-        prop.saveParam("txtSelfIp", txtSelfIp.getText());
+        prop.saveParam("udpListenPort", udpListenPort.getText());
 
         try {
             JcCoreService.getInstance().stop();
