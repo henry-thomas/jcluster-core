@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.lib.annotation.JcBroadcast;
 import org.jcluster.lib.annotation.JcRemote;
 import org.jcluster.lib.annotation.JcTimeout;
@@ -33,14 +34,17 @@ public class JcProxyMethod {
     private final Class<?> returnType;
 
 //    private static final List<String> appList = new ArrayList<>();
-
     private JcProxyMethod(String appName, Method method, boolean broadcast) {
         this(appName, method, broadcast, null);
     }
 
     private JcProxyMethod(String appName, Method method, boolean broadcast, String topicName) {
+        this(appName, method, broadcast, topicName, method.getDeclaringClass().getName());
+    }
+
+    private JcProxyMethod(String appName, Method method, boolean broadcast, String topicName, String className) {
         this.appName = appName;
-        this.className = method.getDeclaringClass().getName();
+        this.className = className;
         String ms = method.getName();
         for (Parameter parameter : method.getParameters()) {
             ms += "," + parameter.getType().getSimpleName();
@@ -116,6 +120,10 @@ public class JcProxyMethod {
     }
 
     public static JcProxyMethod initProxyMethod(Method method, Object[] args) {
+        return initProxyMethod(method, args, null);
+    }
+
+    public static JcProxyMethod initProxyMethod(Method method, Object[] args, Class iClazz) {
 
         boolean broadcast = false;
         if (method.getAnnotation(JcBroadcast.class) != null) {
@@ -123,17 +131,25 @@ public class JcProxyMethod {
         }
 
         JcRemote jcRemoteAnn = method.getDeclaringClass().getAnnotation(JcRemote.class);
+        String className = method.getDeclaringClass().getName();
+        if (jcRemoteAnn == null && iClazz != null) {
+            jcRemoteAnn = (JcRemote) iClazz.getAnnotation(JcRemote.class);
+            className = iClazz.getName();
+        }
+        if (jcRemoteAnn == null) {
+            throw new JcRuntimeException("Can not find anotated interface for method " + method.getName());
+        }
 
         String appName = jcRemoteAnn.appName();
         String topicName = jcRemoteAnn.topic();
 
         JcProxyMethod proxyMethod;
         if (!appName.isEmpty()) {
-            proxyMethod = new JcProxyMethod(appName, method, broadcast);
+            proxyMethod = new JcProxyMethod(appName, method, broadcast, null, className);
         } else if (!topicName.isEmpty()) {
-            proxyMethod = new JcProxyMethod(null, method, broadcast, topicName);
+            proxyMethod = new JcProxyMethod(null, method, broadcast, topicName, className);
         } else {
-            proxyMethod = new JcProxyMethod(null, method, broadcast, null);
+            proxyMethod = new JcProxyMethod(null, method, broadcast, null, className);
         }
 
         Parameter[] parameters = method.getParameters();
@@ -162,7 +178,5 @@ public class JcProxyMethod {
     public String toString() {
         return "JcProxyMethod{" + "appName=" + appName + ", topicName=" + topicName + ", className=" + className + ", methodSignature=" + methodSignature + ", timeout=" + timeout + '}';
     }
-    
-    
 
 }

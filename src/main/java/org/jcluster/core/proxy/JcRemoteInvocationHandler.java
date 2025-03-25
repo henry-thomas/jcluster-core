@@ -25,8 +25,10 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
 
     private final Map<String, JcProxyMethod> methodCache = new HashMap<>();
 
-    public JcRemoteInvocationHandler() {
+    private final Class iClazz;
 
+    public JcRemoteInvocationHandler(Class iClazz) {
+        this.iClazz = iClazz;
     }
 
     //caches different ways to call this method
@@ -35,7 +37,7 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
 
         JcProxyMethod proxyMethod = methodCache.get(method.getName());//contains info to send to correct App/Instance if specified
         if (proxyMethod == null) {
-            proxyMethod = JcProxyMethod.initProxyMethod(method, args);
+            proxyMethod = JcProxyMethod.initProxyMethod(method, args,  iClazz);
             methodCache.put(method.getName(), proxyMethod);
         }
         long now = System.currentTimeMillis();
@@ -45,7 +47,6 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
 //        if (JcAppConfig.getINSTANCE().isDebug()) {
 //            LOG.debug("exec [{0}] in [{1} ms]", new Object[]{method.getName(), System.currentTimeMillis() - now});
 //        }
-
         if (response instanceof Exception) {
             LOG.error(((Exception) response).getMessage());
             throw ((Exception) response);
