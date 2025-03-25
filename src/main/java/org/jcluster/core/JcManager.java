@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.logging.Level;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
+import org.jcluster.core.bean.JcMemFilterMetric;
 import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.exception.JcException;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -336,9 +336,12 @@ public class JcManager {
     public static boolean containsFilterValue(String app, String fName, Object fValue) {
         return JcCoreService.getInstance().containsFilterValue(app, fName, fValue);
     }
-
+    
     public static int getFilterValuesCount(String app, String fName) {
         return JcCoreService.getInstance().getFilterValuesCount(app, fName);
     }
     
+    public static List<JcMemFilterMetric> getMemFilterValuesCount(String app, String fName) {
+        return JcCoreService.getInstance().getMemFilterValuesCount(app, fName);
+    }
 }

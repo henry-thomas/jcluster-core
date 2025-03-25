@@ -45,6 +45,7 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
+import org.jcluster.core.bean.JcMemFilterMetric;
 //import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcInstanceNotFoundException;
@@ -185,7 +186,7 @@ public final class JcCoreService {
                 throw new JcRuntimeException("Missing property for [selfIpAddress]");
             }
 
-            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]\n\tTopics: {}", selfDesc.getAppName(), selfDesc.getInstanceId(),selfDesc.getTopicList());
+            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]\n\tTopics: {}", selfDesc.getAppName(), selfDesc.getInstanceId(), selfDesc.getTopicList());
 
             ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
             if (mes != null) {
@@ -891,6 +892,14 @@ public final class JcCoreService {
         LOG.info("Shutting down {}", Thread.currentThread().getName());
     }
 
+    protected List<JcMemFilterMetric> getMemFilterValuesCount(String app, String fName) {
+       return memberMap.values()
+               .stream()
+               .filter(m -> m.getDesc().getAppName().equals(app))
+               .map(m -> new JcMemFilterMetric(m, fName))
+               .collect(Collectors.toList());
+    }
+
     protected int getFilterValuesCount(String app, String fName) {
         int totalFilterValueSize = memberMap.values().stream()
                 .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
@@ -1061,7 +1070,5 @@ public final class JcCoreService {
         }
         return fd.getValueSet();
     }
-    
-    
 
 }

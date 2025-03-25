@@ -251,14 +251,10 @@ public class JcTestWindow extends javax.swing.JFrame {
     }
 
     private void onMemSelChange() {
+        clearAllTables();
         int rowIdx = tblMembers.getSelectedRow();
         if (rowIdx == -1) {
-            DefaultTableModel dtm = (DefaultTableModel) tblFilters.getModel();
-            dtm.getDataVector().clear();
-            dtm.fireTableDataChanged();
-            dtm = (DefaultTableModel) tblFilterValues.getModel();
-            dtm.getDataVector().clear();
-            dtm.fireTableDataChanged();
+            clearAllTables();
             return;
         }
 
@@ -275,11 +271,54 @@ public class JcTestWindow extends javax.swing.JFrame {
         updateTotalMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
     }
 
+    private void clearAllTables() {
+        DefaultTableModel dtm = (DefaultTableModel) tblFilters.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+
+        dtm = (DefaultTableModel) tblFilterValues.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+
+        dtm = (DefaultTableModel) tblInboundMethodExecTotal.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblInboundMetrics.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblInboundMetricsTotal.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblOutboundMethodExec.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblOutboundMethodExecTotal.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblOutbountMetrics.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblOutbountMetricsTotal.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+        
+        dtm = (DefaultTableModel) tblVisibleMembers.getModel();
+        dtm.getDataVector().clear();
+        dtm.fireTableDataChanged();
+    }
+
     private void onSelectedFilterChange() {
         int rowIdx = tblFilters.getSelectedRow();
-        if (rowIdx == -1) {
+        if (rowIdx == -1 || selectedMember == null) {
             DefaultTableModel dtmFilterValues = (DefaultTableModel) tblFilterValues.getModel();
             dtmFilterValues.getDataVector().clear();
+            dtmFilterValues.fireTableDataChanged();
             return;
         }
         String filterName = tblFilters.getValueAt(rowIdx, 0).toString();
@@ -289,7 +328,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     }
 
     private void updateSelectedFilterValues() {
-        if (selectedFilter != null) {
+        if (selectedFilter != null && selectedMember != null) {
             DefaultTableModel dtmFilterValues = (DefaultTableModel) tblFilterValues.getModel();
             dtmFilterValues.getDataVector().clear();
             Set<Object> filters = metricsMonitor.getFilterValues(selectedMember.getDesc().getInstanceId(), selectedFilter);
