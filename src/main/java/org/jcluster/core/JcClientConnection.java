@@ -94,8 +94,6 @@ public class JcClientConnection implements Runnable {
         metrics.getOutbound().incTxCount();
     }
 
-   
-
     public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
         if (timeoutMs == null) {
             timeoutMs = 2000;
@@ -218,6 +216,9 @@ public class JcClientConnection implements Runnable {
                 metrics.getInbound().incErrCount();
 
             } catch (ClassNotFoundException ex) {
+                //can not send response with failure, because we can not extract the message ID 
+//                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
+//                sendResponse(response);
                 LOG.warn(id, ex);
             }
         }
@@ -232,8 +233,8 @@ public class JcClientConnection implements Runnable {
         }
 
     }
-    
-    public boolean isClosed(){
+
+    public boolean isClosed() {
         return socket.isClosed();
     }
 
