@@ -157,7 +157,7 @@ public class JcManager {
         }
 
         ServiceLookup.getINSTANCE().scanProxyAnnotationFilters(iClazz);
-        return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler());
+        return (T) Proxy.newProxyInstance(JcRemote.class.getClassLoader(), new Class[]{iClazz}, new JcRemoteInvocationHandler(iClazz));
     }
 
     protected static Map<String, Object> getDefaultConfig(boolean enterprice) {
@@ -284,10 +284,14 @@ public class JcManager {
         List<String> pkgFilterList = new ArrayList<>();
         String pkgFilter = readProp("JC_SCAN_PKG_NAME", "");
 
-        if (pkgFilter.equals(
-                "")) {
+        if (pkgFilter.equals("*")) {
             pkgFilterList.add("");
             LOG.warn("JCluster set to scan the entire package, this can slow down application startup. "
+                    + "Please set correct package to scan in domain.xml -> configs -> server-config example: "
+                    + "<system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
+        } else if (pkgFilter.equals("")) {
+//            pkgFilterList.add("");
+            LOG.warn("JCluster will not scan any packages!"
                     + "Please set correct package to scan in domain.xml -> configs -> server-config example: "
                     + "<system-property name=\"JC_SCAN_PKG_NAME\" value=\"com.myPower24.commonLib\"></system-property>");
         } else {
