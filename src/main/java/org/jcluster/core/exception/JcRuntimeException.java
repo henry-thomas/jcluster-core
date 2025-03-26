@@ -26,4 +26,8 @@ public class JcRuntimeException extends RuntimeException{
     public JcRuntimeException(String msg) {
         super(msg);
     }
+    public JcRuntimeException(Throwable e) {
+        super(e.getMessage());
+        setStackTrace(e.getStackTrace());
+    }
 }

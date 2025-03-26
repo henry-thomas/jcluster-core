@@ -6,6 +6,7 @@ package org.jcluster.core;
 
 import ch.qos.logback.classic.Logger;
 import java.io.IOException;
+import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import static java.lang.System.currentTimeMillis;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
+import org.jcluster.core.exception.JcRuntimeException;
 //import org.jcluster.core.config.JcAppConfig;
 import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.messages.JcMessage;
@@ -267,7 +269,7 @@ public class JcRemoteInstanceConnectionBean {
 
             for (JcClientConnection conn : allConnections) {
                 if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
-                    if(conn.isClosed()){
+                    if (conn.isClosed()) {
                         LOG.warn("Connection is connected, but closed. Removing: {}", conn.getConnId());
                     }
                     toRemove.add(conn);
@@ -311,6 +313,9 @@ public class JcRemoteInstanceConnectionBean {
             execMetric.setLastExecTime(System.currentTimeMillis() - start);
 
             return result;
+        } catch (NotSerializableException ex) {
+            throw new JcRuntimeException("Not serializable class: " + ex.getMessage());
+
         } catch (IOException ex) {
             removeConnection(conn);
             throw new JcIOException(ex.getMessage());
