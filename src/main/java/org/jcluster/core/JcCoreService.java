@@ -131,8 +131,10 @@ public final class JcCoreService {
     }
 
     public final void stop() throws Exception {
+        java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, "java.util.logging.Logger JcCoreService Shutting down JCluster");
+        LOG.info("JcCoreService Shutting down JCluster");
         if (running) {
-            LOG.info("JCLUSTER -- Shutdown... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
+            java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, "JCLUSTER -- Shutdown... APPNAME: [{0}] InstanceID: [{1}]", new Object[]{selfDesc.getAppName(), selfDesc.getInstanceId()});
             running = false;
             memberMap.forEach((t, member) -> {
                 try {
@@ -268,6 +270,10 @@ public final class JcCoreService {
             throw lastEx;
         }
         throw new Exception("Could not init UDP server from list: " + portList.toString());
+    }
+
+    protected JcMember getMemberByInstanceId(String id) {
+        return memberMap.values().stream().filter(m -> m.getDesc().getInstanceId().endsWith(id)).findFirst().orElse(null);
     }
 
     protected JcMember getMember(String memId) {
@@ -894,11 +900,11 @@ public final class JcCoreService {
     }
 
     protected List<JcMemFilterMetric> getMemFilterValuesCount(String app, String fName) {
-       return memberMap.values()
-               .stream()
-               .filter(m -> m.getDesc().getAppName().equals(app))
-               .map(m -> new JcMemFilterMetric(m, fName))
-               .collect(Collectors.toList());
+        return memberMap.values()
+                .stream()
+                .filter(m -> m.getDesc().getAppName().equals(app))
+                .map(m -> new JcMemFilterMetric(m, fName))
+                .collect(Collectors.toList());
     }
 
     protected int getFilterValuesCount(String app, String fName) {

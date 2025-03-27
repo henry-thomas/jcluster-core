@@ -82,19 +82,18 @@ public class JcServerEndpoint implements Runnable {
                     JcHandhsakeFrame handshakeFrame = doHandshake(sock);
                     LOG.info("New Connection Hanshaking Complete: {}", handshakeFrame);
 
-                    JcMetrics metrics = JcCoreService.getInstance().getAllMetrics();
-                    String memId = handshakeFrame.getRemoteAppDesc().getIpStrPortStr();
-                    JcMemberMetrics met = metrics.getMemMetricsMap().get(handshakeFrame.getRemoteAppDesc().getIpStrPortStr());
-                    if (met == null) {
-                        met = new JcMemberMetrics();
-                        metrics.getMemMetricsMap().put(memId, met);
-                    }
-
                     JcAppDescriptor remDesc = handshakeFrame.getRemoteAppDesc();
-                    JcMember member = JcCoreService.getInstance().getMember(remDesc.getIpStrPortStr());
+                    JcMember member = JcCoreService.getInstance().getMemberByInstanceId(remDesc.getInstanceId());
                     if (member == null) {
                         LOG.warn("New Connection from invalid member: {}", member);
                         continue;
+                    }
+                    
+                    JcMetrics metrics = JcCoreService.getInstance().getAllMetrics();
+                    JcMemberMetrics met = member.getMetrics();
+                    if (met == null) {
+                        met = new JcMemberMetrics();
+                        metrics.getMemMetricsMap().put(member.getId(), met);
                     }
                     
                     JcRemoteInstanceConnectionBean ric = member.getConector();
@@ -104,7 +103,7 @@ public class JcServerEndpoint implements Runnable {
                     
                     threadFactory.newThread(jcClientConnection).start();
 
-                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
+//                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
 
 
 
@@ -132,7 +131,7 @@ public class JcServerEndpoint implements Runnable {
 
         FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
             try {
-                LOG.info("New Connection Accepted Start Hanshaking");
+                LOG.info("New Connection Accepted Start Hanshaking: " + socket.getRemoteSocketAddress());
                 JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
 
                 ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());

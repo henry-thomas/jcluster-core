@@ -106,6 +106,8 @@ public class JcRemoteInstanceConnectionBean {
             }
         }
 
+        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - minCount, member.getId());
+
     }
 
     public void validateOutboundConnectionCount(int minCount) {
@@ -217,12 +219,14 @@ public class JcRemoteInstanceConnectionBean {
     }
 
     public void destroy() {
-        for (JcClientConnection conn : allConnections) {
-            conn.destroy();
+        synchronized (this) {
+            for (JcClientConnection conn : allConnections) {
+                conn.destroy();
+            }
+            outboundList.clear();
+            inboundList.clear();
+            allConnections.clear();
         }
-        outboundList.clear();
-        inboundList.clear();
-        allConnections.clear();
     }
 
     public int removeAllConnection() {

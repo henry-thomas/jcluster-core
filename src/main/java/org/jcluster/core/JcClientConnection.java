@@ -72,7 +72,6 @@ public class JcClientConnection implements Runnable {
                 + "-" + (this.connType == JcConnectionTypeEnum.INBOUND ? "INBOUND" : "OUTBOUND")
                 + "-" + (conIdUniqueCounter++);
 
-        LOG.trace(id + " New JcClientConnection: {}", connId);
         this.memberRemConn = mCon;
         this.metrics = memberRemConn.getMetrics();
     }
