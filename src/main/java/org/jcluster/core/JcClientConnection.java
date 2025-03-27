@@ -43,17 +43,18 @@ public class JcClientConnection implements Runnable {
     private boolean running = true;
     private final JcConnectionTypeEnum connType;
     private final JcMemberMetrics metrics;
+    private final JcRemoteInstanceConnectionBean memberRemConn;
     protected long lastDataTimestamp = currentTimeMillis();
 
     private final Object writeLock = new Object();
 
     private final ConcurrentHashMap<Long, JcMessage> reqRespMap = new ConcurrentHashMap<>();
 
-    public JcClientConnection(Socket sock, JcHandhsakeFrame handshakeFrame, JcMemberMetrics met) throws IOException {
-        this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType(), met);
+    public JcClientConnection(Socket sock, JcHandhsakeFrame handshakeFrame, JcRemoteInstanceConnectionBean mCon) throws IOException {
+        this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType(), mCon);
     }
 
-    public JcClientConnection(Socket sock, JcAppDescriptor desc, JcConnectionTypeEnum conType, JcMemberMetrics met) throws IOException {
+    public JcClientConnection(Socket sock, JcAppDescriptor desc, JcConnectionTypeEnum conType, JcRemoteInstanceConnectionBean mCon) throws IOException {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
 
         this.socket = sock;
@@ -72,7 +73,12 @@ public class JcClientConnection implements Runnable {
                 + "-" + (conIdUniqueCounter++);
 
         LOG.trace(id + " New JcClientConnection: {}", connId);
-        this.metrics = met;
+        this.memberRemConn = mCon;
+        this.metrics = memberRemConn.getMetrics();
+    }
+
+    public JcRemoteInstanceConnectionBean getMemberRemConn() {
+        return memberRemConn;
     }
 
     //Called from Client Thread
@@ -91,7 +97,13 @@ public class JcClientConnection implements Runnable {
             oos.flush();
             oos.reset();
         }
+        
+        lastDataTimestamp = System.currentTimeMillis();
         metrics.getOutbound().incTxCount();
+    }
+
+    public JcMsgResponse send(JcMessage msg) throws IOException {
+        return send(msg, null);
     }
 
     public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
@@ -123,7 +135,7 @@ public class JcClientConnection implements Runnable {
                         + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", msg);
 
             } else {
-                lastDataTimestamp = System.currentTimeMillis();
+
                 return msg.getResponse();
             }
 
@@ -158,7 +170,9 @@ public class JcClientConnection implements Runnable {
             startInboundReader();
         }
 
-        destroy();
+//        destroy();
+        //is not runing anymore, cleanup
+        cleanupConnection();
         LOG.info(id + " JcClientConnection Closed. Lasted  {}ms", System.currentTimeMillis() - now);
     }
 
@@ -205,10 +219,17 @@ public class JcClientConnection implements Runnable {
             try {
                 if (socket.isConnected()) {
                     JcMessage request = (JcMessage) ois.readObject();
+
                     metrics.getInbound().incRxCount();
                     lastDataTimestamp = currentTimeMillis();
-                    JcCoreService.getInstance().getExecutorService()
-                            .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+                    if (request.getMethodSignature().equals("ping")) {
+                        JcMsgResponse response = JcMsgResponse.createResponseMsg(request, "pong");
+                        writeAndFlushToOOS(response);
+                    } else {
+                        JcCoreService.getInstance().getExecutorService()
+                                .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+                    }
+
                 }
             } catch (IOException ex) {
                 destroy();
@@ -225,17 +246,25 @@ public class JcClientConnection implements Runnable {
 
     }
 
+    public void cleanupConnection() {
+        memberRemConn.removeConnection(this);
+    }
+
     public void destroy() {
         running = false;
         try {
-            socket.close();
+            if (socket != null) {
+                socket.close();
+            }
         } catch (IOException e) {
         }
-
     }
 
     public boolean isClosed() {
-        return socket.isClosed();
+        if (socket != null) {
+            return socket.isClosed();
+        }
+        return false;
     }
 
     public JcAppDescriptor getRemoteAppDesc() {

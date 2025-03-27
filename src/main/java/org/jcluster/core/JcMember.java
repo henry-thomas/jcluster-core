@@ -66,12 +66,13 @@ public class JcMember {
         LOG.setLevel(Level.ALL);
         this.desc = desc;
         this.core = core;
-        conector = new JcRemoteInstanceConnectionBean(metrics);
+        this.metrics = metrics;
+        //after metrics are set 
+        conector = new JcRemoteInstanceConnectionBean(this);
         if (desc != null) {
             conector.setDesc(desc);
             id = desc.getIpStrPortStr();
         }
-        this.metrics = metrics;
     }
 
     public JcRemoteInstanceConnectionBean getConector() {

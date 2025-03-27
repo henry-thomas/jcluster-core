@@ -50,6 +50,7 @@ public class JcInboundMethodExecutor implements Runnable {
         String jndiName;
         try {
 
+            
             jndiName = request.getJndiName();
             Object service;
 
@@ -81,6 +82,10 @@ public class JcInboundMethodExecutor implements Runnable {
             sendResponse(response);
 
         } catch (NamingException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+            LOG.error(null, ex);
+            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
+            sendResponse(response);
+        } catch (Exception ex) {
             LOG.error(null, ex);
             JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
             sendResponse(response);
