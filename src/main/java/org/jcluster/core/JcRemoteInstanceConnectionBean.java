@@ -270,7 +270,7 @@ public class JcRemoteInstanceConnectionBean {
             for (JcClientConnection conn : allConnections) {
                 if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
                     if (conn.isClosed()) {
-                        LOG.warn("Connection is connected, but closed. Removing: {}", conn.getConnId());
+                        LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getConnType(), conn.getConnId());
                     }
                     toRemove.add(conn);
                 }
