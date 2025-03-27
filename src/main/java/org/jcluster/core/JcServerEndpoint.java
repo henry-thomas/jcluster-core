@@ -60,7 +60,7 @@ public class JcServerEndpoint implements Runnable {
             IOException lastEx = null;
             for (Integer port : tcpListenPorts) {
                 try {
-                    InetSocketAddress address = new InetSocketAddress(selfDesc.getIpAddress(), port);
+                    InetSocketAddress address = new InetSocketAddress(port);
                     server.bind(address);
                     selfDesc.setIpPortListenTCP(port);
                     LOG.info("TCP Server init successfully on port: {}", port);
