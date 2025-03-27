@@ -90,20 +90,23 @@ public class JcServerEndpoint implements Runnable {
                         metrics.getMemMetricsMap().put(memId, met);
                     }
 
-                    JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame, met);
-                    threadFactory.newThread(jcClientConnection).start();
-
-                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
-
                     JcAppDescriptor remDesc = handshakeFrame.getRemoteAppDesc();
                     JcMember member = JcCoreService.getInstance().getMember(remDesc.getIpStrPortStr());
                     if (member == null) {
                         LOG.warn("New Connection from invalid member: {}", member);
                         continue;
                     }
-
+                    
                     JcRemoteInstanceConnectionBean ric = member.getConector();
+                    
+                    JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame, ric);
                     ric.addConnection(jcClientConnection);
+                    
+                    threadFactory.newThread(jcClientConnection).start();
+
+                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
+
+
 
                 } catch (Exception e) {
                     LOG.error(null, e);

@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.logging.Level;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
@@ -57,11 +58,21 @@ public class JcRemoteInstanceConnectionBean {
     private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
 
     private final JcMemberMetrics metrics;
+    private final JcMember member;
 
     private JcAppDescriptor desc = null;
 
-    public JcRemoteInstanceConnectionBean(JcMemberMetrics metrics) {
-        this.metrics = metrics;
+    public JcRemoteInstanceConnectionBean(JcMember mem) {
+        this.member = mem;
+        this.metrics = mem.getMetrics();
+    }
+
+    public JcMemberMetrics getMetrics() {
+        return metrics;
+    }
+
+    public JcMember getMember() {
+        return member;
     }
 
     public boolean isOnDemandConnection() {
@@ -175,7 +186,7 @@ public class JcRemoteInstanceConnectionBean {
                     oos.flush();
                     LOG.info("Responding handshake frame: {}", hf);
 //                    if (hf.getRequestedConnType()) {
-                    return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND, metrics);
+                    return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND, this);
 //                    } else {
 //                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
 //                    }
@@ -267,12 +278,19 @@ public class JcRemoteInstanceConnectionBean {
 
             List<JcClientConnection> toRemove = new ArrayList<>();
 
-            for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
+            for (JcClientConnection conn : outboundList) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
                     if (conn.isClosed()) {
-                        LOG.warn("Connection is connected, but closed. Removing: {}", conn.getConnId());
+                        LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getConnType(), conn.getConnId());
                     }
                     toRemove.add(conn);
+                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
+                    JcMessage msg = JcMessage.createPingMsg();
+                    try {
+                        conn.send(msg);
+                    } catch (IOException ex) {
+                        toRemove.add(conn);
+                    }
                 }
             }
             if (!toRemove.isEmpty()) {
