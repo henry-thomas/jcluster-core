@@ -318,7 +318,7 @@ public final class JcCoreService {
             if (msg.getSrc().getInstanceId().equals(mem.getDesc().getInstanceId())) {
                 mem.updateLastSeen();
             } else {
-                LOG.warn("Jc Member:[{}]  InstanceID:[{}] incorect id!", mem.getDesc().getIpStrPortStr(), mem.getDesc().getInstanceId());
+                LOG.info("Jc Member:[{}]  InstanceID:[{}] incorect id!", mem.getDesc().getIpStrPortStr(), mem.getDesc().getInstanceId());
                 memberMap.remove(srcId);
                 onMemberRemove(mem);
 
@@ -621,7 +621,7 @@ public final class JcCoreService {
                     LOG.trace("Receive JOIN Response without request! " + msg);
                     break;
                 }
-                LOG.trace("Receive join response");
+                LOG.trace("Receive join response from {}", memId);
                 onMemberJoinMsg(msg, memId);
                 break;
             case PING:
@@ -1076,6 +1076,10 @@ public final class JcCoreService {
             throw new JcRuntimeException("Filter does not exist: " + fName);
         }
         return fd.getValueSet();
+    }
+
+    protected void getTcpServerStat() {
+        serverEndpoint.server.isBound();
     }
 
 }

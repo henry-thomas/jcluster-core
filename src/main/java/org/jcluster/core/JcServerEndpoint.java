@@ -49,18 +49,20 @@ public class JcServerEndpoint implements Runnable {
 
     @Override
     public void run() {
+        JcAppDescriptor selfDesc = JcCoreService.getInstance().getSelfDesc();
         try {
 
             server = new ServerSocket();
             server.setReuseAddress(true);
 
-            JcAppDescriptor selfDesc = JcCoreService.getInstance().getSelfDesc();
-            Thread.currentThread().setName("JC_TCP_Server@" + selfDesc.getIpPortListenUDP());
+            Thread.currentThread().setName("JC_TCP_Server@" + selfDesc.getIpPortListenTCP());
 
+            selfDesc.setIpPortListenTCP(0);
             IOException lastEx = null;
             for (Integer port : tcpListenPorts) {
                 try {
                     InetSocketAddress address = new InetSocketAddress(port);
+                    server.setReuseAddress(true);
                     server.bind(address);
                     selfDesc.setIpPortListenTCP(port);
                     LOG.info("TCP Server init successfully on port: {}", port);
@@ -78,6 +80,8 @@ public class JcServerEndpoint implements Runnable {
             while (running) {
 
                 Socket sock = server.accept();
+                sock.setKeepAlive(true);
+                sock.setTcpNoDelay(true);
                 try {
                     JcHandhsakeFrame handshakeFrame = doHandshake(sock);
                     LOG.info("New Connection Hanshaking Complete: {}", handshakeFrame);
@@ -85,30 +89,32 @@ public class JcServerEndpoint implements Runnable {
                     JcAppDescriptor remDesc = handshakeFrame.getRemoteAppDesc();
                     JcMember member = JcCoreService.getInstance().getMemberByInstanceId(remDesc.getInstanceId());
                     if (member == null) {
-                        LOG.warn("New Connection from invalid member: {}", member);
+                        LOG.warn("New Connection from invalid member: {} app: {}", member, remDesc.getIpStrPortStr());
                         continue;
                     }
-                    
+
                     JcMetrics metrics = JcCoreService.getInstance().getAllMetrics();
                     JcMemberMetrics met = member.getMetrics();
                     if (met == null) {
                         met = new JcMemberMetrics();
                         metrics.getMemMetricsMap().put(member.getId(), met);
                     }
-                    
+
                     JcRemoteInstanceConnectionBean ric = member.getConector();
-                    
+
                     JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame, ric);
                     ric.addConnection(jcClientConnection);
-                    
-                    threadFactory.newThread(jcClientConnection).start();
+
+                    Thread t = threadFactory.newThread(jcClientConnection);
+                    if (t == null) {
+                        LOG.warn("Thread factory could not submit jcClientConnection: {}", jcClientConnection);
+                        continue;
+                    }
+                    t.start();
 
 //                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
-
-
-
                 } catch (Exception e) {
-                    LOG.error(null, e);
+                    LOG.warn("Socket closed at: " + System.currentTimeMillis(), e);
                     sock.close();
                 }
 
@@ -120,6 +126,7 @@ public class JcServerEndpoint implements Runnable {
             LOG.warn(null, ex);
         } finally {
             try {
+                selfDesc.setIpPortListenTCP(0);
                 server.close();
             } catch (IOException ex) {
                 LOG.warn(null, ex);
@@ -134,6 +141,10 @@ public class JcServerEndpoint implements Runnable {
                 LOG.info("New Connection Accepted Start Hanshaking: " + socket.getRemoteSocketAddress());
                 JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
 
+                if (socket.isClosed()) {
+                    LOG.warn("Handshake aborted, socket is closed: {}", socket.getRemoteSocketAddress());
+                    return null;
+                }
                 ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 
@@ -147,6 +158,7 @@ public class JcServerEndpoint implements Runnable {
 
             } catch (IOException | ClassNotFoundException ex) {
                 LOG.error(null, ex);
+                throw ex;
             }
             return null;
 
@@ -161,7 +173,7 @@ public class JcServerEndpoint implements Runnable {
             LOG.error(null, ex);
         }
 
-        throw new JcSocketConnectException("Handshake Timeout!");
+        throw new JcSocketConnectException("Handshake Timeout! " + socket.getRemoteSocketAddress());
     }
 
     public void destroy() {

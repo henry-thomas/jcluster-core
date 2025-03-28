@@ -105,7 +105,7 @@ public class JcAppDescriptor implements Serializable {
 
     @Override
     public String toString() {
-        return "JcAppDescriptor{" + "appName=" + appName + ", instanceId=" + instanceId + ", address=" + ipAddress + ":" + ipPortListenUDP + '}';
+        return "JcAppDescriptor{" + "appName=" + appName + ", topicList=" + topicList + ", instanceId=" + instanceId + ", ipAddress=" + ipAddress + ", ipPortListenTCP=" + ipPortListenTCP + ", ipPortListenUDP=" + ipPortListenUDP + '}';
     }
 
     public String getIpStrPortStr() {

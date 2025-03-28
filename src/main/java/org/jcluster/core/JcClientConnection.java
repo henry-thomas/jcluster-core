@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcAppDescriptor;
 import ch.qos.logback.classic.Logger;
+import java.util.concurrent.RejectedExecutionException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
@@ -64,7 +65,7 @@ public class JcClientConnection implements Runnable {
         this.remoteAppDesc = desc;
         this.connType = conType;
 
-        this.port = this.remoteAppDesc.getIpPortListenUDP();
+        this.port = this.remoteAppDesc.getIpPortListenTCP();
         this.hostName = this.remoteAppDesc.getIpAddress();
 
         this.connId = remoteAppDesc.getAppName()
@@ -96,7 +97,7 @@ public class JcClientConnection implements Runnable {
             oos.flush();
             oos.reset();
         }
-        
+
         lastDataTimestamp = System.currentTimeMillis();
         metrics.getOutbound().incTxCount();
     }
@@ -125,7 +126,7 @@ public class JcClientConnection implements Runnable {
             if (msg.getResponse() == null) {
                 reqRespMap.remove(msg.getRequestId());
                 metrics.getOutbound().incTimeoutCount();
-                LOG.warn(id + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {}", new Object[]{System.currentTimeMillis() - start, msg.getRequestId(), Thread.currentThread().getName()});
+                LOG.warn(id + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {} Exec:{}", new Object[]{System.currentTimeMillis() - start, msg.getRequestId(), Thread.currentThread().getName(), msg.getMethodSignature()});
 
                 throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
                         + remoteAppDesc.getAppName() + "] ADDRESS: ["
@@ -225,14 +226,20 @@ public class JcClientConnection implements Runnable {
                         JcMsgResponse response = JcMsgResponse.createResponseMsg(request, "pong");
                         writeAndFlushToOOS(response);
                     } else {
-                        JcCoreService.getInstance().getExecutorService()
-                                .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+                        try {
+                            JcCoreService.getInstance().getExecutorService()
+                                    .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+                        } catch (RejectedExecutionException e) {
+                            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, e);
+                            writeAndFlushToOOS(response);
+                            LOG.error(null, e);
+                        }
                     }
 
                 }
             } catch (IOException ex) {
                 destroy();
-//                LOG.error(id, ex);
+                LOG.error(id, ex);
                 metrics.getInbound().incErrCount();
 
             } catch (ClassNotFoundException ex) {
@@ -253,6 +260,7 @@ public class JcClientConnection implements Runnable {
         running = false;
         try {
             if (socket != null) {
+                LOG.error("Socket closed at: {} on thread {}", System.currentTimeMillis(), Thread.currentThread().getName());
                 socket.close();
             }
         } catch (IOException e) {

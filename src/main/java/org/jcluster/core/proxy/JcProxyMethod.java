@@ -43,6 +43,10 @@ public class JcProxyMethod {
     }
 
     private JcProxyMethod(String appName, Method method, boolean broadcast, String topicName, String className) {
+        if(className == null){
+            throw new JcRuntimeException("Cannot create JcProxy with null classname! method=" + method.getName());
+        }
+        
         this.appName = appName;
         this.className = className;
         String ms = method.getName();

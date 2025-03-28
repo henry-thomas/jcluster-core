@@ -122,14 +122,10 @@ public class JcRemoteInstanceConnectionBean {
 
         //The isolated app will take care of the connection count.
         if (actualCount < minCount) {
-            for (int i = 0; i < (minCount - actualCount); i++) {
-                JcClientConnection conn = startClientConnection();
-                if (conn != null) {
-                    JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
-                    addConnection(conn);
-                } else {
-                    return;
-                }
+            JcClientConnection conn = startClientConnection();
+            if (conn != null) {
+                JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
+                addConnection(conn);
             }
         }
     }
@@ -143,16 +139,17 @@ public class JcRemoteInstanceConnectionBean {
             return null;
         }
 
+        if (desc.getIpPortListenTCP() == 0) {
+            System.out.println("Invalid port detected in descriptor: " + desc);
+        }
         SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenTCP());
         Socket socket = new Socket();
         try {
+            socket.setReuseAddress(true);
+
             socket.connect(socketAddress, 2000);
         } catch (IOException e) {
-            try {
-                socket.close();
-            } catch (IOException ex) {
-            }
-            LOG.info("Attempt to connect fail: {} PORT: {}", this, desc.getIpPortListenTCP());
+            LOG.warn("Attempt to connect fail:" + this + "PORT: " + desc.getIpPortListenTCP(), e);
             return null;
         }
         //after socket gets connected we have to receive first Handshake from the other site.
@@ -213,7 +210,7 @@ public class JcRemoteInstanceConnectionBean {
             }
 
         } catch (InterruptedException | ExecutionException | TimeoutException | IOException ex) {
-            LOG.error(null, ex);
+            LOG.error("Handshake failed for: " + desc.getIpStrPortStr() + " APPNAME: " + desc.getAppName() + " INSTANCE_ID: " + desc.getInstanceId(), ex);
         }
         return null;
     }
