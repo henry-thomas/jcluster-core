@@ -9,7 +9,8 @@ import com.formdev.flatlaf.FlatLightLaf;
 import com.mypower24.jcclustertest.controller.SystemPropManager;
 import com.mypower24.jcclustertest.customComp.JLogInterface;
 import com.mypower24.jcclustertest.customComp.LogTextArea;
-import java.util.Date;
+import com.mypower24.jcclustertest.remote.BroadcastIFace;
+import com.mypower24.jcclustertest.remote.BroadcastImpl;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -31,6 +32,7 @@ import org.jcluster.core.monitor.JcConnMetrics;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
 import org.jcluster.core.monitor.MethodExecMetric;
+import org.jcluster.core.exception.JcException;
 
 /**
  *
@@ -43,16 +45,17 @@ public class JcTestWindow extends javax.swing.JFrame {
      */
     private volatile boolean running = false;
     AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
-
     FilterTestIFace filterTestIFace = JcManager.generateProxy(FilterTestIFace.class);
+    BroadcastIFace bcIFace = JcManager.generateProxy(BroadcastIFace.class);
+
     private final Set<JcMember> memberList = new HashSet<>();
     private JcMember selectedMember = null;
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
 
-    private ConnectionDialog connDlg = new ConnectionDialog();
+    private final ConnectionDialog connDlg = new ConnectionDialog();
 
-    private SystemPropManager prop = SystemPropManager.getINSTANCE();
+    private final SystemPropManager prop = SystemPropManager.getINSTANCE();
 
     private final JLogInterface log;
 
@@ -62,6 +65,11 @@ public class JcTestWindow extends javax.swing.JFrame {
         initCompValues();
 
         JcCoreService.getInstance().addMemberEventListener(this::onMemberEvent);
+        try {
+            JcManager.registerLocalClassImplementation(BroadcastImpl.class);
+        } catch (JcException ex) {
+            Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
         tblMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -81,6 +89,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         });
         t.start();
+        initBcThread();
     }
 
     private void initCompValues() {
@@ -90,6 +99,32 @@ public class JcTestWindow extends javax.swing.JFrame {
             log.info("Connecting on startup");
             connDlg.connect();
         }
+
+        inputBcDelay.setValue(1000);
+    }
+
+    private void initBcThread() {
+        //Will broadcast to apps who subscribed to this app's broadcast
+        Thread t = new Thread(() -> {
+            while (running) {
+
+                try {
+                    if (chckBxenableTopicBc.isSelected()) {
+                        bcIFace.onTopicMessage(JcCoreService.getInstance().getSelfDesc().getInstanceId(), txtBcMessage.getText());
+                    }
+                } catch (Exception e) {
+
+                }
+                try {
+                    Thread.sleep((Integer) inputBcDelay.getValue());
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+        t.setName("JcBroadcast-Thread");
+        t.setDaemon(true);
+        t.start();
     }
 
     private void updateAll() {
@@ -502,6 +537,15 @@ public class JcTestWindow extends javax.swing.JFrame {
         btnTestFilterString = new javax.swing.JButton();
         btnTestFilterNumver = new javax.swing.JButton();
         jButton2 = new javax.swing.JButton();
+        jPanel23 = new javax.swing.JPanel();
+        txtBcMessage = new javax.swing.JTextField();
+        jLabel12 = new javax.swing.JLabel();
+        jLabel13 = new javax.swing.JLabel();
+        inputBcDelay = new javax.swing.JSpinner();
+        jLabel14 = new javax.swing.JLabel();
+        chckBxenableTopicBc = new javax.swing.JCheckBox();
+        btnAddMemTopic = new javax.swing.JButton();
+        btnRemoveMemTopic = new javax.swing.JButton();
         jPanel21 = new javax.swing.JPanel();
         jTabbedPane4 = new javax.swing.JTabbedPane();
         jPanel6 = new javax.swing.JPanel();
@@ -735,7 +779,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addContainerGap(194, Short.MAX_VALUE)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(addFilterValue2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(addFilterValue1)
@@ -841,12 +885,89 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addContainerGap())
         );
 
-        jButton2.setText("Call Remote");
+        jButton2.setText("Call Selected Member");
         jButton2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButton2ActionPerformed(evt);
             }
         });
+
+        jPanel23.setBorder(javax.swing.BorderFactory.createTitledBorder("Test Topic"));
+
+        txtBcMessage.setText("Topic Values");
+
+        jLabel12.setText("Message:");
+
+        jLabel13.setText("Sending Delay [ms]: ");
+
+        jLabel14.setFont(new java.awt.Font("Segoe UI", 0, 10)); // NOI18N
+        jLabel14.setText("Will receive messages from selected member");
+
+        chckBxenableTopicBc.setText("Enable Topic BC");
+
+        btnAddMemTopic.setText("Add Mem Topic");
+        btnAddMemTopic.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnAddMemTopicActionPerformed(evt);
+            }
+        });
+
+        btnRemoveMemTopic.setText("Remove Mem Topic");
+        btnRemoveMemTopic.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRemoveMemTopicActionPerformed(evt);
+            }
+        });
+
+        javax.swing.GroupLayout jPanel23Layout = new javax.swing.GroupLayout(jPanel23);
+        jPanel23.setLayout(jPanel23Layout);
+        jPanel23Layout.setHorizontalGroup(
+            jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel23Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel23Layout.createSequentialGroup()
+                        .addGroup(jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel12)
+                            .addComponent(jLabel13))
+                        .addGroup(jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(jPanel23Layout.createSequentialGroup()
+                                .addGap(12, 12, 12)
+                                .addComponent(inputBcDelay, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(jPanel23Layout.createSequentialGroup()
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(txtBcMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 116, Short.MAX_VALUE)
+                        .addGroup(jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(btnRemoveMemTopic, javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(btnAddMemTopic, javax.swing.GroupLayout.Alignment.TRAILING)))
+                    .addGroup(jPanel23Layout.createSequentialGroup()
+                        .addComponent(chckBxenableTopicBc)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel23Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(jLabel14)))
+                .addContainerGap())
+        );
+        jPanel23Layout.setVerticalGroup(
+            jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel23Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jLabel14)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(txtBcMessage, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel12)
+                    .addComponent(btnAddMemTopic))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel23Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel13)
+                    .addComponent(inputBcDelay, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnRemoveMemTopic))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(chckBxenableTopicBc)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -855,11 +976,12 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel23, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jPanel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(jButton2)
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(jButton2)))
                 .addContainerGap())
         );
         jPanel2Layout.setVerticalGroup(
@@ -868,8 +990,10 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addContainerGap()
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jPanel23, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 138, Short.MAX_VALUE)
                 .addComponent(jButton2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 341, Short.MAX_VALUE)
+                .addGap(70, 70, 70)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
@@ -971,7 +1095,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel14Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel14Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 420, Short.MAX_VALUE)
+                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel14Layout.setVerticalGroup(
@@ -1041,7 +1165,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel9.setLayout(jPanel9Layout);
         jPanel9Layout.setHorizontalGroup(
             jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 432, Short.MAX_VALUE)
+            .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 487, Short.MAX_VALUE)
         );
         jPanel9Layout.setVerticalGroup(
             jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1087,7 +1211,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel10.setLayout(jPanel10Layout);
         jPanel10Layout.setHorizontalGroup(
             jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 432, Short.MAX_VALUE)
+            .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 487, Short.MAX_VALUE)
         );
         jPanel10Layout.setVerticalGroup(
             jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1101,7 +1225,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel12Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 442, Short.MAX_VALUE)
+                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 497, Short.MAX_VALUE)
                     .addComponent(jPanel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         jPanel12Layout.setVerticalGroup(
@@ -1196,7 +1320,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel17Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel17Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 414, Short.MAX_VALUE)
+                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 469, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel17Layout.setVerticalGroup(
@@ -1280,7 +1404,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel20Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel20Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 414, Short.MAX_VALUE)
+                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 469, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel20Layout.setVerticalGroup(
@@ -1344,7 +1468,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel18Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel18Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 436, Short.MAX_VALUE)
+                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 491, Short.MAX_VALUE)
                     .addComponent(jPanel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         jPanel18Layout.setVerticalGroup(
@@ -1715,6 +1839,14 @@ public class JcTestWindow extends javax.swing.JFrame {
         prop.saveParam("autoConnectOnStart", autoConnectOnStart.isSelected());
     }//GEN-LAST:event_autoConnectOnStartActionPerformed
 
+    private void btnRemoveMemTopicActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRemoveMemTopicActionPerformed
+        JcManager.removeFilter(AppMetricMonitorInterface.SUBSCRIBED_APP_FILTER, selectedMember.getDesc().getInstanceId());
+    }//GEN-LAST:event_btnRemoveMemTopicActionPerformed
+
+    private void btnAddMemTopicActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddMemTopicActionPerformed
+        JcManager.addFilter(AppMetricMonitorInterface.SUBSCRIBED_APP_FILTER, selectedMember.getDesc().getInstanceId());
+    }//GEN-LAST:event_btnAddMemTopicActionPerformed
+
     private void info(String msg) {
         JOptionPane.showMessageDialog(this, msg);
     }
@@ -1752,12 +1884,16 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JButton addFilterValue1;
     private javax.swing.JButton addFilterValue2;
     private javax.swing.JCheckBoxMenuItem autoConnectOnStart;
+    private javax.swing.JButton btnAddMemTopic;
     private javax.swing.JButton btnClearMetrics;
     private javax.swing.JButton btnRefreshFilters;
+    private javax.swing.JButton btnRemoveMemTopic;
     private javax.swing.JButton btnTestFilterNumver;
     private javax.swing.JButton btnTestFilterString;
+    private javax.swing.JCheckBox chckBxenableTopicBc;
     private javax.swing.JRadioButtonMenuItem darkModeRadio;
     private javax.swing.JTextField filterExec;
+    private javax.swing.JSpinner inputBcDelay;
     private javax.swing.JLabel instanceId;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
@@ -1765,6 +1901,9 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
+    private javax.swing.JLabel jLabel12;
+    private javax.swing.JLabel jLabel13;
+    private javax.swing.JLabel jLabel14;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
@@ -1793,6 +1932,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel20;
     private javax.swing.JPanel jPanel21;
     private javax.swing.JPanel jPanel22;
+    private javax.swing.JPanel jPanel23;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
@@ -1843,6 +1983,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JSpinner testFilterARFIteration;
     private javax.swing.JSpinner testFilterARFIterationDelay;
     private javax.swing.JCheckBox testFilterARFIterationLog;
+    private javax.swing.JTextField txtBcMessage;
     private javax.swing.JTextField txtFilterValues;
     // End of variables declaration//GEN-END:variables
 }

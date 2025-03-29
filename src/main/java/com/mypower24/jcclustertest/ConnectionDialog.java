@@ -43,6 +43,10 @@ public class ConnectionDialog extends javax.swing.JFrame {
         config.put("appName", appName.getText());
         config.put("selfIpAddress", txtSelfIp.getText());
         config.put("tcpListenPort", portList);
+//        List<String> topicList = new ArrayList<>();
+//        topicList.add("testMetrics");
+        
+        config.put("start", "");
         try {
             JcCoreService.getInstance().start(config);
         } catch (Exception ex) {

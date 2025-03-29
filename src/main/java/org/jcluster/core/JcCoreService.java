@@ -27,7 +27,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -970,7 +969,7 @@ public final class JcCoreService {
         JcMember foundMem = memberMap.values().stream()
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
                 .filter((mem) -> mem.containsFilter(fMap))
-                .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
+                .findFirst().orElse(null);
 
         if (foundMem == null) {
             return null;
