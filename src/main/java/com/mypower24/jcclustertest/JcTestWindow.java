@@ -1519,7 +1519,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
             },
             new String [] {
-                "Member ID", "App Name", "Topics", "LastSeen"
+                "Member ID", "App Name", "Topics", "Instance ID"
             }
         ) {
             Class[] types = new Class [] {
