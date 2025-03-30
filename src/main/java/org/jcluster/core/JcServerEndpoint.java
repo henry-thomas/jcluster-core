@@ -127,6 +127,7 @@ public class JcServerEndpoint implements Runnable {
         } finally {
             try {
                 selfDesc.setIpPortListenTCP(0);
+                LOG.warn("Closing TCP JcServerEndpoint");
                 server.close();
             } catch (IOException ex) {
                 LOG.warn(null, ex);
@@ -141,11 +142,11 @@ public class JcServerEndpoint implements Runnable {
                 LOG.info("New Connection Accepted Start Hanshaking: " + socket.getRemoteSocketAddress());
                 JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
 
+                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                 if (socket.isClosed()) {
                     LOG.warn("Handshake aborted, socket is closed: {}", socket.getRemoteSocketAddress());
                     return null;
                 }
-                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 
                 oos.writeObject(handshakeRequest);
@@ -180,7 +181,7 @@ public class JcServerEndpoint implements Runnable {
         try {
             running = false;
             server.close();
-            LOG.trace("JcServerEndpoint destroyed");
+            LOG.warn("JcServerEndpoint destroyed");
         } catch (IOException ex) {
             LOG.error(null, ex);
         }

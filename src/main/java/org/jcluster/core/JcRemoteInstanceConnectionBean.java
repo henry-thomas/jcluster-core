@@ -20,7 +20,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
@@ -279,25 +278,38 @@ public class JcRemoteInstanceConnectionBean {
 
             List<JcClientConnection> toRemove = new ArrayList<>();
 
-            for (JcClientConnection conn : outboundList) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
+            for (JcClientConnection conn : allConnections) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
                     if (conn.isClosed()) {
                         LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getConnType(), conn.getConnId());
                     }
                     toRemove.add(conn);
-                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
+                }
+//                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
+//                    JcMessage msg = JcMessage.createPingMsg();
+//                    try {
+//                        conn.send(msg);
+//                    } catch (IOException ex) {
+//                        toRemove.add(conn);
+//                    }
+//                }
+            }
+
+            for (JcClientConnection conn : outboundList) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
                     JcMessage msg = JcMessage.createPingMsg();
                     try {
                         conn.send(msg);
                     } catch (IOException ex) {
-                        toRemove.add(conn);
+                        LOG.warn(null, ex);
+//                        toRemove.add(conn);
                     }
                 }
             }
             if (!toRemove.isEmpty()) {
                 for (JcClientConnection conn : toRemove) {
+                    LOG.warn("Removing connection {} {} because of idle timeout", conn.getConnType(), conn.getConnId());
                     removeConnection(conn);
-                    conn.destroy();
                 }
             }
         }
@@ -336,6 +348,7 @@ public class JcRemoteInstanceConnectionBean {
             throw new JcRuntimeException("Not serializable class: " + ex.getMessage());
 
         } catch (IOException ex) {
+            LOG.warn("Removing connection {} because of {}", conn.getConnId(), ex.getMessage());
             removeConnection(conn);
             throw new JcIOException(ex.getMessage());
         }

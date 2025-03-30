@@ -324,6 +324,7 @@ public final class JcCoreService {
                 try {
                     sendReqJoin(srcId);
                 } catch (Exception ex) {
+                    LOG.warn(null, ex);
                 }
                 LOG.info("Try to reconnect to new member: [" + srcId + "] from ping invalid InstanceId msg");
             }
@@ -866,7 +867,7 @@ public final class JcCoreService {
             //we have to check the app name because there is another apps that makes only inboudn connections
             if (ri.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
                     || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
-                ri.validateOutboundConnectionCount(5);
+                ri.validateOutboundConnectionCount(2);
             }
 
         }
@@ -963,6 +964,13 @@ public final class JcCoreService {
 
         return foundMem.getConector();
 
+    }
+
+    protected List<JcRemoteInstanceConnectionBean> getMemConListByTopicAndFilter(String topic, Map<String, Object> fMap) {
+        return memberMap.values().stream()
+                .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
+                .filter((mem) -> mem.containsFilter(fMap)).map((mem) -> mem.getConector())
+                .collect(Collectors.toList());
     }
 
     protected JcRemoteInstanceConnectionBean getMemConByTopicAndFilter(String topic, Map<String, Object> fMap) {

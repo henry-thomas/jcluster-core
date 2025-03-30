@@ -276,6 +276,7 @@ public class JcMember {
             } catch (Exception e) {
             }
         }
+        LOG.warn("Closing TCP connections because JcMember destoyed {}", id);
         conector.destroy();
     }
 

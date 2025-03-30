@@ -130,7 +130,7 @@ public class JcClientConnection implements Runnable {
 
                 throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
                         + remoteAppDesc.getAppName() + "] ADDRESS: ["
-                        + remoteAppDesc.getIpAddress()
+                        + remoteAppDesc.getIpAddress() + ":" + remoteAppDesc.getIpPortListenTCP()
                         + "] METHOD: [" + msg.getMethodSignature()
                         + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", msg);
 
@@ -176,6 +176,7 @@ public class JcClientConnection implements Runnable {
         LOG.info(id + " JcClientConnection Closed. Lasted  {}ms", System.currentTimeMillis() - now);
     }
 
+    //Outbound reader is for responses only
     private void startOutboundReader() {
         while (running) {
             try {
@@ -203,6 +204,7 @@ public class JcClientConnection implements Runnable {
 
                 } catch (IOException ex) {
                     metrics.getOutbound().incErrCount();
+                    LOG.warn(id + " Destroying JcClientConnection because: " + ex.getMessage());
                     destroy();
                 } catch (ClassNotFoundException ex) {
                     LOG.warn(id, ex);
@@ -239,7 +241,7 @@ public class JcClientConnection implements Runnable {
                 }
             } catch (IOException ex) {
                 destroy();
-                LOG.error(id, ex);
+                LOG.warn(id + " Destroying JcClientConnection because: " + ex.getMessage());
                 metrics.getInbound().incErrCount();
 
             } catch (ClassNotFoundException ex) {

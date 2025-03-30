@@ -7,6 +7,7 @@ package org.jcluster.core;
 import ch.qos.logback.classic.Logger;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,7 +18,6 @@ import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
 import org.jcluster.core.bean.JcMemFilterMetric;
-import org.jcluster.core.exception.cluster.JcClusterNotFoundException;
 import org.jcluster.core.exception.JcException;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcIOException;
@@ -61,12 +61,7 @@ public class JcManager {
 
     private static int broadcastSend(JcProxyMethod pm, Object[] args) {
         int instanceBroadcastedTo = 0;
-        List<JcRemoteInstanceConnectionBean> riList = null;
-        if (pm.isTopic()) {
-            riList = JcCoreService.getInstance().getMemConByTopic(pm.getTopicName());
-        } else if (pm.getAppName() != null) {
-            riList = JcCoreService.getInstance().getMemConByTopic(pm.getAppName());
-        }
+        List<JcRemoteInstanceConnectionBean> riList = getMatchingInstances(pm, args);
 
         if (riList != null) {
             for (JcRemoteInstanceConnectionBean ri : riList) {
@@ -74,7 +69,7 @@ public class JcManager {
                     ri.send(pm, args);
                     instanceBroadcastedTo++;
                 } catch (Exception e) {
-                    LOG.warn(null, e);
+                    LOG.warn("Failed to send to instance: " + ri, e);
                 }
             }
         }
@@ -83,34 +78,14 @@ public class JcManager {
 
     private static Object filteredSend(JcProxyMethod pm, Object[] args) throws JcIOException {
         //find all instances by filter
-
-        Map<String, Object> fMap = new HashMap<>();
-        //build filter map
-        for (Map.Entry<String, Integer> entry : pm.getParamNameIdxMap().entrySet()) {
-            String filterName = entry.getKey();
-            Integer filtIdx = entry.getValue();
-            fMap.put(filterName, args[filtIdx]);
-        }
-
-        JcRemoteInstanceConnectionBean ri = null;
-        if (!pm.isGlobal()) {
-            if (pm.isTopic()) {
-                ri = JcCoreService.getInstance().getMemConByTopicAndFilter(pm.getTopicName(), fMap);
-            } else if (pm.getAppName() != null) {
-                ri = JcCoreService.getInstance().getMemConByAppAndFilter(pm.getAppName(), fMap);
-            } else {
-                throw new JcIOException(
-                        "Invalid JC destination  App: " + pm.getAppName() + "  Toppic: " + pm.getTopicName());
-            }
-        } else {
-            ri = JcCoreService.getInstance().getMemConByFilter(fMap);
-        }
+        JcRemoteInstanceConnectionBean ri = getFilteredInstance(pm, args);
 
         if (ri == null) {
             throw new JcIOException(
                     "No Instance found App: " + pm.getAppName() + "  " + pm.printFilters(args));
         }
 
+//        System.out.println("exec: " + pm.getMethodSignature() + " Send to instance: " + ri.getMember().getId());
         return ri.send(pm, args);
     }
 
@@ -119,31 +94,72 @@ public class JcManager {
         if (pm.isBroadcast()) {
             int broadcastSend = broadcastSend(pm, args);
             if (broadcastSend == 0) {
-                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + pm);
+                LOG.warn("No cluster instance available for Broadcast@: " + pm);
+//                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + pm);
             }
             return broadcastSend;
-        } else if (pm.isInstanceFilter()) {//no app name needed if send is specific for remote instance
+        }
+
+        if (pm.isInstanceFilter()) {
             return filteredSend(pm, args);
-        } else {
-            JcRemoteInstanceConnectionBean ri = null;
-            if (!pm.isGlobal()) {
-                if (pm.isTopic()) {
-                    ri = JcCoreService.getInstance().getMemConByTopicSingle(pm.getTopicName());
-                } else if (pm.getAppName() != null) {
-                    ri = JcCoreService.getInstance().getMemConByAppSingle(pm.getAppName());
-                } else {
-                    throw new JcIOException(
-                            "Invalid JC destination  App: " + pm.getAppName() + "  Topic: " + pm.getTopicName());
-                }
-            }
+        }
 
-            if (ri == null) {
-                throw new JcIOException(
-                        "No Instance found App: " + (pm.isTopic() ? pm.getTopicName() : pm.getAppName()));
-            }
-
+        
+        JcRemoteInstanceConnectionBean ri = getSingleInstance(pm, args);
+        if (ri != null) {
             return ri.send(pm, args);
         }
+
+        throw new JcIOException(
+                "No remote connection found for: " + pm.toString());
+        //no app name needed if send is specific for remote instance
+    }
+
+    private static JcRemoteInstanceConnectionBean getFilteredInstance(JcProxyMethod pm, Object[] args) {
+        if (pm.isTopic()) {
+            return JcCoreService.getInstance().getMemConByTopicAndFilter(pm.getTopicName(), buildFilterMap(pm, args));
+        }
+        if (pm.getAppName() != null) {
+            return JcCoreService.getInstance().getMemConByAppAndFilter(pm.getAppName(), buildFilterMap(pm, args));
+        }
+        if (pm.isGlobal()) {
+            return JcCoreService.getInstance().getMemConByFilter(buildFilterMap(pm, args));
+        }
+        throw new JcIOException(
+                "Invalid JC destination  App: " + pm.getAppName() + "  Topic: " + pm.getTopicName());
+
+    }
+
+    private static JcRemoteInstanceConnectionBean getSingleInstance(JcProxyMethod pm, Object[] args) {
+        if (pm.isTopic()) {
+            return JcCoreService.getInstance().getMemConByTopicSingle(pm.getTopicName());
+        }
+        if (pm.getAppName() != null) {
+            return JcCoreService.getInstance().getMemConByAppSingle(pm.getAppName());
+        }
+
+        throw new JcIOException(
+                "Invalid JC destination  App: " + pm.getAppName() + "  Topic: " + pm.getTopicName());
+
+    }
+
+    private static List<JcRemoteInstanceConnectionBean> getMatchingInstances(JcProxyMethod pm, Object[] args) {
+        if (pm.isTopic()) {
+            return pm.isInstanceFilter()
+                    ? JcCoreService.getInstance().getMemConListByTopicAndFilter(pm.getTopicName(), buildFilterMap(pm, args))
+                    : JcCoreService.getInstance().getMemConByTopic(pm.getTopicName());
+        } else if (pm.getAppName() != null) {
+            return JcCoreService.getInstance().getMemConByTopic(pm.getAppName());
+        }
+        return Collections.emptyList();
+    }
+
+    private static Map<String, Object> buildFilterMap(JcProxyMethod pm, Object[] args) {
+        Map<String, Object> fMap = new HashMap<>();
+        for (Map.Entry<String, Integer> entry : pm.getParamNameIdxMap().entrySet()) {
+            fMap.put(entry.getKey(), args[entry.getValue()]);
+        }
+        return fMap;
     }
 
     public static final void registerLocalClassImplementation(Class clazz) throws JcException {
@@ -340,11 +356,11 @@ public class JcManager {
     public static boolean containsFilterValue(String app, String fName, Object fValue) {
         return JcCoreService.getInstance().containsFilterValue(app, fName, fValue);
     }
-    
+
     public static int getFilterValuesCount(String app, String fName) {
         return JcCoreService.getInstance().getFilterValuesCount(app, fName);
     }
-    
+
     public static List<JcMemFilterMetric> getMemFilterValuesCount(String app, String fName) {
         return JcCoreService.getInstance().getMemFilterValuesCount(app, fName);
     }

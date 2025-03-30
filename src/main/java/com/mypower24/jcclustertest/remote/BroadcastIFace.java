@@ -12,8 +12,10 @@ import org.jcluster.lib.annotation.JcRemote;
 public interface BroadcastIFace {
     public final static String SUBSCRIBED_APP_FILTER = "bcTestFilter";
     
+    @JcBroadcast
     public void onTopicMessage(@JcFilter(filterName = SUBSCRIBED_APP_FILTER) String appIdFilter, String message);
     
     @JcBroadcast
     public void onBcMessage(String message);
 }
+ 
