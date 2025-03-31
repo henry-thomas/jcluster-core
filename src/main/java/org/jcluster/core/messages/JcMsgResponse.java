@@ -14,6 +14,7 @@ public class JcMsgResponse implements Serializable {
 
     private final long requestId;
     private final Object data;
+    private final long timeStamp = System.currentTimeMillis();
 
     public static JcMsgResponse createResponseMsg(JcMessage request, Object data) {
         JcMsgResponse response = new JcMsgResponse(request.getRequestId(), data);
@@ -32,6 +33,10 @@ public class JcMsgResponse implements Serializable {
 
     public Object getData() {
         return data;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
     }
 
 }

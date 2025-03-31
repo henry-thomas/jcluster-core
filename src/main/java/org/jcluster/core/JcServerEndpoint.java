@@ -143,10 +143,6 @@ public class JcServerEndpoint implements Runnable {
                 JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
 
                 ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-                if (socket.isClosed()) {
-                    LOG.warn("Handshake aborted, socket is closed: {}", socket.getRemoteSocketAddress());
-                    return null;
-                }
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 
                 oos.writeObject(handshakeRequest);
@@ -174,7 +170,7 @@ public class JcServerEndpoint implements Runnable {
             LOG.error(null, ex);
         }
 
-        throw new JcSocketConnectException("Handshake Timeout! " + socket.getRemoteSocketAddress());
+        throw new JcSocketConnectException("Handshake Timeout! " + socket.getLocalSocketAddress());
     }
 
     public void destroy() {

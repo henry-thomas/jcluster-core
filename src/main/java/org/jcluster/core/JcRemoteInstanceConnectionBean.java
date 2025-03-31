@@ -145,7 +145,6 @@ public class JcRemoteInstanceConnectionBean {
         Socket socket = new Socket();
         try {
             socket.setReuseAddress(true);
-
             socket.connect(socketAddress, 2000);
         } catch (IOException e) {
             LOG.warn("Attempt to connect fail:" + this + "PORT: " + desc.getIpPortListenTCP(), e);
@@ -278,34 +277,23 @@ public class JcRemoteInstanceConnectionBean {
 
             List<JcClientConnection> toRemove = new ArrayList<>();
 
-            for (JcClientConnection conn : allConnections) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000 || conn.isClosed()) {
+            for (JcClientConnection conn : outboundList) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
                     if (conn.isClosed()) {
                         LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getConnType(), conn.getConnId());
                     }
                     toRemove.add(conn);
-                }
-//                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
-//                    JcMessage msg = JcMessage.createPingMsg();
-//                    try {
-//                        conn.send(msg);
-//                    } catch (IOException ex) {
-//                        toRemove.add(conn);
-//                    }
-//                }
-            }
 
-            for (JcClientConnection conn : outboundList) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
+                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
                     JcMessage msg = JcMessage.createPingMsg();
                     try {
                         conn.send(msg);
                     } catch (IOException ex) {
-                        LOG.warn(null, ex);
-//                        toRemove.add(conn);
+                        toRemove.add(conn);
                     }
                 }
             }
+
             if (!toRemove.isEmpty()) {
                 for (JcClientConnection conn : toRemove) {
                     LOG.warn("Removing connection {} {} because of idle timeout", conn.getConnType(), conn.getConnId());

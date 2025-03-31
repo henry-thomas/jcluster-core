@@ -10,10 +10,11 @@ import java.io.ObjectOutputStream;
 import static java.lang.System.currentTimeMillis;
 import java.net.Socket;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcAppDescriptor;
 import ch.qos.logback.classic.Logger;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.messages.JcMessage;
@@ -49,7 +50,7 @@ public class JcClientConnection implements Runnable {
 
     private final Object writeLock = new Object();
 
-    private final ConcurrentHashMap<Long, JcMessage> reqRespMap = new ConcurrentHashMap<>();
+    private final Map<Long, JcMessage> reqRespMap = new HashMap<>();
 
     public JcClientConnection(Socket sock, JcHandhsakeFrame handshakeFrame, JcRemoteInstanceConnectionBean mCon) throws IOException {
         this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType(), mCon);
@@ -106,51 +107,58 @@ public class JcClientConnection implements Runnable {
         return send(msg, null);
     }
 
-    public JcMsgResponse send(JcMessage msg, Integer timeoutMs) throws IOException {
+    public JcMsgResponse send(JcMessage request, Integer timeoutMs) throws IOException {
         if (timeoutMs == null) {
             timeoutMs = 2000;
         }
         try {
             long start = System.currentTimeMillis();
 
-            reqRespMap.put(msg.getRequestId(), msg);
-
-            writeAndFlushToOOS(msg);
-
-            synchronized (msg) {
-                msg.wait(timeoutMs);
+            reqRespMap.put(request.getRequestId(), request);
+            synchronized (this) {
+                writeAndFlushToOOS(request);
             }
 
+            synchronized (request.getLock()) {
+                request.getLock().wait(timeoutMs);
+            }
+
+            long duration = System.currentTimeMillis() - start;
+            long durationMsg = request.getResponse().getTimeStamp() - request.getTimeStamp();
+
+            if (Math.abs(duration - durationMsg) > 5) {
+                LOG.warn("Message synchronization time is out wait duration: {}, message duration: {}, request: {}", duration, durationMsg, request);
+            }
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
 //            LOG.log(Level.FINE, "ReqResp Map Size for: {} is [{}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
-            if (msg.getResponse() == null) {
-                reqRespMap.remove(msg.getRequestId());
+            if (request.getResponse() == null) {
+                reqRespMap.remove(request.getRequestId());
                 metrics.getOutbound().incTimeoutCount();
-                LOG.warn(id + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {} Exec:{}", new Object[]{System.currentTimeMillis() - start, msg.getRequestId(), Thread.currentThread().getName(), msg.getMethodSignature()});
+                LOG.warn(id + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {} Exec:{}", new Object[]{System.currentTimeMillis() - start, request.getRequestId(), Thread.currentThread().getName(), request.getMethodSignature()});
 
                 throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
                         + remoteAppDesc.getAppName() + "] ADDRESS: ["
                         + remoteAppDesc.getIpAddress() + ":" + remoteAppDesc.getIpPortListenTCP()
-                        + "] METHOD: [" + msg.getMethodSignature()
-                        + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", msg);
+                        + "] METHOD: [" + request.getMethodSignature()
+                        + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", request);
 
             } else {
 
-                return msg.getResponse();
+                return request.getResponse();
             }
 
         } catch (InterruptedException ex) {
-            reqRespMap.remove(msg.getRequestId());
+            reqRespMap.remove(request.getRequestId());
             LOG.warn(id, ex);
-            JcMsgResponse resp = new JcMsgResponse(msg.getRequestId(), ex);
-            msg.setResponse(resp);
+            JcMsgResponse resp = new JcMsgResponse(request.getRequestId(), ex);
+            request.setResponse(resp);
 //            reconnect();
             return resp;
         } catch (JcResponseTimeoutException ex) {
             //Forwarding the exception to whoever was calling this method.
-            reqRespMap.remove(msg.getRequestId());
-            JcMsgResponse resp = new JcMsgResponse(msg.getRequestId(), ex);
-            msg.setResponse(resp);
+            reqRespMap.remove(request.getRequestId());
+            JcMsgResponse resp = new JcMsgResponse(request.getRequestId(), ex);
+            request.setResponse(resp);
 
             return resp;
         }
@@ -192,11 +200,14 @@ public class JcClientConnection implements Runnable {
 
                     JcMsgResponse response = (JcMsgResponse) readObject;
 
-                    JcMessage request = reqRespMap.remove(response.getRequestId());
+                    JcMessage request;
+                    synchronized (this) {
+                        request = reqRespMap.remove(response.getRequestId());
+                    }
                     if (request != null) {
-                        synchronized (request) {
+                        synchronized (request.getLock()) {
                             request.setResponse(response);
-                            request.notifyAll();
+                            request.getLock().notifyAll();
                         }
                     } else {
                         LOG.warn(id + " Request is not in Map: {}", response.getRequestId());
@@ -204,8 +215,12 @@ public class JcClientConnection implements Runnable {
 
                 } catch (IOException ex) {
                     metrics.getOutbound().incErrCount();
-                    LOG.warn(id + " Destroying JcClientConnection because: " + ex.getMessage());
-                    destroy();
+//                    if (socket.isClosed() || socket.isInputShutdown() || socket.isOutputShutdown() || !socket.isBound() || !socket.isConnected()) {
+                    cleanupConnection();
+                    LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
+//                    } else {
+//                        LOG.warn(null, ex);
+//                    }
                 } catch (ClassNotFoundException ex) {
                     LOG.warn(id, ex);
                 }
@@ -240,15 +255,19 @@ public class JcClientConnection implements Runnable {
 
                 }
             } catch (IOException ex) {
-                destroy();
-                LOG.warn(id + " Destroying JcClientConnection because: " + ex.getMessage());
+//                if (socket.isClosed() || socket.isInputShutdown() || socket.isOutputShutdown() || !socket.isBound() || !socket.isConnected()) {
+                cleanupConnection();
+                 LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
+//                } else {
+//                    LOG.warn(null, ex);
+//                }
                 metrics.getInbound().incErrCount();
 
             } catch (ClassNotFoundException ex) {
                 //can not send response with failure, because we can not extract the message ID 
 //                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
 //                sendResponse(response);
-                LOG.warn(id, ex);
+                LOG.warn(connId, ex);
             }
         }
 

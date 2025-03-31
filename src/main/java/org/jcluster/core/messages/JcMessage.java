@@ -15,9 +15,11 @@ public class JcMessage implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final long requestId;
+    private final long timeStamp = System.currentTimeMillis();
+    private volatile long requestId;
     private final String methodSignature;
     private final String className;
+    private final String lock = new String();
     private final Object[] args; //arguments for method execution
     private JcMsgResponse response;
 
@@ -65,6 +67,14 @@ public class JcMessage implements Serializable {
 
     public Object[] getArgs() {
         return args;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
+    }
+
+    public String getLock() {
+        return lock;
     }
 
 }

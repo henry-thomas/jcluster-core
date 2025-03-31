@@ -61,6 +61,8 @@ import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
+import org.jcluster.core.test.JcTestIFace;
+import org.jcluster.core.test.JcTestImpl;
 
 /**
  *
@@ -94,6 +96,7 @@ public final class JcCoreService {
     private static JcCoreService INSTANCE = new JcCoreService();
     private boolean running = false;
     private DatagramSocket socketUdpRx;
+    private DatagramSocket socketUdpTx;
 
     public static final int UDP_FRAME_MAX_SIZE = 65535 - 28;
     public static final int UDP_FRAME_FRAGMENTATION_SIZE = UDP_FRAME_MAX_SIZE - 2048;
@@ -194,12 +197,13 @@ public final class JcCoreService {
             if (mes != null) {
                 executorService = mes;
             } else {
-                executorService = new ThreadPoolExecutor(5, 50, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+                executorService = new ThreadPoolExecutor(10, 100, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
             }
 
             ManagedThreadFactory tf = (ManagedThreadFactory) config.get("threadFactory");
             if (tf == null) {
                 threadFactory = Executors.defaultThreadFactory();
+
             } else {
                 threadFactory = tf;
             }
@@ -230,6 +234,7 @@ public final class JcCoreService {
             metrics = new JcMetrics(selfDesc);
 
             JcManager.registerLocalClassImplementation(AppMetricsMonitor.class);
+            JcManager.registerLocalClassImplementation(JcTestImpl.class);
 
         }
     }
@@ -260,6 +265,10 @@ public final class JcCoreService {
 //                socketUdpRx.setSoTimeout(timeout);
                 selfDesc.setIpPortListenUDP(port);
                 LOG.info("UDP Server init successfully on port: {}", port);
+
+                socketUdpTx = new DatagramSocket();
+                socketUdpTx.setSendBufferSize(FRAGMENT_DATA_MAX_SIZE * 1000);
+
                 return;
             } catch (SocketException ex) {
                 lastEx = ex;
@@ -314,6 +323,7 @@ public final class JcCoreService {
                 LOG.info(null, ex);
             }
         } else {
+
             if (msg.getSrc().getInstanceId().equals(mem.getDesc().getInstanceId())) {
                 mem.updateLastSeen();
             } else {
@@ -328,6 +338,7 @@ public final class JcCoreService {
                 }
                 LOG.info("Try to reconnect to new member: [" + srcId + "] from ping invalid InstanceId msg");
             }
+            LOG.warn("Receive ping message from: " + srcId + " App: " + mem.getDesc().getAppName());
 
         }
         try {
@@ -357,7 +368,6 @@ public final class JcCoreService {
         } catch (Exception e) {
             LOG.info(null, e);
         }
-//        LOG.trace("Receive ping message from: " + srcId);
     }
 
     private JcDistMsg generatePingMsg() {
@@ -557,6 +567,7 @@ public final class JcCoreService {
             } else {
                 try {
                     mem.sendMessage(ping);
+                    LOG.warn("Jc Member:" + memId + " Sent ping to " + mem.getDesc().getAppName() + " port: " + mem.getId());
                 } catch (IOException ex) {
                     LOG.warn(null, ex);
                 }
@@ -591,10 +602,12 @@ public final class JcCoreService {
         ObjectOutput out = new ObjectOutputStream(bos);
         out.writeObject(msg);
 
+//    DatagramPacket p = new DatagramPacket(data, data.length, InetAddress.getByName(ip), port);
+//            socket.send(p);
         byte[] data = bos.toByteArray();
 
         DatagramPacket p = new DatagramPacket(data, data.length, InetAddress.getByName(ip), port);
-        socketUdpRx.send(p);
+        socketUdpTx.send(p);
     }
 
     private void processRecMsg(JcDistMsg msg, String memId) {
@@ -867,7 +880,7 @@ public final class JcCoreService {
             //we have to check the app name because there is another apps that makes only inboudn connections
             if (ri.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
                     || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
-                ri.validateOutboundConnectionCount(2);
+                ri.validateOutboundConnectionCount(1);
             }
 
         }

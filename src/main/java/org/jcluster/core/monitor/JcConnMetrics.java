@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.jcluster.core.JcConnectionTypeEnum;
 
 /**
@@ -24,7 +23,6 @@ public class JcConnMetrics implements Serializable {
     private int rxCount = 0;
     private int errCount = 0;
     private int timeoutCount = 0;
-    private int reqRespMapSize = 0;
     private int recreateCount = 0;
     private long lastConnAttempt = 0;
     private final Map<String, MethodExecMetric> methodExecMap = new HashMap<>();
@@ -37,7 +35,6 @@ public class JcConnMetrics implements Serializable {
         rxCount = 0;
         errCount = 0;
         timeoutCount = 0;
-        reqRespMapSize = 0;
         recreateCount = 0;
         lastConnAttempt = 0;
         methodExecMap.clear();
@@ -49,7 +46,6 @@ public class JcConnMetrics implements Serializable {
         rxCount = list.stream().mapToInt(m -> m.rxCount).sum();
         errCount = list.stream().mapToInt(m -> m.errCount).sum();
         timeoutCount = list.stream().mapToInt(m -> m.timeoutCount).sum();
-        reqRespMapSize = list.stream().mapToInt(m -> m.reqRespMapSize).sum();
 
         list.stream()
                 .map(JcConnMetrics::getMethodExecMap)
@@ -101,14 +97,6 @@ public class JcConnMetrics implements Serializable {
 
     public int getTimeoutCount() {
         return timeoutCount;
-    }
-
-    public int getReqRespMapSize() {
-        return reqRespMapSize;
-    }
-
-    public void setReqRespMapSize(int reqRespMapSize) {
-        this.reqRespMapSize = reqRespMapSize;
     }
 
     public int getRecreateCount() {

@@ -37,7 +37,7 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
 
         JcProxyMethod proxyMethod = methodCache.get(method.getName());//contains info to send to correct App/Instance if specified
         if (proxyMethod == null) {
-            proxyMethod = JcProxyMethod.initProxyMethod(method, args,  iClazz);
+            proxyMethod = JcProxyMethod.initProxyMethod(method, args, iClazz);
             methodCache.put(method.getName(), proxyMethod);
         }
         long now = System.currentTimeMillis();
@@ -50,6 +50,10 @@ public class JcRemoteInvocationHandler implements InvocationHandler, Serializabl
         if (response instanceof Exception) {
             LOG.error(((Exception) response).getMessage());
             throw ((Exception) response);
+        }
+        if (response instanceof Throwable) {
+            LOG.error(((Throwable) response).getMessage());
+            throw ((Throwable) response);
         }
 
         return response;

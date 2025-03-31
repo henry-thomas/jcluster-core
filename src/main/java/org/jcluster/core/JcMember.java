@@ -360,11 +360,7 @@ public class JcMember {
         if (rf == null) {
             return false;
         }
-        if (!rf.containsFilterValue(fValue)) {
-            return false;
-        }
-
-        return true;
+        return rf.containsFilterValue(fValue);
     }
 
     public boolean containsFilter(Map<String, Object> fMap) {
