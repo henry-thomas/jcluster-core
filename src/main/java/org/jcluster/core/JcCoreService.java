@@ -27,6 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
+import java.net.SocketOptions;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -256,13 +257,13 @@ public final class JcCoreService {
             portList.add(UDP_LISTEN_PORT_DEFAULT);
         }
 
-//        int timeout = 2000;
+        int timeout = 2000;
         SocketException lastEx = null;
         for (Integer port : portList) {
             try {
                 socketUdpRx = new DatagramSocket(port);
                 socketUdpRx.setReceiveBufferSize(FRAGMENT_DATA_MAX_SIZE * 500);
-//                socketUdpRx.setSoTimeout(timeout);
+                socketUdpRx.setSoTimeout(timeout);
                 selfDesc.setIpPortListenUDP(port);
                 LOG.info("UDP Server init successfully on port: {}", port);
 
@@ -706,7 +707,9 @@ public final class JcCoreService {
 
                     ByteArrayInputStream bis = new ByteArrayInputStream(packet.getData());
                     ObjectInput in = new ObjectInputStream(bis);
+                    LOG.warn("UDP_RX Wait for message.");
                     Object ob = in.readObject();
+                    LOG.warn("UDP_RX Message reveived.");
 
                     if (ob instanceof JcDistMsg) {
                         JcDistMsg msg = (JcDistMsg) ob;

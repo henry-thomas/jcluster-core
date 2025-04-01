@@ -24,12 +24,12 @@ public class JcMetrics implements Serializable {
     private final JcConnMetrics inbound = new JcConnMetrics();
     private final JcConnMetrics outbound = new JcConnMetrics();
 
-    private final InstanceResMonitorBean resBean;
+//    private final InstanceResMonitorBean resBean;
     private final JcAppDescriptor desc;
 
     public JcMetrics(JcAppDescriptor desc) {
         this.desc = desc;
-        this.resBean = new InstanceResMonitorBean(desc.getIpStrPortStr());
+//        this.resBean = new InstanceResMonitorBean(desc.getIpStrPortStr());
     }
 
     public HashMap<String, JcMemberMetrics> getMemMetricsMap() {
@@ -40,9 +40,9 @@ public class JcMetrics implements Serializable {
         return desc;
     }
 
-    public InstanceResMonitorBean getResBean() {
-        return resBean;
-    }
+//    public InstanceResMonitorBean getResBean() {
+//        return resBean;
+//    }
 
     public JcConnMetrics getInbound() {
         return inbound.sumMetrics(memMetricsMap.values().stream().map(m -> m.getInbound()).collect(Collectors.toList()));

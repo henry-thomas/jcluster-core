@@ -36,6 +36,8 @@ public class ConnectionDialog extends javax.swing.JFrame {
             portList.add(Integer.valueOf(string));
             portList.add(Integer.parseInt(string) + 1);
             portList.add(Integer.parseInt(string) + 10);
+            portList.add(Integer.parseInt(string) + 11);
+            portList.add(Integer.parseInt(string) + 12);
         }
 
         config.put("udpListenPort", portList);
