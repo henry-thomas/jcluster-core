@@ -28,8 +28,8 @@ public class JcMemFilterMetric implements Serializable {
         this.size = mem.filterSetSize(fName);
         this.appName = mem.getDesc().getAppName();
         this.ipAddress = mem.getDesc().getIpAddress();
-        this.udpPort = mem.getDesc().getIpPortListenUDP();
-        this.tcpPort = mem.getDesc().getIpPortListenTCP();
+        this.udpPort = 0;
+        this.tcpPort = mem.getDesc().getIpPort();
         this.memId = mem.getId();
         this.instanceId = mem.getDesc().getInstanceId();
     }

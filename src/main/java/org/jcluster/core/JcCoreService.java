@@ -4,14 +4,9 @@
  */
 package org.jcluster.core;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,7 +22,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
-import java.net.SocketOptions;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -44,25 +45,24 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
+import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcMemFilterMetric;
-//import org.jcluster.core.config.JcAppConfig;
+import org.jcluster.core.bean.PrimaryMemDesc;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcInstanceNotFoundException;
-import static org.jcluster.core.messages.JcDistMsgType.JOIN;
-import static org.jcluster.core.messages.JcDistMsgType.JOIN_RESP;
 import static org.jcluster.core.messages.JcDistMsgType.PING;
 import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
-//import org.jcluster.core.messages.JcMessage;
-//import org.jcluster.core.messages.JcMsgFragment;
-import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
-import org.jcluster.core.test.JcTestIFace;
 import org.jcluster.core.test.JcTestImpl;
 
 /**
@@ -73,7 +73,7 @@ public final class JcCoreService {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcCoreService.class);
 
-    public static final int UDP_LISTEN_PORT_DEFAULT = 4445;
+    public static final int LISTEN_PORT_DEFAULT = 4445;
 
     private boolean enterprise = false;
 
@@ -86,7 +86,7 @@ public final class JcCoreService {
 
     private final Map<String, JcMember> memberMap = new ConcurrentHashMap<>();
 
-    private final Map<String, JcMember> primaryMemberMap = new HashMap<>();
+    private final Map<PrimaryMemDesc, String> primaryMemberMap = new HashMap<>();
 
     private JcMetrics metrics;
 
@@ -96,13 +96,14 @@ public final class JcCoreService {
 
     private static JcCoreService INSTANCE = new JcCoreService();
     private boolean running = false;
-    private DatagramSocket socketUdpRx;
-    private DatagramSocket socketUdpTx;
 
+//    private ServerSocket serverSocket;
     public static final int UDP_FRAME_MAX_SIZE = 65535 - 28;
     public static final int UDP_FRAME_FRAGMENTATION_SIZE = UDP_FRAME_MAX_SIZE - 2048;
 
     private final byte[] buf = new byte[UDP_FRAME_MAX_SIZE];  //UDP frame 4byte, IP frame 16byte, 
+
+    private volatile static int threadFactoryCounter = 100;
 
     //to keep track on response meessages
     protected final Map<String, JcDistMsg> requestMsgMap = new HashMap<>();
@@ -119,14 +120,42 @@ public final class JcCoreService {
     private ThreadFactory threadFactory = null;
 
     private JcServerEndpoint serverEndpoint;
+    private Thread jcCoreMonitor = null;
+    private static final Object CONTROL_LOCK = new Object();
+
+    private String secret = null;
 
     //Buffer for all received messages
-    protected final BlockingQueue<JcDistMsg> receiveBufferQueue = new ArrayBlockingQueue<>(4096);
-
     private final List<MemberEventListener> memberEventList = new ArrayList<>();
+
+    private KeyPair keyPair;
 
     private JcCoreService() {
         LOG.setLevel(ch.qos.logback.classic.Level.ALL);
+
+        KeyPairGenerator generator;
+        KeyPair p = null;
+        try {
+            generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            p = generator.generateKeyPair();
+        } catch (NoSuchAlgorithmException ex) {
+            java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        this.keyPair = p;
+    }
+
+    protected byte[] decryptData(byte encriptedData[]) {
+        Cipher decryptCipher;
+        try {
+            decryptCipher = Cipher.getInstance("RSA");
+            decryptCipher.init(Cipher.DECRYPT_MODE, keyPair.getPrivate());
+            byte[] doFinal = decryptCipher.doFinal(encriptedData);
+            return doFinal;
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
+            java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
     }
 
     public final JcMetrics getAllMetrics() {
@@ -134,34 +163,37 @@ public final class JcCoreService {
     }
 
     public final void stop() throws Exception {
-        java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, "java.util.logging.Logger JcCoreService Shutting down JCluster");
-        LOG.info("JcCoreService Shutting down JCluster");
         if (running) {
-            java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, "JCLUSTER -- Shutdown... APPNAME: [{0}] InstanceID: [{1}]", new Object[]{selfDesc.getAppName(), selfDesc.getInstanceId()});
-            running = false;
-            memberMap.forEach((t, member) -> {
-                try {
+            synchronized (CONTROL_LOCK) {
+
+                java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, "JCLUSTER -- Shutdown... APPNAME: [{0}] InstanceID: [{1}]", new Object[]{selfDesc.getAppName(), selfDesc.getInstanceId()});
+                running = false;
+                memberMap.forEach((t, member) -> {
                     JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
-                    msg.setSrc(selfDesc);
-                    member.sendMessage(msg);
+                    msg.setSrcDesc(selfDesc);
+                    member.sendManagedMessage(msg);
 
-                    onMemberRemove(member);
+                    onMemberRemove(member, "JC CORE Shutdown ");
 
-                } catch (IOException ex) {
-                    java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
+                });
+
+                if (serverEndpoint != null) {
+                    serverEndpoint.destroy();
                 }
-            });
-
-            if (socketUdpRx != null) {
-                socketUdpRx.close();
-            }
-            if (serverEndpoint != null) {
-                serverEndpoint.destroy();
+                if (jcCoreMonitor != null) {
+                    LOG.info("JCLUSTER Stoping monitor ...");
+                    while (jcCoreMonitor.isAlive()) { //this thread has multiple wait in the code, make sure is not allive before start new instance of JC
+                        jcCoreMonitor.interrupt();
+                        Thread.sleep(200);
+                    }
+                    LOG.info("JCLUSTER Stoping monitor complete.");
+                }
+                LOG.info("============== JcCoreService Shutting down JCluster ==============");
             }
         } else {
             LOG.info("JCLUSTER -- Invalid Shutdown... APPNAME: [{}] InstanceID: [{}]", selfDesc.getAppName(), selfDesc.getInstanceId());
-
         }
+
     }
 
     public final void startWithArgs(String[] args) throws Exception {
@@ -177,176 +209,148 @@ public final class JcCoreService {
         if (config == null) {
             config = JcManager.getDefaultConfig(enterprise);
         }
+        synchronized (CONTROL_LOCK) {
 
-        if (!running) {
-            if (config.containsKey("appName")) {
-                selfDesc.setAppName((String) config.get("appName"));
+            if (!running) {
+                if (config.containsKey("appName")) {
+                    selfDesc.setAppName((String) config.get("appName"));
+                }
+                Object topics = config.get("topics");
+                if (topics != null) {
+                    selfDesc.getTopicList().addAll((Collection<String>) topics);
+                }
+                if (config.containsKey("selfIpAddress")) {
+                    selfDesc.setIpAddress((String) config.get("selfIpAddress"));
+                } else {
+                    throw new JcRuntimeException("Missing property for [selfIpAddress]");
+                }
+
+                if (config.containsKey("secret")) {
+                    this.secret = (String) config.get("secret");
+                } else {
+//                    this.secret = selfDesc.getInstanceId();
+                }
+
+                if (config.containsKey("secKeyPair")) {
+                    this.keyPair = (KeyPair) config.get("KeyPair");
+                }
+                selfDesc.setPublicKey(this.keyPair.getPublic().getEncoded());
+
+                LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]\n\tTopics: {}", selfDesc.getAppName(), selfDesc.getInstanceId(), selfDesc.getTopicList());
+
+                ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
+                if (mes != null) {
+                    executorService = mes;
+                } else {
+                    executorService = new ThreadPoolExecutor(10, 100, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+                }
+
+                ManagedThreadFactory tf = (ManagedThreadFactory) config.get("threadFactory");
+                if (tf == null) {
+                    threadFactory = Executors.defaultThreadFactory();
+                } else {
+                    threadFactory = tf;
+                }
+
+                running = true;
+
+                jcCoreMonitor = threadFactory.newThread(this::startTcpConnectionMonitor);
+                jcCoreMonitor.setName("JC_Monitor");
+                jcCoreMonitor.start();
+
+                //TCP server 
+                serverEndpoint = new JcServerEndpoint(threadFactory, (List<Integer>) config.get("tcpListenPort"));
+                Thread serverThread = threadFactory.newThread(serverEndpoint);
+                serverThread.setName("JC_TCP_SERVER");
+                serverThread.start();
+
+                metrics = new JcMetrics(selfDesc);
+
+                JcManager.registerLocalClassImplementation(AppMetricsMonitor.class);
+                JcManager.registerLocalClassImplementation(JcTestImpl.class);
+
+                initPrimaryMembers(config);
             }
-            Object topics = config.get("topics");
-            if (topics != null) {
-                selfDesc.getTopicList().addAll((Collection<String>) topics);
-            }
-            if (config.containsKey("selfIpAddress")) {
-                selfDesc.setIpAddress((String) config.get("selfIpAddress"));
-            } else {
-                throw new JcRuntimeException("Missing property for [selfIpAddress]");
-            }
-
-            LOG.info("JCLUSTER -- Startup... APPNAME: [{}] InstanceID: [{}]\n\tTopics: {}", selfDesc.getAppName(), selfDesc.getInstanceId(), selfDesc.getTopicList());
-
-            ManagedExecutorService mes = (ManagedExecutorService) config.get("executorService");
-            if (mes != null) {
-                executorService = mes;
-            } else {
-                executorService = new ThreadPoolExecutor(10, 100, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
-            }
-
-            ManagedThreadFactory tf = (ManagedThreadFactory) config.get("threadFactory");
-            if (tf == null) {
-                threadFactory = Executors.defaultThreadFactory();
-
-            } else {
-                threadFactory = tf;
-            }
-
-            running = true;
-
-            initUdpServer(config);
-            initPrimaryMembers(config);
-
-            //start UDP receive thread
-            Thread jcManagerThread = threadFactory.newThread(this::mainLoopUdpRx);
-            jcManagerThread.setName("JcCore-UDP_RX@" + selfDesc.getIpAddress() + ":" + selfDesc.getIpPortListenUDP());
-            jcManagerThread.start();
-
-            //start Main receive thread handler
-            Thread jcManagerMonitorThread = threadFactory.newThread(this::mainLoopMonitor);
-            jcManagerMonitorThread.setName("JcCore-ProcUdp_RX@" + selfDesc.getIpAddress() + ":" + selfDesc.getIpPortListenUDP());
-            jcManagerMonitorThread.start();
-
-            Thread jcRemConThread = threadFactory.newThread(this::startTcpConnectionMonitor);
-            jcRemConThread.start();
-            //TCP server 
-            serverEndpoint = new JcServerEndpoint(threadFactory, (List<Integer>) config.get("tcpListenPort"));
-            Thread serverThread = threadFactory.newThread(serverEndpoint);
-
-            serverThread.start();
-
-            metrics = new JcMetrics(selfDesc);
-
-            JcManager.registerLocalClassImplementation(AppMetricsMonitor.class);
-            JcManager.registerLocalClassImplementation(JcTestImpl.class);
-
         }
+    }
+
+    public String getSecret() {
+        return secret;
+    }
+
+    private PrimaryMemDesc getPrimaryMemberByDesc(JcAppDescriptor jad) {
+        return primaryMemberMap.keySet().stream()
+                .filter((t) -> t.sameAs(jad))
+                .findFirst()
+                .orElse(null);
     }
 
     private void initPrimaryMembers(Map<String, Object> config) {
         List<String> memList = (List<String>) config.get("primaryMembers");
         if (memList != null) {
-            for (String ipPortStr : memList) {
-                primaryMemberMap.put(ipPortStr, null);
+            for (String str : memList) {
+                primaryMemberMap.put(PrimaryMemDesc.createFromString(str), null);
             }
         }
-    }
-
-    private void initUdpServer(Map<String, Object> config) throws Exception {
-
-        List<Integer> portList = (List<Integer>) config.get("udpListenPort");
-        if (portList == null) {
-            portList = new ArrayList<>();
-            portList.add(UDP_LISTEN_PORT_DEFAULT);
-        }
-
-        int timeout = 2000;
-        SocketException lastEx = null;
-        for (Integer port : portList) {
-            try {
-                socketUdpRx = new DatagramSocket(port);
-                socketUdpRx.setReceiveBufferSize(FRAGMENT_DATA_MAX_SIZE * 500);
-                socketUdpRx.setSoTimeout(timeout);
-                selfDesc.setIpPortListenUDP(port);
-                LOG.info("UDP Server init successfully on port: {}", port);
-
-                socketUdpTx = new DatagramSocket();
-                socketUdpTx.setSendBufferSize(FRAGMENT_DATA_MAX_SIZE * 1000);
-
-                return;
-            } catch (SocketException ex) {
-                lastEx = ex;
-            }
-        }
-        if (lastEx != null) {
-            throw lastEx;
-        }
-        throw new Exception("Could not init UDP server from list: " + portList.toString());
-    }
-
-    protected JcMember getMemberByInstanceId(String id) {
-        return memberMap.values().stream().filter(m -> m.getDesc().getInstanceId().endsWith(id)).findFirst().orElse(null);
     }
 
     protected JcMember getMember(String memId) {
         return memberMap.get(memId);
     }
 
-    private JcMember onMemberJoinMsg(JcDistMsg msg, String memId) {
-        JcMember mem = memberMap.get(memId);
-        if (mem == null) {
-            JcMemberMetrics met = metrics.getMemMetricsMap().get(memId);
-            if (met == null) {
-                met = new JcMemberMetrics();
-                metrics.getMemMetricsMap().put(memId, met);
-            }
-            mem = new JcMember(msg.getSrc(), this, met);
-
-            met.setAppName(mem.getDesc().getAppName());
-            met.setInstanceId(mem.getDesc().getInstanceId());
-
-            memberMap.put(memId, mem);
-        }
-        if (primaryMemberMap.containsKey(memId)) {
-            primaryMemberMap.put(memId, mem);
-        }
-        mem.updateLastSeen();
-        onMemberAdd(mem);
-        return mem;
-
+    protected JcMember getMemberByMngConId(String mngConId) {
+        return memberMap.values()
+                .stream()
+                .filter((t) -> t.getManagedConnection().getConnId().equals(mngConId))
+                .findFirst()
+                .orElse(null);
     }
 
-    private void onPingMsg(JcDistMsg msg) {
-        String srcId = msg.getSrc().getIpStrPortStr();
-        JcMember mem = memberMap.get(srcId);
+    protected JcMember getMemberByPMD(PrimaryMemDesc pmd) {
+        return memberMap.values()
+                .stream()
+                .filter((t) -> pmd.sameAs(t.getDesc()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    protected void onNewManagedConnection(JcClientConnection con) {
+        JcClientManagedConnection mng = (JcClientManagedConnection) con;
+        String instanceId = mng.remoteAppDesc.getInstanceId();
+
+        JcMember newMember = new JcMember(mng, this, metrics.getOrCreateMemMetric(instanceId));
+        memberMap.put(instanceId, newMember);
+
+        PrimaryMemDesc primaryMemberByDesc = getPrimaryMemberByDesc(mng.remoteAppDesc);
+        if (primaryMemberByDesc != null) {
+            primaryMemberMap.put(primaryMemberByDesc, instanceId);
+        }
+
+        onMemberAdd(newMember);
+    }
+
+    protected void onPingMsg(JcDistMsg msg) {
+        JcAppDescriptor srcDesc = msg.getSrcDesc();
+//        String srcId = srcDesc.getInstanceId();
+        JcMember mem = memberMap.get(srcDesc.getInstanceId());
         if (mem == null) {
             try {
-                sendReqJoin(srcId);
-                LOG.info("Discovered member: [" + srcId + "] from ping msg");
+                JcAppDescriptor jad = msg.getSrcDesc();
+
+                JcClientManagedConnection.createNew(jad.getIpAddress(), jad.getIpPort(), this::onNewManagedConnection);
             } catch (Exception ex) {
                 LOG.info(null, ex);
             }
         } else {
-
-            if (msg.getSrc().getInstanceId().equals(mem.getDesc().getInstanceId())) {
-                mem.updateLastSeen();
-            } else {
-                LOG.info("Jc Member:[{}]  InstanceID:[{}] incorect id!", mem.getDesc().getIpStrPortStr(), mem.getDesc().getInstanceId());
-                memberMap.remove(srcId);
-                onMemberRemove(mem);
-
-                try {
-                    sendReqJoin(srcId);
-                } catch (Exception ex) {
-                    LOG.warn(null, ex);
-                }
-                LOG.info("Try to reconnect to new member: [" + srcId + "] from ping invalid InstanceId msg");
-            }
-            LOG.warn("Receive ping message from: " + srcId + " App: " + mem.getDesc().getAppName());
+            mem.updateLastSeen();
+//            LOG.warn("Receive ping message from: " + srcDesc.getInstanceId() + " App: " + mem.getDesc().getAppName());
 
         }
         try {
             List<String> ipStrList = (List<String>) msg.getData();
 
-            if (!ipStrList.contains(selfDesc.getIpStrPortStr())) {
-                ipStrList.add(selfDesc.getIpStrPortStr());
+            if (!ipStrList.contains(selfDesc.getInstanceId())) {
+                ipStrList.add(selfDesc.getInstanceId());
             }
 
             int ttl = msg.getTtl();
@@ -356,9 +360,8 @@ public final class JcCoreService {
 
                 //forward to ones we don't have in our list
                 if (!ipStrList.contains(memId)) {
-
-                    if (!memId.equals(selfDesc.getIpStrPortStr())) {
-                        m.sendMessage(msg);
+                    if (!memId.equals(selfDesc.getInstanceId())) {
+                        m.sendManagedMessage(msg);
                         msg.setTtl(ttl);
                     } else {
                         LOG.warn("Received ping from self.");
@@ -378,14 +381,14 @@ public final class JcCoreService {
         for (String ipStr : keySet) {
             memberIpStrList.add(ipStr);
         }
-        memberIpStrList.add(selfDesc.getIpStrPortStr());
+        memberIpStrList.add(selfDesc.getInstanceId());
         msg.setData(memberIpStrList);
-        msg.setSrc(selfDesc);
+        msg.setSrcDesc(selfDesc);
         return msg;
 
     }
 
-    private void onSubscRequestMsg(JcMember mem, JcDistMsg msg) {
+    protected void onSubscRequestMsg(JcMember mem, JcDistMsg msg) {
         if (msg.getData() instanceof String) {
             String filterName = (String) msg.getData();
             FilterDescBean fd = selfFilterValueMap.get(filterName);
@@ -395,7 +398,7 @@ public final class JcCoreService {
             }
 
             JcDistMsg resp = new JcDistMsg(JcDistMsgType.SUBSCRIBE_RESP, msg.getMsgId(), msg.getTtl());
-            resp.setSrc(selfDesc);
+            resp.setSrcDesc(selfDesc);
 
             LOG.info("Receive subscription request from: {} filter: {}", mem.getId(), filterName);
 
@@ -406,12 +409,8 @@ public final class JcCoreService {
             pm.getValueSet().addAll(fd.getValueSet());
             resp.setData(pm);
 
-            try {
-                mem.sendMessage(resp);
-                mem.getSubscribtionSet().add(filterName);
-            } catch (IOException ex) {
-                LOG.warn(null, ex);
-            }
+            mem.sendManagedMessage(resp);
+            mem.getSubscribtionSet().add(filterName);
         }
     }
 
@@ -431,8 +430,9 @@ public final class JcCoreService {
         });
     }
 
-    private void onMemberRemove(JcMember mem) {
-        mem.close();
+    protected void onMemberRemove(JcMember mem, String reason) {
+        memberMap.remove(mem.getId());
+//        mem.close(reason);
         //remove member if has been subscribe to something
         selfFilterValueMap.entrySet().forEach(entry -> {
             entry.getValue().removeSubscirber(mem.getId());
@@ -486,17 +486,13 @@ public final class JcCoreService {
         for (String filterName : toSubscribe) {
 
             JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.SUBSCRIBE);
-            jcDistMsg.setSrc(selfDesc);
+            jcDistMsg.setSrcDesc(selfDesc);
             jcDistMsg.setData(filterName);
-            try {
-                LOG.info("Sending subscription request filter:[{}] to {}",
-                        filterName, mem.getId());
+            LOG.info("Sending subscription request filter:[{}] to {}",
+                    filterName, mem.getId());
 
-                mem.sendMessage(jcDistMsg);
-                requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
-            } catch (IOException ex) {
-                LOG.warn(null, ex);
-            }
+            mem.sendManagedMessage(jcDistMsg);
+            requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
         }
 
         if (toSubscribe.isEmpty()) {
@@ -519,35 +515,33 @@ public final class JcCoreService {
         }
     }
 
-    private void checkMemberState() {
-//        LOG.trace("Check member state");
+    private void checkPrimaryMemState() {
+        List<PrimaryMemDesc> toConnect = primaryMemberMap.entrySet()
+                .stream()
+                .filter(t -> t.getValue() == null)
+                .map((t) -> t.getKey())
+                .collect(Collectors.toList());
 
-        for (Map.Entry<String, JcMember> entry : primaryMemberMap.entrySet()) {
-            String memId = entry.getKey();
-            JcMember mem = entry.getValue();
-            if (mem == null) {
-
-//            memberMap.entrySet().stream().fi
-                if (!memberMap.containsKey(memId) && !memId.equals(selfDesc.getIpStrPortStr())) {
-                    try {
-                        sendReqJoin(memId);
-                    } catch (IOException ex) {
-                        LOG.error(null, ex);
-                    } catch (Exception ex) {
-                        LOG.error(null, ex);
-                        //TODO remove from memberMap here
-                    }
-                } else if (mem != null && mem.isLastSeenExpired()) {
-                    JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.JOIN);
-                    jcDistMsg.setSrc(selfDesc);
-                    try {
-                        mem.sendMessage(jcDistMsg);
-                    } catch (IOException ex) {
-                        LOG.error(null, ex);
+        for (PrimaryMemDesc pmd : toConnect) {
+            try {
+                if (pmd.sameAs(selfDesc)) {
+                    continue;
+                } else {
+                    JcMember memberByPMD = getMemberByPMD(pmd);
+                    if (memberByPMD != null) {
+                        primaryMemberMap.put(pmd, memberByPMD.getId());
+                        continue;
                     }
                 }
+                JcClientManagedConnection.createNew(pmd.getIp(), pmd.getPort(), secret, this::onNewManagedConnection);
+            } catch (Exception e) {
+                LOG.warn(null, e);
             }
         }
+    }
+
+    private void checkMemberState() {
+//        LOG.trace("Check member state");
 
         JcDistMsg ping = generatePingMsg();
 //        String strMembLog = "Cluster known members: \n\t";
@@ -556,199 +550,39 @@ public final class JcCoreService {
 
             String memId = entry.getKey();
             JcMember mem = entry.getValue();
-
-//            strMembLog += memId + "\n\t";
             if (mem.isLastSeenExpired()) {
                 LOG.warn("Jc Member:" + memId + " TIMEOUT!");
                 memberMap.remove(memId);
-                if (primaryMemberMap.containsKey(memId)) {
-                    primaryMemberMap.put(memId, null);
-                }
-                onMemberRemove(mem);
+
+                onMemberRemove(mem, "member timeout");
             } else {
-                try {
-                    mem.sendMessage(ping);
-                    LOG.warn("Jc Member:" + memId + " Sent ping to " + mem.getDesc().getAppName() + " port: " + mem.getId());
-                } catch (IOException ex) {
-                    LOG.warn(null, ex);
-                }
+                mem.sendPing(ping);
+//                LOG.warn("Jc Member:" + memId + " Sent ping to " + mem.getDesc().getAppName() + " port: " + mem.getId());
 
-                mem.verifyRxFrag();
+                //validate all instances have no stuck connections
+                mem.validateTimeout();
+
+                //validate all instances have correct amount of outbound connections
+                //we have to check the app name because there is another apps that makes only inboudn connections
+                if (mem.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
+                        || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
+                    mem.validateOutboundConnectionCount(1);
+                }
             }
         }
-//        LOG.debug(strMembLog);
     }
 
-    private void sendReqJoin(String ipStrPortStr) throws IOException, Exception {
-        String[] arr = ipStrPortStr.split(":");
-        if (arr.length != 2) {
-            throw new Exception("IP String invalid");
-        }
+    private void startTcpConnectionMonitor() {
 
-        Integer port = Integer.valueOf(arr[1]);
-        String ipAddr = arr[0];
-
-        JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.JOIN);
-        jcDistMsg.setSrc(selfDesc);
-        requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
-        sendMessage(jcDistMsg, ipAddr, port);
-
-    }
-
-    private void sendMessage(JcDistMsg msg, String ip, int port) throws IOException {
-        if (msg.hasTTLExpire()) {
-            return;
-        }
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutput out = new ObjectOutputStream(bos);
-        out.writeObject(msg);
-
-//    DatagramPacket p = new DatagramPacket(data, data.length, InetAddress.getByName(ip), port);
-//            socket.send(p);
-        byte[] data = bos.toByteArray();
-
-        DatagramPacket p = new DatagramPacket(data, data.length, InetAddress.getByName(ip), port);
-        socketUdpTx.send(p);
-    }
-
-    private void processRecMsg(JcDistMsg msg, String memId) {
-
-        JcMember mem = memberMap.get(memId);
-        switch (msg.getType()) {
-            case JOIN:
-                if (false) {
-                    //authenticate first
-                }
-                mem = onMemberJoinMsg(msg, memId);
-                //send response
-                JcDistMsg resp = JcDistMsg.generateJoinResponse(msg, selfDesc);
-                try {
-                    mem.sendMessage(resp);
-                } catch (IOException ex) {
-                    LOG.error(null, ex);
-                }
-                break;
-
-            case JOIN_RESP:
-                JcDistMsg req = requestMsgMap.remove(msg.getMsgId());
-                if (req == null) {
-                    LOG.trace("Receive JOIN Response without request! " + msg);
-                    break;
-                }
-                LOG.trace("Receive join response from {}", memId);
-                onMemberJoinMsg(msg, memId);
-                break;
-            case PING:
-                onPingMsg(msg);
-                break;
-            case SUBSCRIBE:
-                if (mem != null) {
-                    onSubscRequestMsg(mem, msg);
-                }
-                break;
-            case SUBSCRIBE_RESP:
-                if (mem != null) {
-                    mem.onSubscResponseMsg(msg);
-                }
-                break;
-            case PUBLISH_FILTER:
-                if (mem != null) {
-                    mem.onFilterPublishMsg(msg);
-                }
-                break;
-            case FRG_DATA:
-                if (mem != null) {
-                    mem.onFrgMsgReceived(msg);
-                } else {
-                    System.out.println("");
-                }
-                break;
-            case FRG_ACK:
-                if (mem != null) {
-                    mem.onFrgMsgAck(msg);
-                }
-                break;
-            case FRG_RESEND:
-                if (mem != null) {
-                    mem.onFrgMsgResend(msg);
-                }
-                break;
-
-            default:
-                LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
-//                throw new AssertionError();
-        }
-    }
-
-    protected void onFragmentedDataRx(byte data[]) {
-        try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(data);
-            ObjectInput in = new ObjectInputStream(bis);
-            Object ob = in.readObject();
-
-            if (ob instanceof JcDistMsg) {
-                JcDistMsg msg = (JcDistMsg) ob;
-                String memId = msg.getSrc().getIpAddress() + ":" + msg.getSrc().getIpPortListenUDP();
-                processRecMsg(msg, memId);
-            } else {
-                LOG.warn("Received JcDistMsg  from invalid type: ", ob.getClass().getName());
-            }
-        } catch (IOException | ClassNotFoundException ex) {
-            LOG.error(null, ex);
-        }
-    }
-
-    private void mainLoopUdpRx() {
         while (running) {
+            long beginCycle = System.currentTimeMillis();
+            //LOG.info("JCluster Health_Checker cycle");
+
             try {
-                DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                try {
-                    socketUdpRx.receive(packet);
-
-                    ByteArrayInputStream bis = new ByteArrayInputStream(packet.getData());
-                    ObjectInput in = new ObjectInputStream(bis);
-                    LOG.warn("UDP_RX Wait for message.");
-                    Object ob = in.readObject();
-                    LOG.warn("UDP_RX Message reveived.");
-
-                    if (ob instanceof JcDistMsg) {
-                        JcDistMsg msg = (JcDistMsg) ob;
-                        msg.setSrcIpAddr(packet.getAddress().getHostAddress());
-
-                        boolean status = receiveBufferQueue.add(msg);
-                        if (!status) {
-                            LOG.warn("UDP receive buffer full!");
-                        }
-
-                    } else {
-                        LOG.warn("Received JcDistMsg  from invalid type: ", ob.getClass().getName());
-                    }
-
-                } catch (IOException | ClassNotFoundException ex) {
-                    if (ex instanceof SocketTimeoutException) {
-
-                    } else {
-                        LOG.error(null, ex);
-                    }
-                }
-
-            } catch (Exception e) {
-                LOG.error(null, e);
-            }
-        }
-    }
-
-    private void mainLoopMonitor() {
-        while (running) {
-            try {
-                JcDistMsg msg = receiveBufferQueue.poll(1000, TimeUnit.MILLISECONDS);
-                if (msg != null) {
-                    String memId = msg.getSrcIpAddr() + ":" + msg.getSrc().getIpPortListenUDP();
-                    processRecMsg(msg, memId);
-                }
-
-                if (System.currentTimeMillis() - lastPrimaryMemUpdate > 500) {
+                if (System.currentTimeMillis() - lastPrimaryMemUpdate > 2000) {
                     lastPrimaryMemUpdate = System.currentTimeMillis();
+                    checkPrimaryMemState();
+
                     checkMemberState();
                 }
 
@@ -760,7 +594,18 @@ public final class JcCoreService {
             } catch (Exception e) {
                 LOG.error(null, e);
             }
+
+            if (System.currentTimeMillis() - beginCycle < 500) {
+                try {
+                    synchronized (this) {
+                        this.wait(500 - (System.currentTimeMillis() - beginCycle));
+                    }
+                } catch (InterruptedException ex) {
+                }
+            }
         }
+
+        LOG.info("Shutting down {}", Thread.currentThread().getName());
     }
 
     public static Map<String, JcMember> getMemberMap() {
@@ -823,14 +668,10 @@ public final class JcCoreService {
 
     private void publisFilterChange(List<JcMember> subscribers, PublishMsg pm) {
         JcDistMsg msg = new JcDistMsg(JcDistMsgType.PUBLISH_FILTER);
-        msg.setSrc(selfDesc);
+        msg.setSrcDesc(selfDesc);
         msg.setData(pm);
         subscribers.forEach((t) -> {
-            try {
-                t.sendMessage(msg);
-            } catch (IOException ex) {
-                LOG.warn(null, ex);
-            }
+            t.sendManagedMessage(msg);
         });
     }
 
@@ -869,52 +710,6 @@ public final class JcCoreService {
         return true;
     }
 
-    private void tcpConnectionMonitorLoop() {
-
-        for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
-            String memId = entry.getKey();
-            JcMember mem = entry.getValue();
-            JcRemoteInstanceConnectionBean ri = mem.getConector();
-
-            //validate all instances have no stuck connections
-            ri.validateTimeoutsAllConn();
-
-            //validate all instances have correct amount of outbound connections
-            //we have to check the app name because there is another apps that makes only inboudn connections
-            if (ri.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
-                    || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
-                ri.validateOutboundConnectionCount(1);
-            }
-
-        }
-    }
-
-    private void startTcpConnectionMonitor() {
-        LOG.info("JCLUSTER Health Checker Startup...");
-        Thread.currentThread().setName("JC_TCP_CON_Health");
-        while (running) {
-            long beginCycle = System.currentTimeMillis();
-            //LOG.info("JCluster Health_Checker cycle");
-
-            try {
-                tcpConnectionMonitorLoop();
-            } catch (Exception e) {
-                LOG.warn(null, e);
-            }
-
-            if (System.currentTimeMillis() - beginCycle < 500) {
-                try {
-                    synchronized (this) {
-                        this.wait(500 - (System.currentTimeMillis() - beginCycle));
-                    }
-                } catch (InterruptedException ex) {
-                }
-            }
-        }
-
-        LOG.info("Shutting down {}", Thread.currentThread().getName());
-    }
-
     protected List<JcMemFilterMetric> getMemFilterValuesCount(String app, String fName) {
         return memberMap.values()
                 .stream()
@@ -939,33 +734,25 @@ public final class JcCoreService {
                 });
     }
 
-    protected List<JcRemoteInstanceConnectionBean> getMemConByApp(String app) {
-        List<JcRemoteInstanceConnectionBean> riList = memberMap.values().stream()
+    protected List<JcMember> getMemConByApp(String app) {
+        List<JcMember> riList = memberMap.values().stream()
                 .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
-                //                .filter((mem) -> mem.getConector().isOutboundAvailable())
-                .map((mem) -> mem.getConector())
+                //                .filter((mem) -> mem.isOutboundAvailable())
                 .collect(Collectors.toList());
-
         return riList;
     }
 
-    protected List<JcRemoteInstanceConnectionBean> getMemConByTopic(String topic) {
-        List<JcRemoteInstanceConnectionBean> riList = memberMap.values().stream()
-                //                .filter((mem) -> mem.getConector().isOutboundAvailable())
-                .filter(
-                        (mem)
-                        -> mem.getDesc().getTopicList().contains(topic)
-                )
-                .map(
-                        (mem) -> mem.getConector()
-                )
+    protected List<JcMember> getMemConByTopic(String topic) {
+        List<JcMember> riList = memberMap.values().stream()
+                //                .filter((mem) -> mem.isOutboundAvailable())
+                .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
                 .collect(Collectors.toList());
 
         return riList;
 
     }
 
-    protected JcRemoteInstanceConnectionBean getMemConByFilter(Map<String, Object> fMap) {
+    protected JcMember getMemConByFilter(Map<String, Object> fMap) {
         JcMember foundMem = memberMap.values().stream()
                 .filter((mem) -> mem.containsFilter(fMap))
                 .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
@@ -974,22 +761,21 @@ public final class JcCoreService {
             return null;
         }
 
-        if (!foundMem.getConector().isOutboundAvailable()) {
-            foundMem.getConector().setOnDemandConnection(true);
+        if (!foundMem.isOutboundAvailable()) {
+            foundMem.setOnDemandConnection(true);
         }
 
-        return foundMem.getConector();
-
+        return foundMem;
     }
 
-    protected List<JcRemoteInstanceConnectionBean> getMemConListByTopicAndFilter(String topic, Map<String, Object> fMap) {
+    protected List<JcMember> getMemConListByTopicAndFilter(String topic, Map<String, Object> fMap) {
         return memberMap.values().stream()
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
-                .filter((mem) -> mem.containsFilter(fMap)).map((mem) -> mem.getConector())
+                .filter((mem) -> mem.containsFilter(fMap))
                 .collect(Collectors.toList());
     }
 
-    protected JcRemoteInstanceConnectionBean getMemConByTopicAndFilter(String topic, Map<String, Object> fMap) {
+    protected JcMember getMemConByTopicAndFilter(String topic, Map<String, Object> fMap) {
         JcMember foundMem = memberMap.values().stream()
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
                 .filter((mem) -> mem.containsFilter(fMap))
@@ -999,15 +785,14 @@ public final class JcCoreService {
             return null;
         }
 
-        if (!foundMem.getConector().isOutboundAvailable()) {
-            foundMem.getConector().setOnDemandConnection(true);
+        if (!foundMem.isOutboundAvailable()) {
+            foundMem.setOnDemandConnection(true);
         }
 
-        return foundMem.getConector();
-
+        return foundMem;
     }
 
-    protected JcRemoteInstanceConnectionBean getMemConByTopicSingle(String topic) {
+    protected JcMember getMemConByTopicSingle(String topic) {
         JcMember foundMem = memberMap.values().stream()
                 .filter((mem) -> mem.getDesc().getTopicList().contains(topic))
                 .findFirst().orElseThrow(() -> new JcRuntimeException("No available instance found"));
@@ -1016,14 +801,13 @@ public final class JcCoreService {
             return null;
         }
 
-        if (!foundMem.getConector().isOutboundAvailable()) {
-            foundMem.getConector().setOnDemandConnection(true);
+        if (!foundMem.isOutboundAvailable()) {
+            foundMem.setOnDemandConnection(true);
         }
-        return foundMem.getConector();
-
+        return foundMem;
     }
 
-    protected JcRemoteInstanceConnectionBean getMemConByAppAndFilter(String app, Map<String, Object> fMap) {
+    protected JcMember getMemConByAppAndFilter(String app, Map<String, Object> fMap) {
         JcMember foundMem = memberMap.values().stream()
                 .filter((mem)
                         -> Objects.equals(mem.getDesc().getAppName(), app)
@@ -1037,15 +821,14 @@ public final class JcCoreService {
             return null;
         }
 
-        if (!foundMem.getConector().isOutboundAvailable()) {
-            foundMem.getConector().setOnDemandConnection(true);
+        if (!foundMem.isOutboundAvailable()) {
+            foundMem.setOnDemandConnection(true);
         }
 
-        return foundMem.getConector();
-
+        return foundMem;
     }
 
-    protected JcRemoteInstanceConnectionBean getMemConByAppSingle(String app) {
+    protected JcMember getMemConByAppSingle(String app) {
         JcMember foundMem = memberMap.values().stream()
                 .filter((mem) -> Objects.equals(mem.getDesc().getAppName(), app))
                 .findFirst().orElseThrow(() -> new JcInstanceNotFoundException("No available instance found for app: [" + app + "]"));
@@ -1053,11 +836,10 @@ public final class JcCoreService {
         if (foundMem == null) {
             return null;
         }
-        if (!foundMem.getConector().isOutboundAvailable()) {
-            foundMem.getConector().setOnDemandConnection(true);
+        if (!foundMem.isOutboundAvailable()) {
+            foundMem.setOnDemandConnection(true);
         }
-        return foundMem.getConector();
-
+        return foundMem;
     }
 
     public ExecutorService getExecutorService() {
@@ -1068,10 +850,13 @@ public final class JcCoreService {
         return threadFactory;
     }
 
-    public JcAppDescriptor getSelfDesc() {
-        return selfDesc;
+    public static JcAppDescriptor getSelfDesc() {
+        return INSTANCE.selfDesc;
     }
 
+//    public JcAppDescriptor getSelfDesc() {
+//        return selfDesc;
+//    }
     public int getOutBoundMinConnection() {
         return outBoundMinConnection;
     }

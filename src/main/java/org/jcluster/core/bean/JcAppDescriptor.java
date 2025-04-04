@@ -5,9 +5,7 @@
 package org.jcluster.core.bean;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -26,8 +24,10 @@ public class JcAppDescriptor implements Serializable {
     private final Set<String> topicList = new HashSet<>();
     private final String instanceId;
     private String ipAddress;
-    private int ipPortListenTCP;
-    private int ipPortListenUDP;//this is list
+    private int ipPort;
+    boolean isolated = false;
+    private byte[] publicKey;
+//    private int ipPortListenUDP;//this is list
 
     public JcAppDescriptor() {
         this.instanceId = RandomStringUtils.random(16, true, true);
@@ -41,16 +41,15 @@ public class JcAppDescriptor implements Serializable {
         return ipAddress;
     }
 
-    public int getIpPortListenUDP() {
-        return ipPortListenUDP;
+//    public int getIpPortListenUDP() {
+//        return ipPortListenUDP;
+//    }
+    public int getIpPort() {
+        return ipPort;
     }
 
-    public int getIpPortListenTCP() {
-        return ipPortListenTCP;
-    }
-
-    public void setIpPortListenTCP(int ipPortListenTCP) {
-        this.ipPortListenTCP = ipPortListenTCP;
+    public void setIpPort(int ipPort) {
+        this.ipPort = ipPort;
     }
 
     public String getAppName() {
@@ -61,15 +60,10 @@ public class JcAppDescriptor implements Serializable {
         return topicList;
     }
 
-//    public boolean isMonitor() {
-//        return monitor;
-//    }
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 47 * hash + Objects.hashCode(this.instanceId);
-        hash = 47 * hash + Objects.hashCode(this.ipAddress);
-        hash = 47 * hash + this.ipPortListenUDP;
+        int hash = 5;
+        hash = 89 * hash + Objects.hashCode(this.instanceId);
         return hash;
     }
 
@@ -85,31 +79,24 @@ public class JcAppDescriptor implements Serializable {
             return false;
         }
         final JcAppDescriptor other = (JcAppDescriptor) obj;
-        if (this.ipPortListenUDP != other.ipPortListenUDP) {
-            return false;
-        }
-        if (!Objects.equals(this.instanceId, other.instanceId)) {
-            return false;
-        }
-
-        return Objects.equals(this.ipAddress, other.ipAddress);
+        return Objects.equals(this.instanceId, other.instanceId);
     }
 
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
     }
 
-    public void setIpPortListenUDP(int ipPortListenUDP) {
-        this.ipPortListenUDP = ipPortListenUDP;
+    public byte[] getPublicKey() {
+        return publicKey;
+    }
+
+    public void setPublicKey(byte[] publicKey) {
+        this.publicKey = publicKey;
     }
 
     @Override
     public String toString() {
-        return "JcAppDescriptor{" + "appName=" + appName + ", topicList=" + topicList + ", instanceId=" + instanceId + ", ipAddress=" + ipAddress + ", ipPortListenTCP=" + ipPortListenTCP + ", ipPortListenUDP=" + ipPortListenUDP + '}';
-    }
-
-    public String getIpStrPortStr() {
-        return ipAddress + ":" + ipPortListenUDP;
+        return "JcAppDescriptor{" + "appName=" + appName + ", topicList=" + topicList + ", instanceId=" + instanceId + ", ipAddress=" + ipAddress + ", ipPortListenTCP=" + ipPort + '}';
     }
 
     public void setAppName(String appName) {

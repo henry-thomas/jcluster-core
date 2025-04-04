@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import ch.qos.logback.classic.Level;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,84 +16,93 @@ import org.jcluster.core.bean.JcAppDescriptor;
 import ch.qos.logback.classic.Logger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
-import org.jcluster.core.monitor.JcMemberMetrics;
 import org.slf4j.LoggerFactory;
+import org.jcluster.core.bean.JcConnectionListener;
+import org.jcluster.core.bean.SerializedConnectionBean;
+import org.jcluster.core.messages.JcDistMsg;
+import static org.jcluster.core.messages.JcDistMsgType.PING;
+import static org.jcluster.core.messages.JcDistMsgType.PUBLISH_FILTER;
+import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
+import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE_RESP;
 
 /**
  *
  * @autor Henry Thomas
  */
-public class JcClientConnection implements Runnable {
+public abstract class JcClientConnection implements Runnable {
 
-    private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientConnection.class);
-    private static int conIdUniqueCounter = 0;
-//    private static int outboundConnCount = 0;
+    private static int connCounter = 0;
 
-    private final JcAppDescriptor remoteAppDesc;
-    private String connId;
-    private final int port;
-    private final String hostName;
-    private Socket socket;
-    private ObjectOutputStream oos;
-    private ObjectInputStream ois;
-    private String id = RandomStringUtils.random(8, true, true);
+    protected static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientConnection.class);
+
+    protected JcAppDescriptor remoteAppDesc;
+    protected JcConnectionListener onConnectListener = null;
+    protected JcConnectionListener onCloseListener = null;
+
+    protected Socket socket;
+    protected ObjectOutputStream oos;
+    protected ObjectInputStream ois;
+
+    protected final String connId = RandomStringUtils.random(32, true, true);
+
+    protected boolean initComplete = false;
 
     private boolean running = true;
     private final JcConnectionTypeEnum connType;
-    private final JcMemberMetrics metrics;
-    private final JcRemoteInstanceConnectionBean memberRemConn;
+    private JcMember member;
+    private final long startTimestamp = System.currentTimeMillis();
+    protected String cloaseReason = "Graceful shutdown";
+
+//    private final JcRemoteInstanceConnectionBean memberRemConn;
     protected long lastDataTimestamp = currentTimeMillis();
 
     private final Object writeLock = new Object();
 
     private final Map<Long, JcMessage> reqRespMap = new HashMap<>();
 
-    public JcClientConnection(Socket sock, JcHandhsakeFrame handshakeFrame, JcRemoteInstanceConnectionBean mCon) throws IOException {
-        this(sock, handshakeFrame.getRemoteAppDesc(), handshakeFrame.getRequestedConnType(), mCon);
+    //when connection get accepted at server
+    public JcClientConnection(JcConnectionTypeEnum connType) throws IOException {
+        this.connType = connType;
+        LOG.setLevel(Level.ALL);
     }
 
-    public JcClientConnection(Socket sock, JcAppDescriptor desc, JcConnectionTypeEnum conType, JcRemoteInstanceConnectionBean mCon) throws IOException {
-        LOG.setLevel(ch.qos.logback.classic.Level.ALL);
+    public JcMember getMember() {
+        return member;
+    }
 
+    public void setMember(JcMember member) {
+        this.member = member;
+    }
+
+    protected final void startSelf() {
+        Thread t = JcCoreService.getInstance().getThreadFactory().newThread(this);
+        t.setName("JC-ClientCon-" + (++connCounter));
+        t.start();
+    }
+
+    protected final void setSocket(SerializedConnectionBean scb) throws IOException {
+        this.socket = scb.getSocket();
+        this.oos = scb.getOos();
+        this.ois = scb.getOis();
+    }
+
+    protected final void setSocket(Socket sock) throws IOException {
         this.socket = sock;
-        oos = new ObjectOutputStream(socket.getOutputStream());
-        ois = new ObjectInputStream(socket.getInputStream());
-
-        this.remoteAppDesc = desc;
-        this.connType = conType;
-
-        this.port = this.remoteAppDesc.getIpPortListenTCP();
-        this.hostName = this.remoteAppDesc.getIpAddress();
-
-        this.connId = remoteAppDesc.getAppName()
-                + "-" + hostName + ":" + port
-                + "-" + (this.connType == JcConnectionTypeEnum.INBOUND ? "INBOUND" : "OUTBOUND")
-                + "-" + (conIdUniqueCounter++);
-
-        this.memberRemConn = mCon;
-        this.metrics = memberRemConn.getMetrics();
-    }
-
-    public JcRemoteInstanceConnectionBean getMemberRemConn() {
-        return memberRemConn;
+        this.oos = new ObjectOutputStream(socket.getOutputStream());
+        this.ois = new ObjectInputStream(socket.getInputStream());
     }
 
     //Called from Client Thread
     protected void writeAndFlushToOOS(Object msg) throws IOException {
-//        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-//        ObjectOutputStream out = new ObjectOutputStream(bos);
-//        synchronized (writeLock) {
-//            out.writeObject(msg);
-//            out.flush();
-//            out.reset();
-//            bos.size();
-//            bos.writeTo(socket.getOutputStream());
-//        }
         synchronized (writeLock) {
             oos.writeUnshared(msg);
             oos.flush();
@@ -100,7 +110,9 @@ public class JcClientConnection implements Runnable {
         }
 
         lastDataTimestamp = System.currentTimeMillis();
-        metrics.getOutbound().incTxCount();
+        if (member != null) {
+            member.getMetrics().getOutbound().incTxCount();
+        }
     }
 
     public JcMsgResponse send(JcMessage msg) throws IOException {
@@ -130,15 +142,15 @@ public class JcClientConnection implements Runnable {
                 LOG.warn("Message synchronization time is out wait duration: {}, message duration: {}, request: {}", duration, durationMsg, request);
             }
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
-//            LOG.log(Level.FINE, "ReqResp Map Size for: {} is [{}]", new Object[]{getConnId(), metrics.getReqRespMapSize()});
+//            LOG.log(Level.FINE, "ReqResp Map Size for: {} is [{}]", new Object[]{getConnId(),member.getMetrics().getReqRespMapSize()});
             if (request.getResponse() == null) {
                 reqRespMap.remove(request.getRequestId());
-                metrics.getOutbound().incTimeoutCount();
-                LOG.warn(id + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {} Exec:{}", new Object[]{System.currentTimeMillis() - start, request.getRequestId(), Thread.currentThread().getName(), request.getMethodSignature()});
+                member.getMetrics().getOutbound().incTimeoutCount();
+                LOG.warn(connId + " Timeout req-resp: {}ms Message ID:{} Thread-ID: {} Exec:{}", new Object[]{System.currentTimeMillis() - start, request.getRequestId(), Thread.currentThread().getName(), request.getMethodSignature()});
 
                 throw new JcResponseTimeoutException("No response received, timeout=" + timeoutMs + "ms. APP_NAME: ["
                         + remoteAppDesc.getAppName() + "] ADDRESS: ["
-                        + remoteAppDesc.getIpAddress() + ":" + remoteAppDesc.getIpPortListenTCP()
+                        + remoteAppDesc.getIpAddress() + ":" + remoteAppDesc.getIpPort()
                         + "] METHOD: [" + request.getMethodSignature()
                         + "] INSTANCE_ID: [" + remoteAppDesc.getInstanceId() + "]", request);
 
@@ -149,7 +161,7 @@ public class JcClientConnection implements Runnable {
 
         } catch (InterruptedException ex) {
             reqRespMap.remove(request.getRequestId());
-            LOG.warn(id, ex);
+            LOG.warn(connId, ex);
             JcMsgResponse resp = new JcMsgResponse(request.getRequestId(), ex);
             request.setResponse(resp);
 //            reconnect();
@@ -164,80 +176,85 @@ public class JcClientConnection implements Runnable {
         }
     }
 
-    public JcConnectionTypeEnum getConnType() {
+    public JcConnectionTypeEnum getType() {
         return connType;
     }
 
-    @Override
-    public void run() {
-        Thread.currentThread().setName(this.connId);
-        long now = System.currentTimeMillis();
-        if (this.connType == JcConnectionTypeEnum.OUTBOUND) {
-            startOutboundReader();
-        } else {
-            startInboundReader();
+    protected final void startConnectionProccessor() throws IOException {
+        Thread.currentThread().setName("JC-ClientCon-" + getType() + "@" + getRemoteAppDesc().getAppName() + "_" + getRemoteAppDesc().getInstanceId());
+
+        if (onConnectListener != null) {
+            new Thread(() -> {
+                onConnectListener.onConnectionEvent(this);
+            }).start();
         }
 
-//        destroy();
-        //is not runing anymore, cleanup
-        cleanupConnection();
-        LOG.info(id + " JcClientConnection Closed. Lasted  {}ms", System.currentTimeMillis() - now);
-    }
-
-    //Outbound reader is for responses only
-    private void startOutboundReader() {
-        while (running) {
-            try {
-
-                try {
-                    if (ois == null) {
-                        return;
-                    }
-                    lastDataTimestamp = currentTimeMillis();
-
-                    Object readObject = ois.readObject();
-                    metrics.getOutbound().incRxCount();
-
-                    JcMsgResponse response = (JcMsgResponse) readObject;
-
-                    JcMessage request;
-                    synchronized (this) {
-                        request = reqRespMap.remove(response.getRequestId());
-                    }
-                    if (request != null) {
-                        synchronized (request.getLock()) {
-                            request.setResponse(response);
-                            request.getLock().notifyAll();
-                        }
-                    } else {
-                        LOG.warn(id + " Request is not in Map: {}", response.getRequestId());
-                    }
-
-                } catch (IOException ex) {
-                    metrics.getOutbound().incErrCount();
-//                    if (socket.isClosed() || socket.isInputShutdown() || socket.isOutputShutdown() || !socket.isBound() || !socket.isConnected()) {
-                    cleanupConnection();
-                    LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
-//                    } else {
-//                        LOG.warn(null, ex);
-//                    }
-                } catch (ClassNotFoundException ex) {
-                    LOG.warn(id, ex);
-                }
-            } catch (Exception e) {
-                LOG.warn(id, e);
+        if (null != this.connType) {
+            switch (this.connType) {
+                case OUTBOUND:
+                    startOutboundReader();
+                    break;
+                case INBOUND:
+                    startInboundReader();
+                    break;
+                case MANAGED:
+                    startManagedReader();
+                    break;
+                default:
+                    break;
             }
         }
+    }
+
+    private void startOutboundReader() throws IOException {
+        while (running) {
+            try {
+                if (ois == null) {
+                    return;
+                }
+                lastDataTimestamp = currentTimeMillis();
+
+                Object readObject = ois.readObject();
+                member.getMetrics().getOutbound().incRxCount();
+
+                JcMsgResponse response = (JcMsgResponse) readObject;
+
+                JcMessage request;
+                synchronized (this) {
+                    request = reqRespMap.remove(response.getRequestId());
+                }
+                if (request != null) {
+                    synchronized (request.getLock()) {
+                        request.setResponse(response);
+                        request.getLock().notifyAll();
+                    }
+                } else {
+                    LOG.warn(connId + " Request is not in Map: {}", response.getRequestId());
+                }
+
+//                } catch (IOException ex) {
+//                    member.getMetrics().getOutbound().incErrCount();
+             ////                    if (socket.isClosed() || socket.isInputShutdown() || socket.isOutputShutdown() || !socket.isBound() || !socket.isConnected()) {
+//                    destroy("Input stream IO Exception: " + ex.getMessage());
+////                    LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
+////                    } else {
+////                        LOG.warn(null, ex);
+////                    }
+                } catch (ClassNotFoundException ex) {
+                LOG.warn(connId, ex);
+            }
+
+        }
 
     }
 
-    private void startInboundReader() {
+    private void startInboundReader() throws IOException {
         while (running) {
             try {
                 if (socket.isConnected()) {
                     JcMessage request = (JcMessage) ois.readObject();
 
-                    metrics.getInbound().incRxCount();
+                    member.getMetrics().getInbound().incRxCount();
                     lastDataTimestamp = currentTimeMillis();
                     if (request.getMethodSignature().equals("ping")) {
                         JcMsgResponse response = JcMsgResponse.createResponseMsg(request, "pong");
@@ -254,14 +271,10 @@ public class JcClientConnection implements Runnable {
                     }
 
                 }
-            } catch (IOException ex) {
-//                if (socket.isClosed() || socket.isInputShutdown() || socket.isOutputShutdown() || !socket.isBound() || !socket.isConnected()) {
-                cleanupConnection();
-                 LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
-//                } else {
-//                    LOG.warn(null, ex);
-//                }
-                metrics.getInbound().incErrCount();
+//            } catch (IOException ex) {
+//                LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
+//                destroy("Input stream IO Exception: " + ex.getMessage());
+//                member.getMetrics().getInbound().incErrCount();
 
             } catch (ClassNotFoundException ex) {
                 //can not send response with failure, because we can not extract the message ID 
@@ -273,15 +286,62 @@ public class JcClientConnection implements Runnable {
 
     }
 
-    public void cleanupConnection() {
-        memberRemConn.removeConnection(this);
+    private void startManagedReader() throws IOException {
+        while (running) {
+            try {
+                if (socket.isConnected()) {
+                    Object request = ois.readObject();
+                    if (request instanceof JcDistMsg) {
+                        JcDistMsg msg = (JcDistMsg) request;
+                        if (member == null) {
+                            LOG.trace("Member not set yet for Managed connection {}", this);
+                        }
+
+                        try {
+                            switch (msg.getType()) {
+                                case PING:
+                                    JcCoreService.getInstance().onPingMsg(msg);
+                                    break;
+                                case SUBSCRIBE:
+                                    JcCoreService.getInstance().onSubscRequestMsg(member, msg);
+                                    break;
+                                case SUBSCRIBE_RESP:
+                                    member.onSubscResponseMsg(msg);
+                                    break;
+                                case PUBLISH_FILTER:
+                                    member.onFilterPublishMsg(msg);
+                                    break;
+                                default:
+                                    LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
+                            }
+                        } catch (Exception e) {
+                            LOG.error(null, e);
+                        }
+                    } else {
+                        LOG.warn("Invalid msg type received in managed connection found: {} expected JcDistMsg", request.getClass());
+                    }
+
+                }
+//            } catch (IOException ex) {
+//                LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
+//
+//                destroy("Input stream IO Exception: " + ex.getMessage());
+//                member.getMetrics().getInbound().incErrCount();
+
+            } catch (ClassNotFoundException ex) {
+                //can not send response with failure, because we can not extract the message ID 
+//                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
+//                sendResponse(response);
+                LOG.warn(connId, ex);
+            }
+        }
     }
 
-    public void destroy() {
+    public void destroy(String reason) {
         running = false;
         try {
             if (socket != null) {
-                LOG.error("Socket closed at: {} on thread {}", System.currentTimeMillis(), Thread.currentThread().getName());
+                LOG.error("Socket closed at: {} on thread {}  Reason", System.currentTimeMillis(), Thread.currentThread().getName(), reason);
                 socket.close();
             }
         } catch (IOException e) {
@@ -311,10 +371,6 @@ public class JcClientConnection implements Runnable {
         return lastDataTimestamp;
     }
 
-    public JcMemberMetrics getMetrics() {
-        return metrics;
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {
@@ -337,6 +393,35 @@ public class JcClientConnection implements Runnable {
     @Override
     public String toString() {
         return "JcClientConnection{" + "connId=" + connId + ", connType=" + connType + '}';
+    }
+
+    protected final JcHandhsakeFrame getHandshakeFromSocket(int timeoutSec) throws ExecutionException, TimeoutException, InterruptedException {
+        return getHandshakeFromSocket(timeoutSec, ois);
+    }
+
+    protected final static JcHandhsakeFrame getHandshakeFromSocket(int timeoutSec, ObjectInputStream ois) throws ExecutionException, TimeoutException, InterruptedException {
+        FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
+            try {
+                Object handshakeResponse = ois.readObject();
+
+                if (handshakeResponse instanceof JcHandhsakeFrame) {
+                    return (JcHandhsakeFrame) handshakeResponse;
+                } else {
+                    LOG.warn("Unknown Message Type on Handshake: {}", handshakeResponse.getClass().getName());
+                }
+
+            } catch (IOException | ClassNotFoundException ex) {
+                LOG.error("Can not get handshage from socket: {}", ex);
+            }
+            return null;
+        });
+
+        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
+        JcHandhsakeFrame hf = futureHanshake.get(timeoutSec, TimeUnit.SECONDS);
+        if (hf != null) {
+            return hf;
+        }
+        return null;
     }
 
 }

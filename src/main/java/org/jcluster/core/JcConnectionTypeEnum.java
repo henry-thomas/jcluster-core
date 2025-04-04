@@ -10,7 +10,8 @@ package org.jcluster.core;
  */
 public enum JcConnectionTypeEnum {
     INBOUND,
-    OUTBOUND;
+    OUTBOUND,
+    MANAGED;
 
     public JcConnectionTypeEnum getOpposite() {
         if (this == INBOUND) {

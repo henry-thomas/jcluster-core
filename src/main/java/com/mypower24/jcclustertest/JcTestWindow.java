@@ -126,7 +126,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 }
             }
         });
-        t.setName("JcBroadcast-Thread");
+        t.setName("MissionControlBroadcast");
         t.setDaemon(true);
         t.start();
     }
@@ -306,8 +306,8 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         JcAppDescriptor desc = selectedMember.getDesc();
         lblInstanceId.setText(desc.getInstanceId());
-        lblTcpListenAddr.setText(desc.getIpAddress() + ":" + desc.getIpPortListenTCP());
-        lblUdpListenAddr.setText(desc.getIpAddress() + ":" + desc.getIpPortListenUDP());
+        lblTcpListenAddr.setText(desc.getIpAddress() + ":" + desc.getIpPort());
+//        lblUdpListenAddr.setText(desc.getIpAddress() + ":" + desc.getIpPortListenUDP());
         updateFilters();
         updateVisibleMembersTable();
         updateTotalMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
@@ -382,22 +382,26 @@ public class JcTestWindow extends javax.swing.JFrame {
     }
 
     private void updateFilters() {
+        try {
 
-        DefaultTableModel dtm = (DefaultTableModel) tblFilters.getModel();
+            DefaultTableModel dtm = (DefaultTableModel) tblFilters.getModel();
 
-        dtm.getDataVector().clear();
+            dtm.getDataVector().clear();
 
-        Map<String, Integer> filterList = metricsMonitor.getFilterList(selectedMember.getDesc().getInstanceId());
+            Map<String, Integer> filterList = metricsMonitor.getFilterList(selectedMember.getDesc().getInstanceId());
 
-        SwingUtilities.invokeLater(() -> {
-            for (Map.Entry<String, Integer> entry : filterList.entrySet()) {
-                String fName = entry.getKey();
-                Integer size = entry.getValue();
-                dtm.addRow(new Object[]{fName.isBlank() ? "No Filter name" : fName, size});
-                dtm.fireTableDataChanged();
-            }
-        });
+            SwingUtilities.invokeLater(() -> {
+                for (Map.Entry<String, Integer> entry : filterList.entrySet()) {
+                    String fName = entry.getKey();
+                    Integer size = entry.getValue();
+                    dtm.addRow(new Object[]{fName.isBlank() ? "No Filter name" : fName, size});
+                    dtm.fireTableDataChanged();
+                }
+            });
 
+        } catch (Exception e) {
+            log.warn(e.getMessage());
+        }
     }
 
     private void updateVisibleMembersTable() {
@@ -435,7 +439,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         for (JcMember m : memberList) {
             dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTopicList(), m.getDesc().getInstanceId()});
         }
-        lblAddress.setText(JcCoreService.getInstance().getSelfDesc().getIpStrPortStr());
+//        lblAddress.setText(JcCoreService.getInstance().getSelfDesc().getIpStrPortStr());
         lblAppName.setText(JcCoreService.getInstance().getSelfDesc().getAppName());
         instanceId.setText(JcCoreService.getInstance().getSelfDesc().getInstanceId());
     }

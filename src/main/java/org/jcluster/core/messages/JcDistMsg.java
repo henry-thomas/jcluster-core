@@ -5,8 +5,6 @@
 package org.jcluster.core.messages;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jcluster.core.bean.JcAppDescriptor;
 
@@ -20,10 +18,8 @@ public class JcDistMsg implements Serializable {
 
     private final String msgId;
     private int ttl;
-    private JcAppDescriptor src;
+    private JcAppDescriptor srcDesc;
     private Object data;
-    private String srcIpAddr;
-
     private final long timestamp = System.currentTimeMillis();
 
     public JcDistMsg(JcDistMsgType type) {
@@ -36,29 +32,6 @@ public class JcDistMsg implements Serializable {
         this.type = type;
         this.msgId = msgId;
         this.ttl = ttl;
-    }
-
-    public static List<JcDistMsg> createFragmentMessages(JcDistMsg src, JcMsgFragment fr) {
-        List<JcDistMsg> frList = new ArrayList<>();
-        for (int i = 0; i < fr.getFragments().length; i++) {
-            JcMsgFragmentData frData = fr.getFragments()[i];
-            JcDistMsg frDataMsg = new JcDistMsg(JcDistMsgType.FRG_DATA);
-            frDataMsg.setSrc(src.getSrc());
-            frDataMsg.setSrcIpAddr(src.getSrcIpAddr());
-            frDataMsg.setData(frData);
-
-            frList.add(frDataMsg);
-        }
-        return frList;
-    }
-
-    public static JcDistMsg generateJoinResponse(JcDistMsg request, JcAppDescriptor src) {
-        JcDistMsg resp = new JcDistMsg(JcDistMsgType.JOIN_RESP, request.msgId, request.getTtl() - 1);
-        resp.data = request.src;
-        resp.src = src;
-
-        return resp;
-
     }
 
     public boolean hasTTLExpire() {
@@ -78,12 +51,12 @@ public class JcDistMsg implements Serializable {
         return ttl;
     }
 
-    public JcAppDescriptor getSrc() {
-        return src;
+    public JcAppDescriptor getSrcDesc() {
+        return srcDesc;
     }
 
-    public void setSrc(JcAppDescriptor src) {
-        this.src = src;
+    public void setSrcDesc(JcAppDescriptor srcDesc) {
+        this.srcDesc = srcDesc;
     }
 
     public Object getData() {
@@ -96,14 +69,6 @@ public class JcDistMsg implements Serializable {
 
     public void setTtl(int ttl) {
         this.ttl = ttl;
-    }
-
-    public String getSrcIpAddr() {
-        return srcIpAddr;
-    }
-
-    public void setSrcIpAddr(String srcIpAddr) {
-        this.srcIpAddr = srcIpAddr;
     }
 
     @Override

@@ -1,353 +1,89 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
-package org.jcluster.core;
-
-import ch.qos.logback.classic.Logger;
-import java.io.IOException;
-import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import static java.lang.System.currentTimeMillis;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.jcluster.core.bean.JcAppDescriptor;
-import org.jcluster.core.bean.JcHandhsakeFrame;
-import org.jcluster.core.bean.jcCollections.RingConcurentList;
-import org.jcluster.core.exception.JcRuntimeException;
-//import org.jcluster.core.config.JcAppConfig;
-import org.jcluster.core.exception.cluster.JcIOException;
-import org.jcluster.core.messages.JcMessage;
-import org.jcluster.core.messages.JcMsgResponse;
-import org.jcluster.core.monitor.JcMemberMetrics;
-import org.jcluster.core.monitor.MethodExecMetric;
-import org.jcluster.core.proxy.JcProxyMethod;
-import org.slf4j.LoggerFactory;
-
-/**
- *
- * @author platar86
- *
- * Bean that handles connections with another app. Uses the appDescriptor to
- * figure out how to manage that connection.
- */
-public class JcRemoteInstanceConnectionBean {
-
-    private boolean onDemandConnection = true;
-    private boolean conRequested = true;
-
-    private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcRemoteInstanceConnectionBean.class);
-
-    //all connections must contain same instance as inbound + outbound
-    private final List<JcClientConnection> allConnections = new ArrayList<>();
-
-    //contains pointers only to outbound connection for quick access
-    private final RingConcurentList<JcClientConnection> outboundList = new RingConcurentList<>();
-
-    //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
-    private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
-
-    private final JcMemberMetrics metrics;
-    private final JcMember member;
-
-    private JcAppDescriptor desc = null;
-
-    public JcRemoteInstanceConnectionBean(JcMember mem) {
-        this.member = mem;
-        this.metrics = mem.getMetrics();
-    }
-
-    public JcMemberMetrics getMetrics() {
-        return metrics;
-    }
-
-    public JcMember getMember() {
-        return member;
-    }
-
-    public boolean isOnDemandConnection() {
-        return onDemandConnection;
-    }
-
-    public void setOnDemandConnection(boolean onDemandConnection) {
-        this.onDemandConnection = onDemandConnection;
-    }
-
-    public void setDesc(JcAppDescriptor desc) {
-        this.desc = desc;
-    }
-
-    protected void validateInboundConnectionCount(int minCount) {
-        if (desc == null) {
-            return;
-        }
-        int actualCount = inboundList.size();
-
-        //Incase there is another isolated app connected, don't create an inbound connection to that app
-        if (actualCount < minCount) {
-            for (int i = 0; i < (minCount - actualCount); i++) {
-                JcClientConnection conn = startClientConnection(true);
-                if (conn != null) {
-                    JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
-                    addConnection(conn);
-                } else {
-                    return;
-                }
-            }
-        }
-
-        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - minCount, member.getId());
-
-    }
-
-    public void validateOutboundConnectionCount(int minCount) {
-        if (desc == null) {
-            return;
-        }
-
-        if (onDemandConnection && !conRequested) {
-            return;
-        }
-        int actualCount = outboundList.size();
-
-        //The isolated app will take care of the connection count.
-        if (actualCount < minCount) {
-            JcClientConnection conn = startClientConnection();
-            if (conn != null) {
-                JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
-                addConnection(conn);
-            }
-        }
-    }
-
-    private synchronized JcClientConnection startClientConnection() {
-        return startClientConnection(false);
-    }
-
-    private synchronized JcClientConnection startClientConnection(boolean fromIsolated) {
-        if (desc == null) {
-            return null;
-        }
-
-        if (desc.getIpPortListenTCP() == 0) {
-            System.out.println("Invalid port detected in descriptor: " + desc);
-        }
-        SocketAddress socketAddress = new InetSocketAddress(desc.getIpAddress(), desc.getIpPortListenTCP());
-        Socket socket = new Socket();
-        try {
-            socket.setReuseAddress(true);
-            socket.connect(socketAddress, 2000);
-        } catch (IOException e) {
-            LOG.warn("Attempt to connect fail:" + this + "PORT: " + desc.getIpPortListenTCP(), e);
-            return null;
-        }
-        //after socket gets connected we have to receive first Handshake from the other site.
-        //in case where socket gets broken, ois.readObject can freezes the current thread. This is why handshaking must happen always in separate thread to avoid
-        //JcManager main thread locking!
-        //Handles incoming handshake requests
-        FutureTask<JcClientConnection> futureHanshake = new FutureTask<>(() -> {
-            try {
-                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-                ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-
-                JcMessage request = (JcMessage) ois.readObject();
-                if (request.getMethodSignature().equals("handshake")) {
-                    JcAppDescriptor handshakeDesc = (JcAppDescriptor) request.getArgs()[0];
-
-                    if (!handshakeDesc.getInstanceId().equals(desc.getInstanceId())) {
-                        LOG.info("Handshake Response with Invalid for instanceId: {} found: {}",
-                                new Object[]{desc.getInstanceId(), handshakeDesc.getInstanceId()});
-                        return null;
-                    }
-
-                    LOG.info("Handshake Request from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
-
-                    JcHandhsakeFrame hf = new JcHandhsakeFrame(JcCoreService.getInstance().getSelfDesc());
-
-                    LOG.info("Creating OUTBOUND connection from instance: {} -> {}", new Object[]{desc.getAppName(), desc.getIpAddress()});
-                    //Send with the type of connection the other side needs to be
-                    hf.setRequestedConnType(JcConnectionTypeEnum.INBOUND); //send opposite connection type to the node
-
-                    JcMsgResponse response = JcMsgResponse.createResponseMsg(request, hf);
-
-                    oos.writeObject(response);
-                    oos.flush();
-                    LOG.info("Responding handshake frame: {}", hf);
-//                    if (hf.getRequestedConnType()) {
-                    return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND, this);
-//                    } else {
-//                        return new JcClientConnection(socket, desc, JcConnectionTypeEnum.OUTBOUND);
-//                    }
-
-                }
-            } catch (IOException | ClassNotFoundException ex) {
-                socket.close();
-                LOG.error(null, ex);
-            }
-            return null;
-        });
-        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
-        try {
-            JcClientConnection conn = futureHanshake.get(5, TimeUnit.SECONDS);
-            if (conn == null) {
-                LOG.error("Failed to connect to: {} ", new Object[]{desc});
-
-                socket.close();
-            } else {
-
-                return conn;
-            }
-
-        } catch (InterruptedException | ExecutionException | TimeoutException | IOException ex) {
-            LOG.error("Handshake failed for: " + desc.getIpStrPortStr() + " APPNAME: " + desc.getAppName() + " INSTANCE_ID: " + desc.getInstanceId(), ex);
-        }
-        return null;
-    }
-
-    public void destroy() {
-        synchronized (this) {
-            for (JcClientConnection conn : allConnections) {
-                conn.destroy();
-            }
-            outboundList.clear();
-            inboundList.clear();
-            allConnections.clear();
-        }
-    }
-
-    public int removeAllConnection() {
-        int count = allConnections.size();
-        synchronized (this) {
-            for (JcClientConnection conn : allConnections) {
-                conn.destroy();
-            }
-            allConnections.clear();
-            outboundList.clear();
-            inboundList.clear();
-        }
-        return count;
-    }
-
-    protected boolean removeConnection(JcClientConnection conn) {
-        synchronized (this) {
-
-            if (conn != null && conn.getConnType() != null) {
-                allConnections.remove(conn);
-
-                if (conn.getConnType() == JcConnectionTypeEnum.OUTBOUND) {
-                    outboundList.remove(conn);
-                } else {
-                    inboundList.remove(conn);
-                }
-
-                conn.destroy();
-                return true;
-            }
-            return false;
-        }
-    }
-
-    protected boolean addConnection(JcClientConnection conn) {
-        synchronized (this) {
-            if (conn != null && conn.getConnType() != null) {
-                allConnections.add(conn);
-
-                if (conn.getConnType() == JcConnectionTypeEnum.OUTBOUND) {
-                    outboundList.add(conn);
-                } else {
-                    inboundList.add(conn);
-                }
-                return true;
-            }
-            return false;
-        }
-    }
-
-    public void validateTimeoutsAllConn() {
-        synchronized (this) {
-
-            List<JcClientConnection> toRemove = new ArrayList<>();
-
-            for (JcClientConnection conn : outboundList) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
-                    if (conn.isClosed()) {
-                        LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getConnType(), conn.getConnId());
-                    }
-                    toRemove.add(conn);
-
-                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
-                    JcMessage msg = JcMessage.createPingMsg();
-                    try {
-                        conn.send(msg);
-                    } catch (IOException ex) {
-                        toRemove.add(conn);
-                    }
-                }
-            }
-
-            if (!toRemove.isEmpty()) {
-                for (JcClientConnection conn : toRemove) {
-                    LOG.warn("Removing connection {} {} because of idle timeout", conn.getConnType(), conn.getConnId());
-                    removeConnection(conn);
-                }
-            }
-        }
-    }
-
-    public boolean isOutboundAvailable() {
-        return !outboundList.isEmpty();
-    }
-
-    public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
-        JcClientConnection conn = outboundList.getNext();
-        if (conn == null) {
-            conRequested = true;
-            throw new JcIOException("No outbound connections for: " + this.toString());
-        }
-
-        Map<String, MethodExecMetric> execMetricMap = metrics.getOutbound().getMethodExecMap();
-        String[] split = proxyMethod.getClassName().split("\\.");
-        String className = split[split.length - 1];
-        MethodExecMetric execMetric = execMetricMap.get(className + "." + proxyMethod.getMethodSignature());
-        if (execMetric == null) {
-            execMetric = new MethodExecMetric();
-            execMetricMap.put(className + "." + proxyMethod.getMethodSignature(), execMetric);
-        }
-
-        try {
-            JcMessage msg = new JcMessage(proxyMethod.getMethodSignature(), proxyMethod.getClassName(), args);
-
-            long start = System.currentTimeMillis();
-            Object result = conn.send(msg, proxyMethod.getTimeout()).getData();
-
-            execMetric.setLastExecTime(System.currentTimeMillis() - start);
-
-            return result;
-        } catch (NotSerializableException ex) {
-            throw new JcRuntimeException("Not serializable class: " + ex.getMessage());
-
-        } catch (IOException ex) {
-            LOG.warn("Removing connection {} because of {}", conn.getConnId(), ex.getMessage());
-            removeConnection(conn);
-            throw new JcIOException(ex.getMessage());
-        }
-    }
-
-    @Override
-    public String toString() {
-        return "JcRemoteInstanceConnectionBean{" + "appName="
-                + desc.getAppName() + ", instanceId="
-                + desc.getInstanceId() + " address="
-                + desc.getIpAddress() + '}';
-    }
-
-}
+///*
+// * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+// * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+// */
+//package org.jcluster.core;
+//
+//import ch.qos.logback.classic.Logger;
+//import java.io.IOException;
+//import java.io.NotSerializableException;
+//import java.io.ObjectInputStream;
+//import java.io.ObjectOutputStream;
+//import static java.lang.System.currentTimeMillis;
+//import java.net.InetSocketAddress;
+//import java.net.Socket;
+//import java.net.SocketAddress;
+//import java.util.ArrayList;
+//import java.util.List;
+//import java.util.Map;
+//import java.util.concurrent.ExecutionException;
+//import java.util.concurrent.FutureTask;
+//import java.util.concurrent.TimeUnit;
+//import java.util.concurrent.TimeoutException;
+//import org.jcluster.core.bean.JcAppDescriptor;
+//import org.jcluster.core.bean.JcHandhsakeFrame;
+//import org.jcluster.core.bean.jcCollections.RingConcurentList;
+//import org.jcluster.core.exception.JcRuntimeException;
+////import org.jcluster.core.config.JcAppConfig;
+//import org.jcluster.core.exception.cluster.JcIOException;
+//import org.jcluster.core.messages.JcMessage;
+//import org.jcluster.core.messages.JcMsgResponse;
+//import org.jcluster.core.monitor.JcMemberMetrics;
+//import org.jcluster.core.monitor.MethodExecMetric;
+//import org.jcluster.core.proxy.JcProxyMethod;
+//import org.slf4j.LoggerFactory;
+//
+///**
+// *
+// * @author platar86
+// *
+// * Bean that handles connections with another app. Uses the appDescriptor to
+// * figure out how to manage that connection.
+// */
+//public class JcRemoteInstanceConnectionBean {
+//
+//
+//    private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcRemoteInstanceConnectionBean.class);
+//
+//
+//
+//    private final JcMemberMetrics metrics;
+//    private final JcMember member;
+//
+//    private JcAppDescriptor desc = null;
+//
+//    public JcRemoteInstanceConnectionBean(JcMember mem) {
+//        this.member = mem;
+//        this.metrics = mem.getMetrics();
+//    }
+//
+//    public JcMemberMetrics getMetrics() {
+//        return metrics;
+//    }
+//
+//    public JcMember getMember() {
+//        return member;
+//    }
+//
+//    public boolean isOnDemandConnection() {
+//        return onDemandConnection;
+//    }
+//
+//    public void setOnDemandConnection(boolean onDemandConnection) {
+//        this.onDemandConnection = onDemandConnection;
+//    }
+//
+//    public void setDesc(JcAppDescriptor desc) {
+//        this.desc = desc;
+//    }
+//
+//   
+//    @Override
+//    public String toString() {
+//        return "JcRemoteInstanceConnectionBean{" + "appName="
+//                + desc.getAppName() + ", instanceId="
+//                + desc.getInstanceId() + " address="
+//                + desc.getIpAddress() + '}';
+//    }
+//
+//}

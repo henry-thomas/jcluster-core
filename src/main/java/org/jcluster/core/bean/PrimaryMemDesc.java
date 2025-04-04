@@ -1,0 +1,80 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package org.jcluster.core.bean;
+
+import java.util.Objects;
+
+/**
+ *
+ * @author platar86
+ */
+public class PrimaryMemDesc {
+
+    private String ip;
+    private int port;
+    private String secret;
+
+    public static PrimaryMemDesc createFromString(String template) {
+        String[] split = template.split(":");
+        if (split.length < 2) {
+            return null;
+        }
+
+        PrimaryMemDesc desc = new PrimaryMemDesc();
+        desc.ip = split[0];
+        desc.port = Integer.parseInt(split[1]);
+
+        if (split.length >= 3) {
+            desc.secret = split[2];
+        }
+        return desc;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public boolean sameAs(JcAppDescriptor jad) {
+        return Objects.equals(jad.getIpAddress(), ip) && Objects.equals(jad.getIpPort(), port);
+    }
+    public boolean sameAs(String ipAdd, int ipPort) {
+        return Objects.equals(ipPort, port) && Objects.equals(ipAdd, ip);
+    }
+
+    public String getSecret() {
+        return secret;
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 41 * hash + Objects.hashCode(this.ip);
+        hash = 41 * hash + this.port;
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final PrimaryMemDesc other = (PrimaryMemDesc) obj;
+        if (this.port != other.port) {
+            return false;
+        }
+        return Objects.equals(this.ip, other.ip);
+    }
+
+}

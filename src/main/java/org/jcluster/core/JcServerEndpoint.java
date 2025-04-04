@@ -8,7 +8,6 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -20,11 +19,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcHandhsakeFrame;
-import org.jcluster.core.exception.sockets.JcSocketConnectException;
-import org.jcluster.core.messages.JcMessage;
+import org.jcluster.core.bean.SerializedConnectionBean;
 import org.jcluster.core.messages.JcMsgResponse;
-import org.jcluster.core.monitor.JcMemberMetrics;
-import org.jcluster.core.monitor.JcMetrics;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -55,16 +51,15 @@ public class JcServerEndpoint implements Runnable {
             server = new ServerSocket();
             server.setReuseAddress(true);
 
-            Thread.currentThread().setName("JC_TCP_Server@" + selfDesc.getIpPortListenTCP());
-
-            selfDesc.setIpPortListenTCP(0);
+            selfDesc.setIpPort(0);
             IOException lastEx = null;
+
             for (Integer port : tcpListenPorts) {
                 try {
                     InetSocketAddress address = new InetSocketAddress(port);
                     server.setReuseAddress(true);
                     server.bind(address);
-                    selfDesc.setIpPortListenTCP(port);
+                    selfDesc.setIpPort(port);
                     LOG.info("TCP Server init successfully on port: {}", port);
                     break;
                 } catch (IOException ex) {
@@ -72,61 +67,30 @@ public class JcServerEndpoint implements Runnable {
                     lastEx = ex;
                 }
             }
+
+            Thread.currentThread().setName("JC_TCP_Server@" + selfDesc.getIpPort());
             if (!server.isBound() && lastEx != null) {
                 throw lastEx;
             }
 
             running = true;
             while (running) {
-
-                Socket sock = server.accept();
-                sock.setKeepAlive(true);
-                sock.setTcpNoDelay(true);
-                try {
-                    JcHandhsakeFrame handshakeFrame = doHandshake(sock);
-                    LOG.info("New Connection Hanshaking Complete: {}", handshakeFrame);
-
-                    JcAppDescriptor remDesc = handshakeFrame.getRemoteAppDesc();
-                    JcMember member = JcCoreService.getInstance().getMemberByInstanceId(remDesc.getInstanceId());
-                    if (member == null) {
-                        LOG.warn("New Connection from invalid member: {} app: {}", member, remDesc.getIpStrPortStr());
-                        continue;
-                    }
-
-                    JcMetrics metrics = JcCoreService.getInstance().getAllMetrics();
-                    JcMemberMetrics met = member.getMetrics();
-                    if (met == null) {
-                        met = new JcMemberMetrics();
-                        metrics.getMemMetricsMap().put(member.getId(), met);
-                    }
-
-                    JcRemoteInstanceConnectionBean ric = member.getConector();
-
-                    JcClientConnection jcClientConnection = new JcClientConnection(sock, handshakeFrame, ric);
-                    ric.addConnection(jcClientConnection);
-
-                    Thread t = threadFactory.newThread(jcClientConnection);
-                    if (t == null) {
-                        LOG.warn("Thread factory could not submit jcClientConnection: {}", jcClientConnection);
-                        continue;
-                    }
-                    t.start();
-
-//                    LOG.info("JcInstanceConnection connected.  {}", jcClientConnection);
-                } catch (Exception e) {
-                    LOG.warn("Socket closed at: " + System.currentTimeMillis(), e);
-                    sock.close();
-                }
-
+                Socket client = server.accept();
+                client.setKeepAlive(true);
+                client.setTcpNoDelay(true);
+                //this should not block this thread, should start on its own thread for handshaking
+                onIncomingConnection(client);
             }
 
             server.close();
         } catch (IOException ex) {
-            running = false;
-            LOG.warn(null, ex);
+            if (running) {//if this is not runing is shutdown, no need to print IOException
+                LOG.warn(null, ex);
+                running = false;
+            }
         } finally {
             try {
-                selfDesc.setIpPortListenTCP(0);
+                selfDesc.setIpPort(0);
                 LOG.warn("Closing TCP JcServerEndpoint");
                 server.close();
             } catch (IOException ex) {
@@ -135,42 +99,57 @@ public class JcServerEndpoint implements Runnable {
         }
     }
 
-    private JcHandhsakeFrame doHandshake(Socket socket) {
-
-        FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
+//    protected final JcHandhsakeFrame getHandshakeFromSocket(int timeoutSec, ObjectInputStream ois) throws ExecutionException, TimeoutException, InterruptedException {
+//        FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
+//            try {
+//                JcMsgResponse handshakeResponse = (JcMsgResponse) ois.readObject();
+//
+//                if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
+//                    return (JcHandhsakeFrame) handshakeResponse.getData();
+//                } else {
+//                    LOG.warn("Unknown Message Type on Handshake: {}", handshakeResponse.getData().getClass().getName());
+//                }
+//
+//            } catch (IOException | ClassNotFoundException ex) {
+//                LOG.error(null, ex);
+//                throw ex;
+//            }
+//            return null;
+//        });
+//
+//        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
+//        JcHandhsakeFrame hf = futureHanshake.get(timeoutSec, TimeUnit.SECONDS);
+//        if (hf != null) {
+//            return hf;
+//        }
+//        return null;
+//    }
+    private void onIncomingConnection(Socket cl) {
+        Thread t = threadFactory.newThread(() -> {
             try {
-                LOG.info("New Connection Accepted Start Hanshaking: " + socket.getRemoteSocketAddress());
-                JcMessage handshakeRequest = new JcMessage("handshake", new Object[]{JcCoreService.getInstance().getSelfDesc()});
+                SerializedConnectionBean scb = new SerializedConnectionBean(cl);
 
-                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-                ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+                JcHandhsakeFrame handShakeReq = JcClientConnection.getHandshakeFromSocket(3, scb.getOis());
 
-                oos.writeObject(handshakeRequest);
-                JcMsgResponse handshakeResponse = (JcMsgResponse) ois.readObject();
-                if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
-                    return (JcHandhsakeFrame) handshakeResponse.getData();
+                if (handShakeReq.getRequestedConnType() == JcConnectionTypeEnum.MANAGED) {
+                    JcClientManagedConnection.createFormIncomingConnection(scb, handShakeReq, JcCoreService.getInstance()::onNewManagedConnection);
                 } else {
-                    LOG.warn("Unknown Message Type on Handshake: {}", handshakeResponse.getData().getClass().getName());
+                    JcClientIOConnection.createFormIncomingConnection(scb, handShakeReq);
                 }
 
-            } catch (IOException | ClassNotFoundException ex) {
-                LOG.error(null, ex);
-                throw ex;
+            } catch (Exception ex) {
+                LOG.warn(null, ex);
+                try {
+                    cl.close();
+                } catch (IOException ex1) {
+                    java.util.logging.Logger.getLogger(JcServerEndpoint.class.getName()).log(java.util.logging.Level.SEVERE, null, ex1);
+                }
             }
-            return null;
 
         });
-        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
-        try {
-            JcHandhsakeFrame hf = futureHanshake.get(5, TimeUnit.SECONDS);
-            if (hf != null) {
-                return hf;
-            }
-        } catch (InterruptedException | ExecutionException | TimeoutException ex) {
-            LOG.error(null, ex);
-        }
+        t.setName("JC-ServerConProc");
 
-        throw new JcSocketConnectException("Handshake Timeout! " + socket.getLocalSocketAddress());
+        t.start();
     }
 
     public void destroy() {

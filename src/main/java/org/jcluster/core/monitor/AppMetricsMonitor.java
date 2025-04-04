@@ -24,7 +24,7 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
 
     @Override
     public String testReq(String instanceId) {
-        return "Hello from me: " + JcCoreService.getInstance().getSelfDesc().getIpStrPortStr();
+        return "Hello from me: " + JcCoreService.getInstance().getSelfDesc().getInstanceId();
     }
 
     @Override

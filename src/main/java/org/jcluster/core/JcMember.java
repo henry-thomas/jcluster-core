@@ -5,17 +5,21 @@
 package org.jcluster.core;
 
 import ch.qos.logback.classic.Level;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.messages.JcDistMsg;
 import ch.qos.logback.classic.Logger;
+import java.io.NotSerializableException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import static java.lang.System.currentTimeMillis;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -23,15 +27,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.FilterDescBean;
+import org.jcluster.core.bean.JcHandhsakeFrame;
+import org.jcluster.core.bean.jcCollections.RingConcurentList;
+import org.jcluster.core.exception.JcRuntimeException;
+import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.exception.fragmentation.JcFragmentationException;
 import org.jcluster.core.messages.JcDistMsgType;
+import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.JcMsgFragment;
-import static org.jcluster.core.messages.JcMsgFragment.FRAGMENT_DATA_MAX_SIZE;
 import org.jcluster.core.messages.JcMsgFragmentData;
 import org.jcluster.core.messages.JcMsgFrgResendReq;
+import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.JcMemberMetrics;
+import org.jcluster.core.monitor.MethodExecMetric;
+import org.jcluster.core.proxy.JcProxyMethod;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -42,17 +57,20 @@ public class JcMember {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcMember.class);
 
+    private boolean onDemandConnection = true;
+    private boolean conRequested = true;
+    //contains pointers only to outbound connection for quick access
+    private final RingConcurentList<JcClientConnection> outboundList = new RingConcurentList<>();
+
+    //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
+    private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
+
     private JcAppDescriptor desc;
-    private DatagramSocket socket;
     private long lastSeen;
     private String id;
     private final JcCoreService core;
 
-    //container to store send fragments in case of requested segment resend
-    private final Map<String, JcMsgFragment> txFragList = new HashMap<>();
-    private final Map<String, JcMsgFragment> rxFragList = new HashMap<>();
-
-    private final JcRemoteInstanceConnectionBean conector;
+    private final JcClientManagedConnection managedConnection;
 
     //this is for verification and keep track if we are subscribe or not to a filter 
     //at this specific member
@@ -63,71 +81,34 @@ public class JcMember {
 
     private final Map<String, RemMembFilter> filterMap = new HashMap<>();
 
-    public JcMember(JcAppDescriptor desc, JcCoreService core, JcMemberMetrics metrics) {
+    public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
         LOG.setLevel(Level.ALL);
-        this.desc = desc;
+        this.desc = managedClientCon.getRemoteAppDesc();
+        this.managedConnection = managedClientCon;
+        this.managedConnection.setMember(this);
         this.core = core;
         this.metrics = metrics;
+        lastSeen = System.currentTimeMillis();
         //after metrics are set 
-        conector = new JcRemoteInstanceConnectionBean(this);
         if (desc != null) {
-            conector.setDesc(desc);
-            id = desc.getIpStrPortStr();
-        }
-    }
-
-    public JcRemoteInstanceConnectionBean getConector() {
-        return conector;
-    }
-
-    void verifyRxFrag() {
-        long now = System.currentTimeMillis();
-        for (Iterator<JcMsgFragment> iterator = rxFragList.values().iterator(); iterator.hasNext();) {
-            JcMsgFragment fr = iterator.next();
-
-            if (now - fr.getTimestamp() > 500) {
-                if (fr.getRecoverCount() >= 3) {
-                    rxFragList.remove(fr.getFrgId());
-                    LOG.info("Fragment [{}] could not resend.", fr.getFrgId());
-                } else {
-                    LOG.info("Sending FrgResend request [{}]", fr.getFrgId());
-
-                    List<Integer> missingFragmenList = fr.getMissingFragmenList(); //this will increment missing counter
-                    JcMsgFrgResendReq resendReq = new JcMsgFrgResendReq(fr.getFrgId(), missingFragmenList);
-
-                    JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.FRG_RESEND);
-                    jcDistMsg.setSrc(core.selfDesc);
-                    jcDistMsg.setData(resendReq);
-
-                    try {
-                        sendMessage(jcDistMsg);
-                    } catch (IOException ex) {
-                        java.util.logging.Logger.getLogger(JcMember.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-                    }
-                }
-            }
+            id = desc.getInstanceId();
         }
     }
 
     void verifyFilterIntegrity() {
-
         filterMap.values().forEach((filter) -> {
             if (!filter.checkIntegrity()) {
                 filter.onSubsciptionRequest();
 
                 JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.SUBSCRIBE);
-                jcDistMsg.setSrc(core.selfDesc);
+                jcDistMsg.setSrcDesc(core.selfDesc);
                 jcDistMsg.setData(filter.getFilterName());
 
-                try {
-                    LOG.info("Sending new unconsistent filter request filter:[{}] to {}",
-                            filter.getFilterName(), getId());
+                LOG.info("Sending new unconsistent filter request filter:[{}] to {}",
+                        filter.getFilterName(), getId());
 
-                    sendMessage(jcDistMsg);
-                    core.requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
-                } catch (IOException ex) {
-                    LOG.warn(null, ex);
-                }
+                sendManagedMessage(jcDistMsg);
+                core.requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
             }
         });
     }
@@ -142,92 +123,6 @@ public class JcMember {
             filterMap.put(filterName, remFilter);
         }
         return remFilter;
-    }
-
-    void onFrgMsgAck(JcDistMsg msg) {
-        if (msg.getData() == null || !(msg.getData() instanceof String)) {
-            LOG.warn("Invalid Fragmented ACK msg received!");
-            return;
-        }
-
-        JcMsgFragment get = txFragList.remove(msg.getData());
-        if (get == null) {
-            LOG.warn("Receive FragACK FrId[{}] without valid fragment in buffer", msg.getData());
-        } else {
-            LOG.trace("Receive FragACK FrId[{}]r", msg.getData());
-        }
-
-    }
-
-    void onFrgMsgResend(JcDistMsg msg) {
-        if (msg.getData() == null || !(msg.getData() instanceof JcMsgFrgResendReq)) {
-            LOG.warn("Invalid Fragmented Resend msg received!");
-            return;
-        }
-        JcMsgFrgResendReq resendReq = (JcMsgFrgResendReq) msg.getData();
-
-        JcMsgFragment fr = txFragList.get(resendReq.getFrgId());
-        if (fr == null) {
-            LOG.warn("Fragmented Resend msg received not in buffer frId[{}]", resendReq.getFrgId());
-            return;
-        }
-
-        LOG.trace("Receive Resend request Fragment {}", resendReq.getFrgId());
-        for (Integer frIdx : resendReq.getResendFrIdx()) {
-
-            JcMsgFragmentData frData = fr.getFragments()[frIdx];
-            JcDistMsg frDataMsg = new JcDistMsg(JcDistMsgType.FRG_DATA);
-            frDataMsg.setSrc(core.selfDesc);
-            frDataMsg.setData(frData);
-            try {
-                LOG.trace("Resend FragmentData {}", frData);
-                sendMessage(frDataMsg);
-            } catch (IOException ex) {
-            }
-        }
-
-    }
-
-    protected void onFrgMsgReceived(JcDistMsg msg) {
-        if (msg.getData() == null || !(msg.getData() instanceof JcMsgFragmentData)) {
-            LOG.warn("Invalid Fragmented msg received!");
-            return;
-        }
-        JcMsgFragmentData frData = (JcMsgFragmentData) msg.getData();
-
-        JcMsgFragment rxFr = rxFragList.get(frData.getFrgId());
-        if (rxFr == null) {
-            rxFr = JcMsgFragment.createRxFragmentMsg(frData);
-            rxFragList.put(frData.getFrgId(), rxFr);
-            LOG.trace("Receive new Fragmented message: {}", rxFr);
-        } else {
-            LOG.trace("Receive Fragmented data message: {}", rxFr);
-        }
-        try {
-            boolean completed = rxFr.addFragmentReceivedData(frData);
-
-            if (completed) {
-                rxFragList.remove(frData.getFrgId());
-                byte[] rxData = rxFr.getRxData();
-                try {
-                    core.onFragmentedDataRx(rxData);
-                } catch (Exception e) {
-                    LOG.error(null, e);
-                }
-
-                JcDistMsg frAckMsg = new JcDistMsg(JcDistMsgType.FRG_ACK);
-                frAckMsg.setSrc(core.selfDesc);
-                frAckMsg.setData(frData.getFrgId());
-                try {
-                    sendMessage(frAckMsg);
-                } catch (IOException ex) {
-                }
-            }
-
-        } catch (JcFragmentationException ex) {
-            rxFragList.remove(frData.getFrgId());
-            LOG.error(null, ex);
-        }
     }
 
     protected void onFilterPublishMsg(JcDistMsg msg) {
@@ -269,61 +164,23 @@ public class JcMember {
 
     }
 
-    public void close() {
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (Exception e) {
-            }
+    protected void sendPing(JcDistMsg ping) {
+        try {
+            sendManagedMessage(ping);
+        } catch (Throwable e) {
+            LOG.warn(null, e);
         }
-        LOG.warn("Closing TCP connections because JcMember destoyed {}", id);
-        conector.destroy();
     }
 
-    private void sendMessage(JcDistMsg msg, String ip, int port) throws IOException {
-
+    protected void sendManagedMessage(JcDistMsg msg) {
         if (msg.hasTTLExpire()) {
             return;
         }
-
-        if (socket == null) {
-            socket = new DatagramSocket();
-            socket.setSendBufferSize(FRAGMENT_DATA_MAX_SIZE * 1000);
+        try {
+            managedConnection.writeAndFlushToOOS(msg);
+        } catch (IOException ex) {
+            java.util.logging.Logger.getLogger(JcMember.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutput out = new ObjectOutputStream(bos);
-        out.writeObject(msg);
-
-        byte[] data = bos.toByteArray();
-
-        if (data.length > JcCoreService.UDP_FRAME_FRAGMENTATION_SIZE) {
-            JcMsgFragment fr = JcMsgFragment.createTxFragmentMsg(data);
-
-            List<JcDistMsg> toSend = JcDistMsg.createFragmentMessages(msg, fr);
-            for (int i = 0; i < toSend.size(); i++) {
-
-                sendMessage(toSend.get(i), ip, port);
-            }
-
-            txFragList.put(fr.getFrgId(), fr);
-            LOG.trace("Sending Fragmented message: {}", fr);
-        } else {
-            DatagramPacket p = new DatagramPacket(data, data.length, InetAddress.getByName(ip), port);
-            socket.send(p);
-
-//            try {
-//                Thread.sleep(1);
-//            } catch (InterruptedException ex) {
-//                java.util.logging.Logger.getLogger(JcMember.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-//            }
-        }
-    }
-
-    public void sendMessage(JcDistMsg msg) throws IOException {
-
-        sendMessage(msg, desc.getIpAddress(), desc.getIpPortListenUDP());
-
     }
 
     public JcAppDescriptor getDesc() {
@@ -438,6 +295,192 @@ public class JcMember {
             return false;
         }
         return Objects.equals(this.desc, other.desc);
+    }
+
+    //MOVED FROM JCRemoteInstanceConnectionBean
+    protected void validateInboundConnectionCount(int minCount) {
+        if (desc == null) {
+            return;
+        }
+        int actualCount = inboundList.size();
+
+        //Incase there is another isolated app connected, don't create an inbound connection to that app
+//        if (actualCount < minCount) {
+//            for (int i = 0; i < (minCount - actualCount); i++) {
+//                JcClientConnection conn = startClientConnection(true);
+//                if (conn != null) {
+//                    JcCoreService.getInstance().getThreadFactory().newThread(conn).start();
+//                    addConnection(conn);
+//                } else {
+//                    return;
+//                }
+//            }
+//        }
+        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - minCount, getId());
+
+    }
+
+    public void validateOutboundConnectionCount(int minCount) {
+        if (desc == null) {
+            return;
+        }
+        if (onDemandConnection && !conRequested) {
+            return;
+        }
+        int actualCount = outboundList.size();
+        if (actualCount >= minCount) {
+            return;
+        }
+        try {
+            JcClientIOConnection.createNewConnection(managedConnection, JcConnectionTypeEnum.OUTBOUND, (con) -> {
+                outboundList.add(con);
+            });
+        } catch (Exception e) {
+            LOG.warn(null, e);
+        }
+    }
+
+    public void destroy(String reason) {
+        synchronized (this) {
+            for (JcClientConnection conn : outboundList) {
+                conn.destroy(reason);
+            }
+            for (JcClientConnection conn : inboundList) {
+                conn.destroy(reason);
+            }
+            outboundList.clear();
+            inboundList.clear();
+        }
+        JcCoreService.getInstance().onMemberRemove(this, reason);
+    }
+
+    public int removeAllConnection(String reason) {
+        int count = outboundList.size() + inboundList.size();
+        synchronized (this) {
+            for (JcClientConnection conn : outboundList) {
+                conn.destroy(reason);
+            }
+            for (JcClientConnection conn : inboundList) {
+                conn.destroy(reason);
+            }
+            outboundList.clear();
+            inboundList.clear();
+        }
+        return count;
+    }
+
+    protected boolean removeConnection(JcClientConnection conn, String reason) {
+        synchronized (this) {
+
+            if (conn != null && conn.getType() != null) {
+
+                if (conn.getType() == JcConnectionTypeEnum.OUTBOUND) {
+                    outboundList.remove(conn);
+                } else {
+                    inboundList.remove(conn);
+                }
+
+                conn.destroy(reason);
+                return true;
+            }
+            return false;
+        }
+    }
+
+    protected boolean addConnection(JcClientConnection conn) {
+        synchronized (this) {
+            if (conn != null && conn.getType() != null) {
+
+                if (conn.getType() == JcConnectionTypeEnum.OUTBOUND) {
+                    outboundList.add(conn);
+                } else {
+                    inboundList.add(conn);
+                }
+                return true;
+            }
+            return false;
+        }
+    }
+
+    public void validateTimeout() {
+        synchronized (this) {
+
+            List<JcClientConnection> toRemove = new ArrayList<>();
+
+            for (JcClientConnection conn : outboundList) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
+                    if (conn.isClosed()) {
+                        LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getType(), conn.getConnId());
+                    }
+                    toRemove.add(conn);
+
+                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
+                    JcMessage msg = JcMessage.createPingMsg();
+                    try {
+                        conn.send(msg);
+                    } catch (IOException ex) {
+                        toRemove.add(conn);
+                    }
+                }
+            }
+
+            if (!toRemove.isEmpty()) {
+                for (JcClientConnection conn : toRemove) {
+                    removeConnection(conn, "Idle timeout");
+                }
+            }
+        }
+    }
+
+    public boolean isOutboundAvailable() {
+        return !outboundList.isEmpty();
+    }
+
+    public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
+        JcClientConnection conn = outboundList.getNext();
+        if (conn == null) {
+            conRequested = true;
+            throw new JcIOException("No outbound connections for: " + this.toString());
+        }
+
+        Map<String, MethodExecMetric> execMetricMap = metrics.getOutbound().getMethodExecMap();
+        String[] split = proxyMethod.getClassName().split("\\.");
+        String className = split[split.length - 1];
+        MethodExecMetric execMetric = execMetricMap.get(className + "." + proxyMethod.getMethodSignature());
+        if (execMetric == null) {
+            execMetric = new MethodExecMetric();
+            execMetricMap.put(className + "." + proxyMethod.getMethodSignature(), execMetric);
+        }
+
+        try {
+            JcMessage msg = new JcMessage(proxyMethod.getMethodSignature(), proxyMethod.getClassName(), args);
+
+            long start = System.currentTimeMillis();
+            Object result = conn.send(msg, proxyMethod.getTimeout()).getData();
+
+            execMetric.setLastExecTime(System.currentTimeMillis() - start);
+
+            return result;
+        } catch (NotSerializableException ex) {
+            throw new JcRuntimeException("Not serializable class: " + ex.getMessage());
+
+        } catch (IOException ex) {
+            LOG.warn("Removing connection {} because of {}", conn.getConnId(), ex.getMessage());
+            removeConnection(conn, "Send IO exception " + ex.getMessage());
+            throw new JcIOException(ex.getMessage());
+        }
+    }
+
+    protected JcClientManagedConnection getManagedConnection() {
+        return managedConnection;
+    }
+
+    public boolean isOnDemandConnection() {
+        return onDemandConnection;
+    }
+
+    public void setOnDemandConnection(boolean onDemandConnection) {
+        this.onDemandConnection = onDemandConnection;
     }
 
 }

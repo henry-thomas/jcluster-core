@@ -62,7 +62,7 @@ public class JcInboundMethodExecutor implements Runnable {
 
             Method method = ServiceLookup.getINSTANCE().getMethod(service, request.getMethodSignature());
 
-            Map<String, MethodExecMetric> execMetricMap = clientConn.getMetrics().getInbound().getMethodExecMap();
+            Map<String, MethodExecMetric> execMetricMap = clientConn.getMember().getMetrics().getInbound().getMethodExecMap();
 //            JcMemberMetricsInOut inbound = JcCoreService.getInstance().getAllMetrics().getSelfMetrics().getInbound().getMethodExecMap();
             String methodName = method.getDeclaringClass().getSimpleName() + "." + request.getMethodSignature();
             MethodExecMetric execMetric = execMetricMap.get(methodName);

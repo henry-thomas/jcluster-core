@@ -61,10 +61,10 @@ public class JcManager {
 
     private static int broadcastSend(JcProxyMethod pm, Object[] args) {
         int instanceBroadcastedTo = 0;
-        List<JcRemoteInstanceConnectionBean> riList = getMatchingInstances(pm, args);
+        List<JcMember> riList = getMatchingInstances(pm, args);
 
         if (riList != null) {
-            for (JcRemoteInstanceConnectionBean ri : riList) {
+            for (JcMember ri : riList) {
                 try {
                     ri.send(pm, args);
                     instanceBroadcastedTo++;
@@ -78,7 +78,7 @@ public class JcManager {
 
     private static Object filteredSend(JcProxyMethod pm, Object[] args) throws JcIOException {
         //find all instances by filter
-        JcRemoteInstanceConnectionBean ri = getFilteredInstance(pm, args);
+        JcMember ri = getFilteredInstance(pm, args);
 
         if (ri == null) {
             throw new JcIOException(
@@ -105,7 +105,7 @@ public class JcManager {
         }
 
         
-        JcRemoteInstanceConnectionBean ri = getSingleInstance(pm, args);
+        JcMember ri = getSingleInstance(pm, args);
         if (ri != null) {
             return ri.send(pm, args);
         }
@@ -115,7 +115,7 @@ public class JcManager {
         //no app name needed if send is specific for remote instance
     }
 
-    private static JcRemoteInstanceConnectionBean getFilteredInstance(JcProxyMethod pm, Object[] args) {
+    private static JcMember getFilteredInstance(JcProxyMethod pm, Object[] args) {
         if (pm.isTopic()) {
             return JcCoreService.getInstance().getMemConByTopicAndFilter(pm.getTopicName(), buildFilterMap(pm, args));
         }
@@ -130,7 +130,7 @@ public class JcManager {
 
     }
 
-    private static JcRemoteInstanceConnectionBean getSingleInstance(JcProxyMethod pm, Object[] args) {
+    private static JcMember getSingleInstance(JcProxyMethod pm, Object[] args) {
         if (pm.isTopic()) {
             return JcCoreService.getInstance().getMemConByTopicSingle(pm.getTopicName());
         }
@@ -143,7 +143,7 @@ public class JcManager {
 
     }
 
-    private static List<JcRemoteInstanceConnectionBean> getMatchingInstances(JcProxyMethod pm, Object[] args) {
+    private static List<JcMember> getMatchingInstances(JcProxyMethod pm, Object[] args) {
         if (pm.isTopic()) {
             return pm.isInstanceFilter()
                     ? JcCoreService.getInstance().getMemConListByTopicAndFilter(pm.getTopicName(), buildFilterMap(pm, args))

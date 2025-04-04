@@ -9,8 +9,8 @@ package org.jcluster.core.messages;
  * @author henry
  */
 public enum JcDistMsgType {
-    JOIN,
-    JOIN_RESP,
+//    JOIN,
+//    JOIN_RESP,
     NEW_MEMBER,
     PING,
     LEAVE,
@@ -19,8 +19,8 @@ public enum JcDistMsgType {
     SUBSCRIBE_RESP,
     AUTH_REQ,
     AUTH_RESP,
-    FRG_DATA,//
-    FRG_ACK,//
-    FRG_RESEND,//
+//    FRG_DATA,//
+//    FRG_ACK,//
+//    FRG_RESEND,//
     ;
 }
