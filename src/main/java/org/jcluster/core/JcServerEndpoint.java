@@ -7,20 +7,14 @@ package org.jcluster.core;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
-import org.jcluster.core.messages.JcMsgResponse;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -73,6 +67,8 @@ public class JcServerEndpoint implements Runnable {
                 throw lastEx;
             }
 
+            selfDesc.setIsolated(false);
+
             running = true;
             while (running) {
                 Socket client = server.accept();
@@ -91,6 +87,7 @@ public class JcServerEndpoint implements Runnable {
         } finally {
             try {
                 selfDesc.setIpPort(0);
+                selfDesc.setIsolated(true);
                 LOG.warn("Closing TCP JcServerEndpoint");
                 server.close();
             } catch (IOException ex) {
@@ -99,31 +96,6 @@ public class JcServerEndpoint implements Runnable {
         }
     }
 
-//    protected final JcHandhsakeFrame getHandshakeFromSocket(int timeoutSec, ObjectInputStream ois) throws ExecutionException, TimeoutException, InterruptedException {
-//        FutureTask<JcHandhsakeFrame> futureHanshake = new FutureTask<>(() -> {
-//            try {
-//                JcMsgResponse handshakeResponse = (JcMsgResponse) ois.readObject();
-//
-//                if (handshakeResponse.getData() instanceof JcHandhsakeFrame) {
-//                    return (JcHandhsakeFrame) handshakeResponse.getData();
-//                } else {
-//                    LOG.warn("Unknown Message Type on Handshake: {}", handshakeResponse.getData().getClass().getName());
-//                }
-//
-//            } catch (IOException | ClassNotFoundException ex) {
-//                LOG.error(null, ex);
-//                throw ex;
-//            }
-//            return null;
-//        });
-//
-//        JcCoreService.getInstance().getExecutorService().execute(futureHanshake);
-//        JcHandhsakeFrame hf = futureHanshake.get(timeoutSec, TimeUnit.SECONDS);
-//        if (hf != null) {
-//            return hf;
-//        }
-//        return null;
-//    }
     private void onIncomingConnection(Socket cl) {
         Thread t = threadFactory.newThread(() -> {
             try {
@@ -131,10 +103,20 @@ public class JcServerEndpoint implements Runnable {
 
                 JcHandhsakeFrame handShakeReq = JcClientConnection.getHandshakeFromSocket(3, scb.getOis());
 
-                if (handShakeReq.getRequestedConnType() == JcConnectionTypeEnum.MANAGED) {
-                    JcClientManagedConnection.createFormIncomingConnection(scb, handShakeReq, JcCoreService.getInstance()::onNewManagedConnection);
+                if (null == handShakeReq.getRequestedConnType()) {
+                    LOG.warn("handShakeReq with invalid connTyp=null");
                 } else {
-                    JcClientIOConnection.createFormIncomingConnection(scb, handShakeReq);
+                    switch (handShakeReq.getRequestedConnType()) {
+                        case MANAGED:   // IO Managed
+                            JcClientManagedConnection.createFormIncomingConnection(scb, handShakeReq, JcCoreService.getInstance()::onNewManagedConnection);
+                            break;
+                        case INBOUND:// IO Connection
+                        case OUTBOUND:// IO Connection
+                            JcClientIOConnection.createFormIncomingConnection(scb, handShakeReq);
+                            break;
+                        default:
+                            LOG.warn("handShakeReq with invalid connTyp=" + handShakeReq.getRequestedConnType());
+                    }
                 }
 
             } catch (Exception ex) {

@@ -39,7 +39,7 @@ import org.jcluster.core.exception.JcRuntimeException;
  */
 public class JcClientIOConnection extends JcClientConnection {
 
-    private final boolean isIncoming;
+    private final boolean server;
     private JcClientManagedConnection mngCon = null;
     private JcHandhsakeFrame incominHandshake = null;
 
@@ -48,7 +48,7 @@ public class JcClientIOConnection extends JcClientConnection {
         this.setSocket(scb);
 
         this.incominHandshake = handShakeReq;
-        this.isIncoming = true;
+        this.server = true;
         this.startSelf();
     }
 
@@ -56,7 +56,7 @@ public class JcClientIOConnection extends JcClientConnection {
         super(type);
         this.mngCon = mngCon;
 
-        this.isIncoming = false;
+        this.server = false;
         this.startSelf();
     }
 
@@ -84,7 +84,7 @@ public class JcClientIOConnection extends JcClientConnection {
     public void run() {
 
         try {
-            if (isIncoming) {
+            if (server) {
                 onIncomingHandshake();
             } else {
                 startNewConnection();
@@ -112,7 +112,7 @@ public class JcClientIOConnection extends JcClientConnection {
             throw new JcRuntimeException("Invalid incoming handshake");
         }
         if (incominHandshake.getFrameType() != JcHandhsakeFrame.TYPE_REQ_IO_JOIN) {
-            throw new JcRuntimeException("Invalid incoming handshake frame type expected: [" + JcHandhsakeFrame.TYPE_REQ_IO_JOIN + "] found [" + incominHandshake.getFrameType() + "]");
+            throw new JcRuntimeException("Invalid incoming handshake frame type expected: [" + JcHandhsakeFrame.TYPE_REQ_IO_JOIN + "] found [" + incominHandshake.getFrameType() + "]ConType: " + isServer());
         }
 
         String mngConId = (String) incominHandshake.getData();
@@ -152,12 +152,17 @@ public class JcClientIOConnection extends JcClientConnection {
             throw new JcRuntimeException("Timeout for expected request authentication");
         }
         if (resp.getFrameType() != JcHandhsakeFrame.TYPE_RESP_IO_JOIN_SUCC) {
-            if (resp.getFrameType() != JcHandhsakeFrame.TYPE_RESP_IO_JOIN_FAIL) {
+            if (resp.getFrameType() == JcHandhsakeFrame.TYPE_RESP_IO_JOIN_FAIL) {
                 throw new JcRuntimeException("Connection IO join response with Fail. Response: " + resp.getData());
             }
-            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_IO_JOIN_SUCC + "] found [" + resp.getFrameType() + "]");
+            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_IO_JOIN_SUCC + "] found [" + resp.getFrameType() + "] ConType: " + isServer());
         }
 
+    }
+
+    @Override
+    public boolean isServer() {
+        return server;
     }
 
 }

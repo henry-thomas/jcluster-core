@@ -81,6 +81,9 @@ public class JcMember {
 
     private final Map<String, RemMembFilter> filterMap = new HashMap<>();
 
+    private boolean outboundRequired = false;
+    private boolean active = true;
+
     public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
         LOG.setLevel(Level.ALL);
         this.desc = managedClientCon.getRemoteAppDesc();
@@ -297,8 +300,38 @@ public class JcMember {
         return Objects.equals(this.desc, other.desc);
     }
 
+    private void validateTimeout() {
+        synchronized (this) {
+
+            List<JcClientConnection> toRemove = new ArrayList<>();
+
+            for (JcClientConnection conn : outboundList) {
+                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
+                    if (conn.isClosed()) {
+                        LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getType(), conn.getConnId());
+                    }
+                    toRemove.add(conn);
+
+                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
+                    JcMessage msg = JcMessage.createPingMsg();
+                    try {
+                        conn.send(msg);
+                    } catch (IOException ex) {
+                        toRemove.add(conn);
+                    }
+                }
+            }
+
+            if (!toRemove.isEmpty()) {
+                for (JcClientConnection conn : toRemove) {
+                    removeConnection(conn, "Idle timeout");
+                }
+            }
+        }
+    }
+
     //MOVED FROM JCRemoteInstanceConnectionBean
-    protected void validateInboundConnectionCount(int minCount) {
+    private void validateInboundConnectionCount() {
         if (desc == null) {
             return;
         }
@@ -316,19 +349,22 @@ public class JcMember {
 //                }
 //            }
 //        }
-        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - minCount, getId());
+        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - 1, getId());
 
     }
 
-    public void validateOutboundConnectionCount(int minCount) {
+    private void validateOutboundConnectionCount() {
         if (desc == null) {
             return;
         }
         if (onDemandConnection && !conRequested) {
             return;
         }
+        if (!outboundRequired) {
+            return;
+        }
         int actualCount = outboundList.size();
-        if (actualCount >= minCount) {
+        if (actualCount >= 1) {
             return;
         }
         try {
@@ -340,8 +376,22 @@ public class JcMember {
         }
     }
 
+    public void validate() {
+        if (managedConnection.mustClose()) {
+            destroy(managedConnection.cloaseReason);
+        } else {
+            validateTimeout();
+            validateInboundConnectionCount();
+            validateOutboundConnectionCount();
+        }
+    }
+
     public void destroy(String reason) {
+        if(!active){
+            return;
+        }
         synchronized (this) {
+            active = false;
             for (JcClientConnection conn : outboundList) {
                 conn.destroy(reason);
             }
@@ -350,6 +400,7 @@ public class JcMember {
             }
             outboundList.clear();
             inboundList.clear();
+            managedConnection.destroy(reason);
         }
         JcCoreService.getInstance().onMemberRemove(this, reason);
     }
@@ -402,36 +453,6 @@ public class JcMember {
         }
     }
 
-    public void validateTimeout() {
-        synchronized (this) {
-
-            List<JcClientConnection> toRemove = new ArrayList<>();
-
-            for (JcClientConnection conn : outboundList) {
-                if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 60_000) {
-                    if (conn.isClosed()) {
-                        LOG.warn("{} Connection is connected, but closed. Removing: {}", conn.getType(), conn.getConnId());
-                    }
-                    toRemove.add(conn);
-
-                } else if ((currentTimeMillis() - conn.getLastDataTimestamp()) > 10_000) {
-                    JcMessage msg = JcMessage.createPingMsg();
-                    try {
-                        conn.send(msg);
-                    } catch (IOException ex) {
-                        toRemove.add(conn);
-                    }
-                }
-            }
-
-            if (!toRemove.isEmpty()) {
-                for (JcClientConnection conn : toRemove) {
-                    removeConnection(conn, "Idle timeout");
-                }
-            }
-        }
-    }
-
     public boolean isOutboundAvailable() {
         return !outboundList.isEmpty();
     }
@@ -481,6 +502,14 @@ public class JcMember {
 
     public void setOnDemandConnection(boolean onDemandConnection) {
         this.onDemandConnection = onDemandConnection;
+    }
+
+    public void setOutboundRequired() {
+        this.outboundRequired = true;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 
 }

@@ -25,6 +25,8 @@ public class JcHandhsakeFrame implements Serializable {
     public final static int TYPE_RESP_IO_JOIN_FAIL = 61;//join io connectection referenced to managed connection
     public final static int TYPE_RESP_PUBKEY = 10;
 
+    public final static int TYPE_ERR_CONCURR = -1;
+
     private static final long serialVersionUID = -711425395787330558L;
 
     private JcConnectionTypeEnum requestedConnType = null;

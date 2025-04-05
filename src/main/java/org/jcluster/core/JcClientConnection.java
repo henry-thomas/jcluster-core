@@ -59,7 +59,7 @@ public abstract class JcClientConnection implements Runnable {
     private boolean running = true;
     private final JcConnectionTypeEnum connType;
     private JcMember member;
-    private final long startTimestamp = System.currentTimeMillis();
+    protected final long startTimestamp = System.currentTimeMillis();
     protected String cloaseReason = "Graceful shutdown";
 
 //    private final JcRemoteInstanceConnectionBean memberRemConn;
@@ -181,7 +181,10 @@ public abstract class JcClientConnection implements Runnable {
     }
 
     protected final void startConnectionProccessor() throws IOException {
-        Thread.currentThread().setName("JC-ClientCon-" + getType() + "@" + getRemoteAppDesc().getAppName() + "_" + getRemoteAppDesc().getInstanceId());
+        Thread.currentThread().setName("JC-ClientCon-" + getType()
+                + "@" + getRemoteAppDesc().getAppName()
+                + "_" + getRemoteAppDesc().getInstanceId()
+                + "_" + (isServer() ? "S" : "C"));
 
         if (onConnectListener != null) {
             new Thread(() -> {
@@ -424,4 +427,10 @@ public abstract class JcClientConnection implements Runnable {
         return null;
     }
 
+    /**
+     *
+     * @return true if the connection has been initiated remotely and this is
+     * from server.accept() false if this instance initiated this connection
+     */
+    public abstract boolean isServer();
 }

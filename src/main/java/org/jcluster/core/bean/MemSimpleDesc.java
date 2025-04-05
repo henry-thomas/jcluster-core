@@ -10,19 +10,33 @@ import java.util.Objects;
  *
  * @author platar86
  */
-public class PrimaryMemDesc {
+public class MemSimpleDesc {
 
     private String ip;
     private int port;
     private String secret;
 
-    public static PrimaryMemDesc createFromString(String template) {
+    public MemSimpleDesc() {
+    }
+
+    public MemSimpleDesc(String ip, int port) {
+        this.ip = ip;
+        this.port = port;
+    }
+
+    public MemSimpleDesc(String ip, int port, String secret) {
+        this.ip = ip;
+        this.port = port;
+        this.secret = secret;
+    }
+
+    public static MemSimpleDesc createFromString(String template) {
         String[] split = template.split(":");
         if (split.length < 2) {
             return null;
         }
 
-        PrimaryMemDesc desc = new PrimaryMemDesc();
+        MemSimpleDesc desc = new MemSimpleDesc();
         desc.ip = split[0];
         desc.port = Integer.parseInt(split[1]);
 
@@ -43,6 +57,7 @@ public class PrimaryMemDesc {
     public boolean sameAs(JcAppDescriptor jad) {
         return Objects.equals(jad.getIpAddress(), ip) && Objects.equals(jad.getIpPort(), port);
     }
+
     public boolean sameAs(String ipAdd, int ipPort) {
         return Objects.equals(ipPort, port) && Objects.equals(ipAdd, ip);
     }
@@ -70,7 +85,7 @@ public class PrimaryMemDesc {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        final PrimaryMemDesc other = (PrimaryMemDesc) obj;
+        final MemSimpleDesc other = (MemSimpleDesc) obj;
         if (this.port != other.port) {
             return false;
         }

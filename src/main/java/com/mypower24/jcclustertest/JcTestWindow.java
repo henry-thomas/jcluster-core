@@ -12,6 +12,7 @@ import com.mypower24.jcclustertest.customComp.LogTextArea;
 import com.mypower24.jcclustertest.remote.BroadcastIFace;
 import com.mypower24.jcclustertest.remote.BroadcastImpl;
 import java.awt.GridLayout;
+import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
 
-    private final ConnectionDialog connDlg = new ConnectionDialog();
+    private final ConnectionDialog connDlg;
 
     private final SystemPropManager prop = SystemPropManager.getINSTANCE();
 
@@ -64,6 +65,8 @@ public class JcTestWindow extends javax.swing.JFrame {
 
     public JcTestWindow() {
         initComponents();
+        connDlg = new ConnectionDialog(this);
+        updateTitle("JC-Core disabled.");
 
         log = (LogTextArea) logContainer;
         initCompValues();
@@ -94,6 +97,18 @@ public class JcTestWindow extends javax.swing.JFrame {
         });
         t.start();
         initBcThread();
+    }
+
+    protected final void updateTitle(String title) {
+        boolean isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().
+    getInputArguments().toString().indexOf("jdwp") >= 0;;
+
+        if (isDebug) {
+            this.setTitle("[DEBUG] " + title);
+            this.setLocation(200, 200);
+        } else {
+            this.setTitle(title);
+        }
     }
 
     private void initCompValues() {

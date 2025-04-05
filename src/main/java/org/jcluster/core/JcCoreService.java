@@ -4,9 +4,6 @@
  */
 package org.jcluster.core;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,25 +15,17 @@ import org.jcluster.core.messages.JcDistMsg;
 import org.jcluster.core.messages.JcDistMsgType;
 import org.slf4j.LoggerFactory;
 import ch.qos.logback.classic.Logger;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -51,17 +40,13 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import org.jcluster.core.bean.FilterDescBean;
-import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.JcMemFilterMetric;
-import org.jcluster.core.bean.PrimaryMemDesc;
+import org.jcluster.core.bean.MemSimpleDesc;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcInstanceNotFoundException;
-import static org.jcluster.core.messages.JcDistMsgType.PING;
-import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.AppMetricsMonitor;
-import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
 import org.jcluster.core.test.JcTestImpl;
 
@@ -86,7 +71,7 @@ public final class JcCoreService {
 
     private final Map<String, JcMember> memberMap = new ConcurrentHashMap<>();
 
-    private final Map<PrimaryMemDesc, String> primaryMemberMap = new HashMap<>();
+    private final Map<MemSimpleDesc, String> primaryMemberMap = new HashMap<>();
 
     private JcMetrics metrics;
 
@@ -116,6 +101,8 @@ public final class JcCoreService {
     //key is appName
     private final Map<String, Set<String>> subscAppFilterMap = new HashMap<>();
 
+    private final Set<MemSimpleDesc> toConnectList = new HashSet<>();
+
     private ExecutorService executorService = null;
     private ThreadFactory threadFactory = null;
 
@@ -126,7 +113,7 @@ public final class JcCoreService {
     private String secret = null;
 
     //Buffer for all received messages
-    private final List<MemberEventListener> memberEventList = new ArrayList<>();
+    private final Set<MemberEventListener> memberEventList = new HashSet<>();
 
     private KeyPair keyPair;
 
@@ -140,7 +127,7 @@ public final class JcCoreService {
             generator.initialize(2048);
             p = generator.generateKeyPair();
         } catch (NoSuchAlgorithmException ex) {
-            java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.error(null, ex);
         }
         this.keyPair = p;
     }
@@ -153,7 +140,7 @@ public final class JcCoreService {
             byte[] doFinal = decryptCipher.doFinal(encriptedData);
             return doFinal;
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
-            java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
+            LOG.error(null, ex);
         }
         return null;
     }
@@ -166,7 +153,7 @@ public final class JcCoreService {
         if (running) {
             synchronized (CONTROL_LOCK) {
 
-                java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, "JCLUSTER -- Shutdown... APPNAME: [{0}] InstanceID: [{1}]", new Object[]{selfDesc.getAppName(), selfDesc.getInstanceId()});
+                LOG.error("JCLUSTER -- Shutdown... APPNAME: [{0}] InstanceID: [{1}]", new Object[]{selfDesc.getAppName(), selfDesc.getInstanceId()});
                 running = false;
                 memberMap.forEach((t, member) -> {
                     JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
@@ -278,7 +265,7 @@ public final class JcCoreService {
         return secret;
     }
 
-    private PrimaryMemDesc getPrimaryMemberByDesc(JcAppDescriptor jad) {
+    private MemSimpleDesc getPrimaryMemberByDesc(JcAppDescriptor jad) {
         return primaryMemberMap.keySet().stream()
                 .filter((t) -> t.sameAs(jad))
                 .findFirst()
@@ -289,7 +276,7 @@ public final class JcCoreService {
         List<String> memList = (List<String>) config.get("primaryMembers");
         if (memList != null) {
             for (String str : memList) {
-                primaryMemberMap.put(PrimaryMemDesc.createFromString(str), null);
+                primaryMemberMap.put(MemSimpleDesc.createFromString(str), null);
             }
         }
     }
@@ -306,7 +293,7 @@ public final class JcCoreService {
                 .orElse(null);
     }
 
-    protected JcMember getMemberByPMD(PrimaryMemDesc pmd) {
+    protected JcMember getMemberByPMD(MemSimpleDesc pmd) {
         return memberMap.values()
                 .stream()
                 .filter((t) -> pmd.sameAs(t.getDesc()))
@@ -314,14 +301,18 @@ public final class JcCoreService {
                 .orElse(null);
     }
 
-    protected void onNewManagedConnection(JcClientConnection con) {
+    protected synchronized void onNewManagedConnection(JcClientConnection con) {
         JcClientManagedConnection mng = (JcClientManagedConnection) con;
         String instanceId = mng.remoteAppDesc.getInstanceId();
 
         JcMember newMember = new JcMember(mng, this, metrics.getOrCreateMemMetric(instanceId));
+        JcMember oldMem = memberMap.get(instanceId);
+        if (oldMem != null) {
+            LOG.trace("Creating manged conneciton[{}] from same time concurently!", oldMem.getId());
+        }
         memberMap.put(instanceId, newMember);
 
-        PrimaryMemDesc primaryMemberByDesc = getPrimaryMemberByDesc(mng.remoteAppDesc);
+        MemSimpleDesc primaryMemberByDesc = getPrimaryMemberByDesc(mng.remoteAppDesc);
         if (primaryMemberByDesc != null) {
             primaryMemberMap.put(primaryMemberByDesc, instanceId);
         }
@@ -336,8 +327,12 @@ public final class JcCoreService {
         if (mem == null) {
             try {
                 JcAppDescriptor jad = msg.getSrcDesc();
-
-                JcClientManagedConnection.createNew(jad.getIpAddress(), jad.getIpPort(), this::onNewManagedConnection);
+                if (!jad.isIsolated()) {
+                    synchronized (toConnectList) {
+                        toConnectList.add(new MemSimpleDesc(jad.getIpAddress(), jad.getIpPort()));
+                    }
+//                    JcClientManagedConnection.createNew(jad.getIpAddress(), jad.getIpPort(), this::onNewManagedConnection);
+                }
             } catch (Exception ex) {
                 LOG.info(null, ex);
             }
@@ -421,13 +416,15 @@ public final class JcCoreService {
         filter.addFilterValue(mem.getDesc().getInstanceId());
 
         MemberEvent ev = new MemberEvent(mem, MemberEvent.TYPE_ADD);
-        memberEventList.forEach((e) -> {
-            try {
-                e.onEvent(ev);
-            } catch (Exception ex) {
-                LOG.error(null, ex);
-            }
-        });
+        synchronized (memberEventList) {
+            memberEventList.forEach((e) -> {
+                try {
+                    e.onEvent(ev);
+                } catch (Exception ex) {
+                    LOG.error(null, ex);
+                }
+            });
+        }
     }
 
     protected void onMemberRemove(JcMember mem, String reason) {
@@ -443,13 +440,15 @@ public final class JcCoreService {
         filter.removeFilterValue(mem.getDesc().getInstanceId());
 
         MemberEvent ev = new MemberEvent(mem, MemberEvent.TYPE_REMOVE);
-        memberEventList.forEach((e) -> {
-            try {
-                e.onEvent(ev);
-            } catch (Exception ex) {
-                LOG.error(null, ex);
-            }
-        });
+        synchronized (memberEventList) {
+            memberEventList.forEach((e) -> {
+                try {
+                    e.onEvent(ev);
+                } catch (Exception ex) {
+                    LOG.error(null, ex);
+                }
+            });
+        }
 
     }
 
@@ -516,27 +515,39 @@ public final class JcCoreService {
     }
 
     private void checkPrimaryMemState() {
-        List<PrimaryMemDesc> toConnect = primaryMemberMap.entrySet()
-                .stream()
-                .filter(t -> t.getValue() == null)
-                .map((t) -> t.getKey())
-                .collect(Collectors.toList());
 
-        for (PrimaryMemDesc pmd : toConnect) {
-            try {
-                if (pmd.sameAs(selfDesc)) {
-                    continue;
-                } else {
-                    JcMember memberByPMD = getMemberByPMD(pmd);
-                    if (memberByPMD != null) {
-                        primaryMemberMap.put(pmd, memberByPMD.getId());
-                        continue;
+        for (Map.Entry<MemSimpleDesc, String> entry : primaryMemberMap.entrySet()) {
+            MemSimpleDesc pmd = entry.getKey();
+            String memId = entry.getValue();
+
+            if (memId == null) {
+                JcMember memberByPMD = getMemberByPMD(pmd);
+                if (memberByPMD != null) {
+                    primaryMemberMap.replace(pmd, memberByPMD.getId());
+                } else if (!pmd.sameAs(selfDesc)) {
+                    try {
+                        synchronized (toConnectList) {
+                            toConnectList.add(new MemSimpleDesc(pmd.getIp(), pmd.getPort()));
+                        }
+
+                    } catch (Exception ex) {
+                        java.util.logging.Logger.getLogger(JcCoreService.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
-                JcClientManagedConnection.createNew(pmd.getIp(), pmd.getPort(), secret, this::onNewManagedConnection);
-            } catch (Exception e) {
-                LOG.warn(null, e);
+            } else if (!memberMap.containsKey(memId)) {
+                primaryMemberMap.replace(pmd, null);
             }
+        }
+
+        synchronized (toConnectList) {
+            for (MemSimpleDesc jad : toConnectList) {
+                try {
+                    JcClientManagedConnection.createNew(jad.getIp(), jad.getPort(), jad.getSecret(), this::onNewManagedConnection);
+                } catch (Exception ex) {
+                    LOG.error(null, ex);
+                }
+            }
+            toConnectList.clear();
         }
     }
 
@@ -548,27 +559,15 @@ public final class JcCoreService {
         for (Iterator<Map.Entry<String, JcMember>> iterator = memberMap.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<String, JcMember> entry = iterator.next();
 
-            String memId = entry.getKey();
             JcMember mem = entry.getValue();
-            if (mem.isLastSeenExpired()) {
-                LOG.warn("Jc Member:" + memId + " TIMEOUT!");
-                memberMap.remove(memId);
 
-                onMemberRemove(mem, "member timeout");
-            } else {
-                mem.sendPing(ping);
-//                LOG.warn("Jc Member:" + memId + " Sent ping to " + mem.getDesc().getAppName() + " port: " + mem.getId());
-
-                //validate all instances have no stuck connections
-                mem.validateTimeout();
-
-                //validate all instances have correct amount of outbound connections
-                //we have to check the app name because there is another apps that makes only inboudn connections
-                if (mem.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
-                        || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
-                    mem.validateOutboundConnectionCount(1);
-                }
+            mem.sendPing(ping);
+// 
+            if (mem.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
+                    || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {
+                mem.setOutboundRequired();
             }
+            mem.validate();
         }
     }
 
@@ -579,7 +578,7 @@ public final class JcCoreService {
             //LOG.info("JCluster Health_Checker cycle");
 
             try {
-                if (System.currentTimeMillis() - lastPrimaryMemUpdate > 2000) {
+                if (System.currentTimeMillis() - lastPrimaryMemUpdate > 5000) {
                     lastPrimaryMemUpdate = System.currentTimeMillis();
                     checkPrimaryMemState();
 
@@ -870,8 +869,13 @@ public final class JcCoreService {
     }
 
     public void addMemberEventListener(MemberEventListener listener) {
-
-        memberEventList.add(listener);
+        try {
+            synchronized (memberEventList) {
+                memberEventList.add(listener);
+            }
+        } catch (Exception e) {
+            LOG.error(null, e);
+        }
     }
 
     public Collection<FilterDescBean> getSelfFilterValues() {

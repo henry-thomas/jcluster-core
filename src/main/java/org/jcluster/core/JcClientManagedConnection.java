@@ -8,17 +8,14 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.security.GeneralSecurityException;
-import java.security.InvalidKeyException;
 import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.EncodedKeySpec;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
-//import java.util.logging.Level;
-//import java.util.logging.Logger;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
 import org.jcluster.core.bean.JcConnectionListener;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
@@ -26,7 +23,7 @@ import org.jcluster.core.exception.JcRuntimeException;
 
 /*
             Managed Con
- Client                   Server
+ Client                   Server 
     |                       |
     |   ----REQ Desc ---->  |
     |                       |
@@ -46,6 +43,15 @@ import org.jcluster.core.exception.JcRuntimeException;
     |                       |
             COMPLETE 
 
+Server = connection has been accepted
+Client = connection has been initiaed 
+
+            1. To avoid concurrent creation of managed connection ones connection
+               has been created, durrin member is put into core map,we need to check
+               if conenciton already exist, if yes one of the connection needs to be destroy,
+               if we always destroy older conneciton this can lead to race condition.
+               To avoid this the two sides instance ID must be compared and higher ID 
+               must always drop server and lower must always drop client.
  */
 /**
  *
@@ -55,7 +61,9 @@ import org.jcluster.core.exception.JcRuntimeException;
  */
 public class JcClientManagedConnection extends JcClientConnection {
 
-    private final boolean isIncoming;
+    private static final HashMap<String, List<JcClientManagedConnection>> remInstMngConMap = new HashMap<>();
+    private final boolean server;
+
     private String ipAddress;
     private String password;
     private String remoteConnectionId;
@@ -64,12 +72,14 @@ public class JcClientManagedConnection extends JcClientConnection {
 
     private boolean useEncryption = false;
 
+    private boolean mustClose = false;
+
     private JcClientManagedConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         super(JcConnectionTypeEnum.MANAGED);
         this.setSocket(scb);
 
         this.incominHandshake = handShakeReq;
-        this.isIncoming = true;
+        this.server = true;
         this.startSelf();
     }
 
@@ -79,7 +89,7 @@ public class JcClientManagedConnection extends JcClientConnection {
         this.ipPort = ipPort;
         this.password = pass;
 
-        this.isIncoming = false;
+        this.server = false;
         this.startSelf();
     }
 
@@ -111,11 +121,16 @@ public class JcClientManagedConnection extends JcClientConnection {
     @Override
     public void run() {
         try {
-            if (isIncoming) {
+            if (server) {
                 onIncomingHandshake();
             } else {
                 startNewConnection();
             }
+            LOG.warn("Managed connection established to {}[{}] - {} in: {}ms",
+                    remoteAppDesc.getAppName(),
+                    remoteAppDesc.getInstanceId(),
+                    (isServer() ? "S" : "C"),
+                    System.currentTimeMillis() - startTimestamp);
 
             super.startConnectionProccessor();
         } catch (Exception ex) {
@@ -126,6 +141,44 @@ public class JcClientManagedConnection extends JcClientConnection {
         if (getMember() != null) {
             getMember().destroy(cloaseReason);
         }
+        removeConn();
+
+    }
+
+    private boolean isHigherPriority() {
+        return JcCoreService.getSelfDesc().getInstanceId().compareTo(remoteAppDesc.getInstanceId()) > 0;
+    }
+
+    private void removeConn() {
+        String remInstanceId = remoteAppDesc.getInstanceId();
+        synchronized (remInstMngConMap) {
+            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
+            list.remove(this);
+        }
+    }
+
+    private boolean validateConnAndAdd() {
+        String remInstanceId = remoteAppDesc.getInstanceId();
+        synchronized (remInstMngConMap) {
+            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
+            if (list == null) {
+                list = new ArrayList<>();
+                remInstMngConMap.put(remInstanceId, list);
+            }
+
+            for (JcClientManagedConnection mngCon : list) {
+                if (mngCon.server == server) {
+                    return false;
+                }
+                if ((isHigherPriority() && server) || (!isHigherPriority() && !server)) {
+                    return false;
+                }
+                mngCon.cloaseReason = "Concurent connecteion established " + this;
+                mngCon.mustClose = true;
+            }
+            list.add(this);
+        }
+        return true;
     }
 
     private void startNewConnection() throws Exception {
@@ -149,7 +202,7 @@ public class JcClientManagedConnection extends JcClientConnection {
             throw new JcRuntimeException("Timeout for expected request public key");
         }
         if (handshakeRespPubKey.getFrameType() != JcHandhsakeFrame.TYPE_RESP_PUBKEY) {
-            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_PUBKEY + "] found [" + handshakeRespPubKey.getFrameType() + "]");
+            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_PUBKEY + "] found [" + handshakeRespPubKey.getFrameType() + "]  ConType: " + isServer());
         }
         this.remoteAppDesc = handshakeRespPubKey.getRemoteAppDesc();
 
@@ -176,17 +229,25 @@ public class JcClientManagedConnection extends JcClientConnection {
             if (handshakeRespAuthResp.getFrameType() != JcHandhsakeFrame.TYPE_RESP_AUTH_FAIL) {
                 throw new JcRuntimeException("Authenticatoin fail member: " + remoteAppDesc + "] found [" + ipAddress + ":" + ipPort + "]");
             }
-            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_AUTH_SUCCESS + "] found [" + handshakeRespAuthResp.getFrameType() + "]");
+            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_AUTH_SUCCESS + "] found [" + handshakeRespAuthResp.getFrameType() + "] ConType: " + isServer());
         }
 
         //this should containe the connectionId 
         //Success
         this.remoteConnectionId = (String) handshakeRespAuthResp.getData();
 
-        JcHandhsakeFrame handshakeUpdateConId = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
-        handshakeUpdateConId.setFrameType(JcHandhsakeFrame.TYPE_RESP_UPDATE_CONID);
-        handshakeUpdateConId.setData(this.getConnId());
-        writeAndFlushToOOS(handshakeUpdateConId);
+        if (validateConnAndAdd()) {
+            JcHandhsakeFrame handshakeUpdateConId = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
+            handshakeUpdateConId.setFrameType(JcHandhsakeFrame.TYPE_RESP_UPDATE_CONID);
+            handshakeUpdateConId.setData(this.getConnId());
+            writeAndFlushToOOS(handshakeUpdateConId);
+        } else {
+            JcHandhsakeFrame handshakeUpdateConId = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
+            handshakeUpdateConId.setFrameType(JcHandhsakeFrame.TYPE_ERR_CONCURR);
+            handshakeUpdateConId.setData(this.getConnId());
+            writeAndFlushToOOS(handshakeUpdateConId);
+            throw new JcRuntimeException("Concurrent managed connection[{}] deopped  ConType: " + (isServer() ? "S" : "C"));
+        }
     }
 
     private void onIncomingHandshake() throws Exception {
@@ -213,7 +274,7 @@ public class JcClientManagedConnection extends JcClientConnection {
             throw new JcRuntimeException("Timeout for expected request authentication");
         }
         if (handshakeRequestAuth.getFrameType() != JcHandhsakeFrame.TYPE_REQ_AUTH) {
-            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_REQ_AUTH + "] found [" + handshakeRequestAuth.getFrameType() + "]");
+            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_REQ_AUTH + "] found [" + handshakeRequestAuth.getFrameType() + "] ConType: " + isServer());
         }
         boolean succes = authenticate((byte[]) handshakeRequestAuth.getData());
 
@@ -221,10 +282,18 @@ public class JcClientManagedConnection extends JcClientConnection {
             throw new JcRuntimeException("Authentication fail");
         }
 
-        handshakeResponse = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
-        handshakeResponse.setFrameType(JcHandhsakeFrame.TYPE_RESP_AUTH_SUCCESS);
-        handshakeResponse.setData(this.getConnId());
-        writeAndFlushToOOS(handshakeResponse);
+        if (validateConnAndAdd()) {
+            handshakeResponse = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
+            handshakeResponse.setFrameType(JcHandhsakeFrame.TYPE_RESP_AUTH_SUCCESS);
+            handshakeResponse.setData(this.getConnId());
+            writeAndFlushToOOS(handshakeResponse);
+        } else {
+            JcHandhsakeFrame handshakeUpdateConId = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
+            handshakeUpdateConId.setFrameType(JcHandhsakeFrame.TYPE_ERR_CONCURR);
+            handshakeUpdateConId.setData(this.getConnId());
+            writeAndFlushToOOS(handshakeUpdateConId);
+            throw new JcRuntimeException("Concurrent managed connection[{}] deopped  ConType: " + (isServer() ? "S" : "C"));
+        }
 
         //wait for receiving client conneciton ID
         JcHandhsakeFrame handshakClientConId = getHandshakeFromSocket(3);
@@ -232,7 +301,11 @@ public class JcClientManagedConnection extends JcClientConnection {
             throw new JcRuntimeException("Timeout for expected request authentication");
         }
         if (handshakClientConId.getFrameType() != JcHandhsakeFrame.TYPE_RESP_UPDATE_CONID) {
-            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_UPDATE_CONID + "] found [" + handshakClientConId.getFrameType() + "]");
+
+            if (handshakClientConId.getFrameType() == JcHandhsakeFrame.TYPE_ERR_CONCURR) {
+                throw new JcRuntimeException("Concurent connection err Closing:" + this);
+            }
+            throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_UPDATE_CONID + "] found [" + handshakClientConId.getFrameType() + "] ConType: " + isServer());
         }
         this.remoteConnectionId = (String) handshakClientConId.getData();
 
@@ -283,6 +356,15 @@ public class JcClientManagedConnection extends JcClientConnection {
 
     public String getRemoteConnectionId() {
         return remoteConnectionId;
+    }
+
+    @Override
+    public boolean isServer() {
+        return server;
+    }
+
+    public boolean mustClose() {
+        return mustClose;
     }
 
 }
