@@ -13,7 +13,7 @@ public enum JcConnectionTypeEnum {
     OUTBOUND,
     MANAGED;
 
-    public JcConnectionTypeEnum getOpposite() {
+    public JcConnectionTypeEnum getOppositeIo() {
         if (this == INBOUND) {
             return OUTBOUND;
         }

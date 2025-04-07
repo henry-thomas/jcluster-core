@@ -112,7 +112,7 @@ public class JcServerEndpoint implements Runnable {
                             break;
                         case INBOUND:// IO Connection
                         case OUTBOUND:// IO Connection
-                            JcClientIOConnection.createFormIncomingConnection(scb, handShakeReq);
+                            JcClientIOConnection.createFromIncomingConnection(scb, handShakeReq);
                             break;
                         default:
                             LOG.warn("handShakeReq with invalid connTyp=" + handShakeReq.getRequestedConnType());

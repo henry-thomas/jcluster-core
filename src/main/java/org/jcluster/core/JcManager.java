@@ -227,7 +227,15 @@ public class JcManager {
         }
 
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
-        config.put("selfIpAddress", getHostName());
+
+        String hostName = readProp("JC_HOSTNAME");
+        if (hostName == null || hostName.isEmpty()) {
+            config.put("selfIpAddress", null);
+        } else if (hostName.toLowerCase().equals("auto")) {
+            config.put("selfIpAddress", getHostName());
+        } else {
+            config.put("selfIpAddress", hostName);
+        }
 
         config.put("udpListenPort", getConfigUdpListenerPorts("JC_UDPLISTENER_PORTS", "4445-4448"));
         config.put("tcpListenPort", getConfigUdpListenerPorts("JC_TCPLISTENER_PORTS", "2201"));
@@ -275,21 +283,20 @@ public class JcManager {
     }
 
     private static String getHostName() {
-        String readProp = readProp("JC_HOSTNAME");
-        if (readProp.toLowerCase().equals("auto")) {
-            try {
-                String urlString = "http://ipecho.net/plain";
-                URL url = new URL(urlString);
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()))) {
-                    return br.readLine();
-                } catch (IOException ex) {
-                    LOG.error(null, ex);
-                }
-            }   catch (MalformedURLException ex) {
+        try {
+
+            String urlString = "http://ipecho.net/plain";
+            URL url = new URL(urlString);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()))) {
+                return br.readLine();
+            } catch (IOException ex) {
                 LOG.error(null, ex);
             }
+
+        } catch (MalformedURLException ex) {
+            java.util.logging.Logger.getLogger(JcManager.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return readProp;
+        return null;
     }
 
     private static List<Integer> getConfigUdpListenerPorts(String portRangeKey, String defaultValue) {

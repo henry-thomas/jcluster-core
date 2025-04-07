@@ -175,7 +175,6 @@ public class JcClientManagedConnection extends JcClientConnection {
             closeReason = "ManagedConnection Exception: " + ex.getMessage();
         } finally {
             if (remoteAppDesc != null) {
-                
 
                 removeConn();
 
@@ -183,10 +182,10 @@ public class JcClientManagedConnection extends JcClientConnection {
                 if (getMember() != null) {
                     getMember().onManagedConClose(closeReason);
                 }
-            }else{
+            } else {
                 //if this is null, this is not established connection attempt. Do nothing here
                 //this is attempt to connecto to prim member probably
-                
+
             }
         }
     }
@@ -215,6 +214,12 @@ public class JcClientManagedConnection extends JcClientConnection {
                                     break;
                                 case PUBLISH_FILTER:
                                     member.onFilterPublishMsg(msg);
+                                    break;
+                                case CREATE_IO:
+                                    JcConnectionTypeEnum type = (JcConnectionTypeEnum) msg.getData();
+                                    JcClientIOConnection.createNewConnection(this, type.getOppositeIo(), (con) -> {
+                                        member.addConnection(con);
+                                    });
                                     break;
                                 case LEAVE:
                                     if (msg.getData() != null) {

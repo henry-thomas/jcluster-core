@@ -89,6 +89,9 @@ public class JcAppDescriptor implements Serializable {
 
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
+        if (ipAddress == null) {
+            isolated = true;
+        }
     }
 
     public byte[] getPublicKey() {
