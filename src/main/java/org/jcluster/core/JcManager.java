@@ -5,7 +5,12 @@
 package org.jcluster.core;
 
 import ch.qos.logback.classic.Logger;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.reflect.Proxy;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.logging.Level;
 import javax.enterprise.concurrent.ManagedExecutorService;
 import javax.enterprise.concurrent.ManagedThreadFactory;
 import javax.naming.NamingException;
@@ -104,7 +110,6 @@ public class JcManager {
             return filteredSend(pm, args);
         }
 
-        
         JcMember ri = getSingleInstance(pm, args);
         if (ri != null) {
             return ri.send(pm, args);
@@ -222,7 +227,7 @@ public class JcManager {
         }
 
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
-        config.put("selfIpAddress", readProp("JC_HOSTNAME"));
+        config.put("selfIpAddress", getHostName());
 
         config.put("udpListenPort", getConfigUdpListenerPorts("JC_UDPLISTENER_PORTS", "4445-4448"));
         config.put("tcpListenPort", getConfigUdpListenerPorts("JC_TCPLISTENER_PORTS", "2201"));
@@ -267,6 +272,24 @@ public class JcManager {
             config.put("topics", tset);
         }
         return config;
+    }
+
+    private static String getHostName() {
+        String readProp = readProp("JC_HOSTNAME");
+        if (readProp.toLowerCase().equals("auto")) {
+            try {
+                String urlString = "http://ipecho.net/plain";
+                URL url = new URL(urlString);
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()))) {
+                    return br.readLine();
+                } catch (IOException ex) {
+                    LOG.error(null, ex);
+                }
+            }   catch (MalformedURLException ex) {
+                LOG.error(null, ex);
+            }
+        }
+        return readProp;
     }
 
     private static List<Integer> getConfigUdpListenerPorts(String portRangeKey, String defaultValue) {
