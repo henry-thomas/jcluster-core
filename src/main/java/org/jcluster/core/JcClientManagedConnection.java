@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -15,11 +16,22 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.Cipher;
+import static org.jcluster.core.JcClientConnection.LOG;
 import org.jcluster.core.bean.JcConnectionListener;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
 import org.jcluster.core.exception.JcRuntimeException;
+import org.jcluster.core.messages.JcDistMsg;
+import org.jcluster.core.messages.JcDistMsgType;
+import static org.jcluster.core.messages.JcDistMsgType.PING;
+import static org.jcluster.core.messages.JcDistMsgType.PUBLISH_FILTER;
+import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
+import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE_RESP;
+import org.jcluster.core.monitor.JcMemberMetrics;
+import org.jcluster.core.monitor.JcMetrics;
 
 /*
             Managed Con
@@ -73,6 +85,8 @@ public class JcClientManagedConnection extends JcClientConnection {
     private boolean useEncryption = false;
 
     private boolean mustClose = false;
+    private static int mngConnCounter = 100;
+    private int counterId = 0;
 
     private JcClientManagedConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         super(JcConnectionTypeEnum.MANAGED);
@@ -80,6 +94,7 @@ public class JcClientManagedConnection extends JcClientConnection {
 
         this.incominHandshake = handShakeReq;
         this.server = true;
+        this.counterId = mngConnCounter++;
         this.startSelf();
     }
 
@@ -90,32 +105,52 @@ public class JcClientManagedConnection extends JcClientConnection {
         this.password = pass;
 
         this.server = false;
+        this.counterId = mngConnCounter++;
         this.startSelf();
     }
 
-    public static JcClientManagedConnection createNew(String ipAddress, int ipPort, JcConnectionListener onConnectCb) throws Exception {
-        return createNew(ipAddress, ipPort, null, onConnectCb);
+    public static JcClientManagedConnection createNew(String ipAddress, int ipPort) throws Exception {
+        return createNew(ipAddress, ipPort, null);
     }
 
+//    public static JcClientManagedConnection createNew(String ipAddress, int ipPort, String pass) throws Exception {
+//        return createNew(ipAddress, ipPort, pass, null);
+//
+//    }
     public static JcClientManagedConnection createNew(String ipAddress, int ipPort, String pass) throws Exception {
-        return createNew(ipAddress, ipPort, pass, null);
-
-    }
-
-    public static JcClientManagedConnection createNew(String ipAddress, int ipPort, String pass, JcConnectionListener onConnectCb) throws Exception {
         JcClientManagedConnection con = new JcClientManagedConnection(ipAddress, ipPort, pass);
-        con.onConnectListener = onConnectCb;
+//        con.onConnectListener = onConnectCb;
         return con;
     }
 
-    public static JcClientManagedConnection createFormIncomingConnection(SerializedConnectionBean clientCon, JcHandhsakeFrame handShakeReq) throws Exception {
-        return createFormIncomingConnection(clientCon, handShakeReq, null);
-    }
-
-    public static JcClientManagedConnection createFormIncomingConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq, JcConnectionListener onConnectCb) throws Exception {
+//    public static JcClientManagedConnection createFormIncomingConnection(SerializedConnectionBean clientCon, JcHandhsakeFrame handShakeReq) throws Exception {
+//        return createFormIncomingConnection(clientCon, handShakeReq);
+//    }
+    public static JcClientManagedConnection createFormIncomingConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         JcClientManagedConnection con = new JcClientManagedConnection(scb, handShakeReq);
-        con.onConnectListener = onConnectCb;
+//        con.onConnectListener = onConnectCb;
         return con;
+    }
+
+    private void registerJcMemberWithCon() {
+        JcMetrics allMetrics = core.getAllMetrics();
+        JcMemberMetrics memMetric = allMetrics.getOrCreateMemMetric(remoteAppDesc.getInstanceId());
+
+        JcMember m = new JcMember(this, core, memMetric);
+        setMember(m);
+
+        core.onMemberAdd(m);
+    }
+
+    @Override
+    protected void setThreadName() {
+
+        Thread.currentThread().setName("JC-MngCon"
+                + "@" + getRemoteAppDesc().getAppName()
+                + "_" + getRemoteAppDesc().getInstanceId()
+                + "_" + (isServer() ? "S" : "C")
+                + "_" + this.counterId
+        );
     }
 
     @Override
@@ -126,23 +161,112 @@ public class JcClientManagedConnection extends JcClientConnection {
             } else {
                 startNewConnection();
             }
+            setThreadName();
+
+            registerJcMemberWithCon();
             LOG.warn("Managed connection established to {}[{}] - {} in: {}ms",
                     remoteAppDesc.getAppName(),
                     remoteAppDesc.getInstanceId(),
                     (isServer() ? "S" : "C"),
                     System.currentTimeMillis() - startTimestamp);
 
-            super.startConnectionProccessor();
+            startManagedReader();
         } catch (Exception ex) {
-            cloaseReason = "ManagedConnection Exception: " + ex.getMessage();
-        }
+            closeReason = "ManagedConnection Exception: " + ex.getMessage();
+        } finally {
+            if (remoteAppDesc != null) {
+                
 
-        LOG.warn("Connection shutdown", cloaseReason);
-        if (getMember() != null) {
-            getMember().destroy(cloaseReason);
-        }
-        removeConn();
+                removeConn();
 
+                LOG.warn("Connection shutdown", closeReason);
+                if (getMember() != null) {
+                    getMember().onManagedConClose(closeReason);
+                }
+            }else{
+                //if this is null, this is not established connection attempt. Do nothing here
+                //this is attempt to connecto to prim member probably
+                
+            }
+        }
+    }
+
+    private void startManagedReader() throws IOException {
+        while (running) {
+            try {
+                if (socket.isConnected()) {
+                    Object request = ois.readObject();
+                    if (request instanceof JcDistMsg) {
+                        JcDistMsg msg = (JcDistMsg) request;
+                        if (member == null) {
+                            LOG.trace("Member not set yet for Managed connection {}", this);
+                        }
+
+                        try {
+                            switch (msg.getType()) {
+                                case PING:
+                                    JcCoreService.getInstance().onPingMsg(msg);
+                                    break;
+                                case SUBSCRIBE:
+                                    JcCoreService.getInstance().onSubscRequestMsg(member, msg);
+                                    break;
+                                case SUBSCRIBE_RESP:
+                                    member.onSubscResponseMsg(msg);
+                                    break;
+                                case PUBLISH_FILTER:
+                                    member.onFilterPublishMsg(msg);
+                                    break;
+                                case LEAVE:
+                                    if (msg.getData() != null) {
+                                        closeReason = msg.getData().toString();
+                                    } else {
+                                        closeReason = "Received leave message from socket";
+                                    }
+                                    mustClose = true;
+                                    break;
+                                default:
+                                    LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
+                            }
+                        } catch (Exception e) {
+                            LOG.error(null, e);
+                        }
+                    } else {
+                        LOG.warn("Invalid msg type received in managed connection found: {} expected JcDistMsg", request.getClass());
+                    }
+
+                }
+//            } catch (IOException ex) {
+//                LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
+//
+//                destroy("Input stream IO Exception: " + ex.getMessage());
+//                member.getMetrics().getInbound().incErrCount();
+
+            } catch (ClassNotFoundException ex) {
+                //can not send response with failure, because we can not extract the message ID 
+//                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
+//                sendResponse(response);
+                LOG.warn(connId, ex);
+            }
+        }
+    }
+
+    protected void validate() {
+        if (mustClose && isRunning()) {
+            if (closeReason == null) {
+                closeReason = "Managed connection has been mark for removal";
+
+                JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
+                msg.setSrcDesc(core.selfDesc);
+                msg.setData(closeReason);
+                try {
+                    writeAndFlushToOOS(msg);
+                } catch (IOException ex) {
+                    Logger.getLogger(JcClientManagedConnection.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            super.destroy(closeReason);
+            //this will force the run method to execute finally block
+        }
     }
 
     private boolean isHigherPriority() {
@@ -150,11 +274,26 @@ public class JcClientManagedConnection extends JcClientConnection {
     }
 
     private void removeConn() {
+        if (remoteAppDesc == null) {
+            return;
+        }
         String remInstanceId = remoteAppDesc.getInstanceId();
         synchronized (remInstMngConMap) {
             List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
             list.remove(this);
         }
+    }
+
+    protected static JcMember getMemberById(String remInstanceId) {
+        synchronized (remInstMngConMap) {
+            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
+            if (list != null) {
+                if (!list.isEmpty()) {
+                    return list.get(0).getMember();
+                }
+            }
+        }
+        return null;
     }
 
     private boolean validateConnAndAdd() {
@@ -164,17 +303,29 @@ public class JcClientManagedConnection extends JcClientConnection {
             if (list == null) {
                 list = new ArrayList<>();
                 remInstMngConMap.put(remInstanceId, list);
+                list.add(this);
+                return true;
             }
 
             for (JcClientManagedConnection mngCon : list) {
                 if (mngCon.server == server) {
+                    LOG.info("Droping Concurent connection detected. " + this);
                     return false;
                 }
                 if ((isHigherPriority() && server) || (!isHigherPriority() && !server)) {
+                    LOG.info("Droping Concurent connection detected. " + this);
                     return false;
                 }
-                mngCon.cloaseReason = "Concurent connecteion established " + this;
                 mngCon.mustClose = true;
+                mngCon.closeReason = "Concurent connecteion established " + this;
+                try {
+                    mngCon.socket.close();
+                } catch (Exception ex) {
+                    LOG.error(null, ex);
+                }
+            }
+            if (!list.isEmpty()) {
+                LOG.info("Multiple connection in list. ");
             }
             list.add(this);
         }
@@ -334,7 +485,7 @@ public class JcClientManagedConnection extends JcClientConnection {
 
         byte[] secret;
         if (useEncryption) {
-            secret = JcCoreService.getInstance().decryptData(encriptedMsg);
+            secret = core.decryptData(encriptedMsg);
         } else {
             secret = encriptedMsg;
         }
@@ -342,9 +493,9 @@ public class JcClientManagedConnection extends JcClientConnection {
         if (secStr == null) {
             throw new JcRuntimeException("Auth fail! invalid password null!");
         }
-        String jcPass = JcCoreService.getInstance().getSecret();
+        String jcPass = core.getSecret();
         if (jcPass == null) {
-            jcPass = JcCoreService.getInstance().selfDesc.getInstanceId();
+            jcPass = core.selfDesc.getInstanceId();
         }
 
         boolean equals = secStr.equals(jcPass);
@@ -364,6 +515,7 @@ public class JcClientManagedConnection extends JcClientConnection {
     }
 
     public boolean mustClose() {
+
         return mustClose;
     }
 

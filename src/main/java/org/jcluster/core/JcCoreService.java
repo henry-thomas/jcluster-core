@@ -158,6 +158,7 @@ public final class JcCoreService {
                 memberMap.forEach((t, member) -> {
                     JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
                     msg.setSrcDesc(selfDesc);
+                    msg.setData("Shutdown");
                     member.sendManagedMessage(msg);
 
                     onMemberRemove(member, "JC CORE Shutdown ");
@@ -301,25 +302,6 @@ public final class JcCoreService {
                 .orElse(null);
     }
 
-    protected synchronized void onNewManagedConnection(JcClientConnection con) {
-        JcClientManagedConnection mng = (JcClientManagedConnection) con;
-        String instanceId = mng.remoteAppDesc.getInstanceId();
-
-        JcMember newMember = new JcMember(mng, this, metrics.getOrCreateMemMetric(instanceId));
-        JcMember oldMem = memberMap.get(instanceId);
-        if (oldMem != null) {
-            LOG.trace("Creating manged conneciton[{}] from same time concurently!", oldMem.getId());
-        }
-        memberMap.put(instanceId, newMember);
-
-        MemSimpleDesc primaryMemberByDesc = getPrimaryMemberByDesc(mng.remoteAppDesc);
-        if (primaryMemberByDesc != null) {
-            primaryMemberMap.put(primaryMemberByDesc, instanceId);
-        }
-
-        onMemberAdd(newMember);
-    }
-
     protected void onPingMsg(JcDistMsg msg) {
         JcAppDescriptor srcDesc = msg.getSrcDesc();
 //        String srcId = srcDesc.getInstanceId();
@@ -409,13 +391,25 @@ public final class JcCoreService {
         }
     }
 
-    private void onMemberAdd(JcMember mem) {
+    protected void onMemberAdd(JcMember newMember) {
+        String instanceId = newMember.getDesc().getInstanceId();
+        JcMember oldMem = memberMap.get(instanceId);
+        if (oldMem != null) {
+            LOG.trace("Creating manged conneciton[{}] from same time concurently!", oldMem.getId());
+        }
+        memberMap.put(instanceId, newMember);
+
+        MemSimpleDesc primaryMemberByDesc = getPrimaryMemberByDesc(newMember.getDesc());
+        if (primaryMemberByDesc != null) {
+            primaryMemberMap.put(primaryMemberByDesc, instanceId);
+        }
+
         //Add from remote since we have him already
 //        mem.close();
-        RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
-        filter.addFilterValue(mem.getDesc().getInstanceId());
+        RemMembFilter filter = newMember.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
+        filter.addFilterValue(newMember.getDesc().getInstanceId());
 
-        MemberEvent ev = new MemberEvent(mem, MemberEvent.TYPE_ADD);
+        MemberEvent ev = new MemberEvent(newMember, MemberEvent.TYPE_ADD);
         synchronized (memberEventList) {
             memberEventList.forEach((e) -> {
                 try {
@@ -435,7 +429,6 @@ public final class JcCoreService {
             entry.getValue().removeSubscirber(mem.getId());
         });
 
-        //Remove from remote since we have him already
         RemMembFilter filter = mem.getOrCreateFilterTarget(AppMetricMonitorInterface.JC_INSTANCE_FILTER);
         filter.removeFilterValue(mem.getDesc().getInstanceId());
 
@@ -450,6 +443,10 @@ public final class JcCoreService {
             });
         }
 
+        JcMember replacementMember = JcClientManagedConnection.getMemberById(mem.getId());
+        if (replacementMember != null) {
+            onMemberAdd(replacementMember);
+        }
     }
 
     private void updateMemberSubscription(JcMember mem) {
@@ -542,7 +539,7 @@ public final class JcCoreService {
         synchronized (toConnectList) {
             for (MemSimpleDesc jad : toConnectList) {
                 try {
-                    JcClientManagedConnection.createNew(jad.getIp(), jad.getPort(), jad.getSecret(), this::onNewManagedConnection);
+                    JcClientManagedConnection.createNew(jad.getIp(), jad.getPort(), jad.getSecret());
                 } catch (Exception ex) {
                     LOG.error(null, ex);
                 }

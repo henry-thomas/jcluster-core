@@ -98,12 +98,12 @@ public class JcClientIOConnection extends JcClientConnection {
             super.startConnectionProccessor();
 
         } catch (Exception ex) {
-            cloaseReason = "IOConnection Exception: " + ex.getMessage();
+            closeReason = "IOConnection Exception: " + ex.getMessage();
         }
 
-        LOG.warn("Connection shutdown Readon {}   Con:{}", cloaseReason, this);
+        LOG.warn("Connection shutdown Readon {}   Con:{}", closeReason, this);
         if (getMember() != null) {
-            getMember().removeConnection(this, "IOConnection Exception: " + cloaseReason);
+            getMember().removeConnection(this, "IOConnection Exception: " + closeReason);
         }
     }
 

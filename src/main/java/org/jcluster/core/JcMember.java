@@ -57,45 +57,39 @@ public class JcMember {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcMember.class);
 
-    private boolean onDemandConnection = true;
-    private boolean conRequested = true;
     //contains pointers only to outbound connection for quick access
     private final RingConcurentList<JcClientConnection> outboundList = new RingConcurentList<>();
 
     //Inbound list is managed by an isolated instance, where the remote instance can't make the connection over the network.
     private final RingConcurentList<JcClientConnection> inboundList = new RingConcurentList<>();
 
-    private JcAppDescriptor desc;
-    private long lastSeen;
-    private String id;
+    private final JcAppDescriptor desc;
+    private final String id;
     private final JcCoreService core;
-
     private final JcClientManagedConnection managedConnection;
 
     //this is for verification and keep track if we are subscribe or not to a filter 
     //at this specific member
     //value is filterName
     private final Set<String> subscribtionSet = new HashSet<>();
-
     private final JcMemberMetrics metrics;
-
     private final Map<String, RemMembFilter> filterMap = new HashMap<>();
 
     private boolean outboundRequired = false;
     private boolean active = true;
+    private long lastSeen;
+    private boolean onDemandConnection = true;
+    private boolean conRequested = true;
 
     public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
         LOG.setLevel(Level.ALL);
         this.desc = managedClientCon.getRemoteAppDesc();
         this.managedConnection = managedClientCon;
-        this.managedConnection.setMember(this);
         this.core = core;
         this.metrics = metrics;
         lastSeen = System.currentTimeMillis();
         //after metrics are set 
-        if (desc != null) {
-            id = desc.getInstanceId();
-        }
+        id = desc.getInstanceId();
     }
 
     void verifyFilterIntegrity() {
@@ -349,8 +343,7 @@ public class JcMember {
 //                }
 //            }
 //        }
-        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - 1, getId());
-
+//        LOG.trace("Added: {} new JcClientConnections to {}", actualCount - 1, getId());
     }
 
     private void validateOutboundConnectionCount() {
@@ -377,30 +370,33 @@ public class JcMember {
     }
 
     public void validate() {
-        if (managedConnection.mustClose()) {
-            destroy(managedConnection.cloaseReason);
-        } else {
-            validateTimeout();
-            validateInboundConnectionCount();
-            validateOutboundConnectionCount();
-        }
+        managedConnection.validate();
+
+        validateTimeout();
+        validateInboundConnectionCount();
+        validateOutboundConnectionCount();
+
     }
 
-    public void destroy(String reason) {
-        if(!active){
+    protected void onManagedConClose(String reason) {
+        if (!active) {
             return;
         }
-        synchronized (this) {
-            active = false;
-            for (JcClientConnection conn : outboundList) {
-                conn.destroy(reason);
+        try {
+
+            synchronized (this) {
+                active = false;
+                for (JcClientConnection conn : outboundList) {
+                    conn.destroy(reason);
+                }
+                for (JcClientConnection conn : inboundList) {
+                    conn.destroy(reason);
+                }
+                outboundList.clear();
+                inboundList.clear();
             }
-            for (JcClientConnection conn : inboundList) {
-                conn.destroy(reason);
-            }
-            outboundList.clear();
-            inboundList.clear();
-            managedConnection.destroy(reason);
+        } catch (Exception e) {
+            LOG.error(null, e);
         }
         JcCoreService.getInstance().onMemberRemove(this, reason);
     }

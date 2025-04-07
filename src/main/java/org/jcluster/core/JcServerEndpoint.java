@@ -108,7 +108,7 @@ public class JcServerEndpoint implements Runnable {
                 } else {
                     switch (handShakeReq.getRequestedConnType()) {
                         case MANAGED:   // IO Managed
-                            JcClientManagedConnection.createFormIncomingConnection(scb, handShakeReq, JcCoreService.getInstance()::onNewManagedConnection);
+                            JcClientManagedConnection.createFormIncomingConnection(scb, handShakeReq);
                             break;
                         case INBOUND:// IO Connection
                         case OUTBOUND:// IO Connection

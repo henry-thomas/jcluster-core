@@ -28,17 +28,14 @@ import org.jcluster.core.exception.sockets.JcResponseTimeoutException;
 import org.slf4j.LoggerFactory;
 import org.jcluster.core.bean.JcConnectionListener;
 import org.jcluster.core.bean.SerializedConnectionBean;
-import org.jcluster.core.messages.JcDistMsg;
-import static org.jcluster.core.messages.JcDistMsgType.PING;
-import static org.jcluster.core.messages.JcDistMsgType.PUBLISH_FILTER;
-import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
-import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE_RESP;
 
 /**
  *
  * @autor Henry Thomas
  */
 public abstract class JcClientConnection implements Runnable {
+
+    protected JcCoreService core = JcCoreService.getInstance();
 
     private static int connCounter = 0;
 
@@ -56,11 +53,11 @@ public abstract class JcClientConnection implements Runnable {
 
     protected boolean initComplete = false;
 
-    private boolean running = true;
+    protected boolean running = true;
     private final JcConnectionTypeEnum connType;
-    private JcMember member;
+    protected JcMember member;
     protected final long startTimestamp = System.currentTimeMillis();
-    protected String cloaseReason = "Graceful shutdown";
+    protected String closeReason = "Graceful shutdown";
 
 //    private final JcRemoteInstanceConnectionBean memberRemConn;
     protected long lastDataTimestamp = currentTimeMillis();
@@ -180,17 +177,16 @@ public abstract class JcClientConnection implements Runnable {
         return connType;
     }
 
-    protected final void startConnectionProccessor() throws IOException {
+    protected void setThreadName() {
+
         Thread.currentThread().setName("JC-ClientCon-" + getType()
                 + "@" + getRemoteAppDesc().getAppName()
                 + "_" + getRemoteAppDesc().getInstanceId()
                 + "_" + (isServer() ? "S" : "C"));
+    }
 
-        if (onConnectListener != null) {
-            new Thread(() -> {
-                onConnectListener.onConnectionEvent(this);
-            }).start();
-        }
+    protected final void startConnectionProccessor() throws IOException {
+        setThreadName();
 
         if (null != this.connType) {
             switch (this.connType) {
@@ -200,9 +196,7 @@ public abstract class JcClientConnection implements Runnable {
                 case INBOUND:
                     startInboundReader();
                     break;
-                case MANAGED:
-                    startManagedReader();
-                    break;
+
                 default:
                     break;
             }
@@ -289,58 +283,7 @@ public abstract class JcClientConnection implements Runnable {
 
     }
 
-    private void startManagedReader() throws IOException {
-        while (running) {
-            try {
-                if (socket.isConnected()) {
-                    Object request = ois.readObject();
-                    if (request instanceof JcDistMsg) {
-                        JcDistMsg msg = (JcDistMsg) request;
-                        if (member == null) {
-                            LOG.trace("Member not set yet for Managed connection {}", this);
-                        }
-
-                        try {
-                            switch (msg.getType()) {
-                                case PING:
-                                    JcCoreService.getInstance().onPingMsg(msg);
-                                    break;
-                                case SUBSCRIBE:
-                                    JcCoreService.getInstance().onSubscRequestMsg(member, msg);
-                                    break;
-                                case SUBSCRIBE_RESP:
-                                    member.onSubscResponseMsg(msg);
-                                    break;
-                                case PUBLISH_FILTER:
-                                    member.onFilterPublishMsg(msg);
-                                    break;
-                                default:
-                                    LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
-                            }
-                        } catch (Exception e) {
-                            LOG.error(null, e);
-                        }
-                    } else {
-                        LOG.warn("Invalid msg type received in managed connection found: {} expected JcDistMsg", request.getClass());
-                    }
-
-                }
-//            } catch (IOException ex) {
-//                LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
-//
-//                destroy("Input stream IO Exception: " + ex.getMessage());
-//                member.getMetrics().getInbound().incErrCount();
-
-            } catch (ClassNotFoundException ex) {
-                //can not send response with failure, because we can not extract the message ID 
-//                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
-//                sendResponse(response);
-                LOG.warn(connId, ex);
-            }
-        }
-    }
-
-    public void destroy(String reason) {
+    protected void destroy(String reason) {
         running = false;
         try {
             if (socket != null) {
@@ -395,7 +338,7 @@ public abstract class JcClientConnection implements Runnable {
 
     @Override
     public String toString() {
-        return "JcClientConnection{" + "connId=" + connId + ", connType=" + connType + '}';
+        return "JcClientConnection{" + "connId=" + connId + ", remote=" + remoteAppDesc + '}';
     }
 
     protected final JcHandhsakeFrame getHandshakeFromSocket(int timeoutSec) throws ExecutionException, TimeoutException, InterruptedException {
@@ -433,4 +376,5 @@ public abstract class JcClientConnection implements Runnable {
      * from server.accept() false if this instance initiated this connection
      */
     public abstract boolean isServer();
+
 }
