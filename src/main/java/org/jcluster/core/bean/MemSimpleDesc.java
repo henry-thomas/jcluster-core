@@ -5,6 +5,7 @@
 package org.jcluster.core.bean;
 
 import java.util.Objects;
+import org.jcluster.core.JcManager;
 
 /**
  *
@@ -31,14 +32,18 @@ public class MemSimpleDesc {
     }
 
     public static MemSimpleDesc createFromString(String template) {
-        String[] split = template.split(":");
-        if (split.length < 2) {
+        String[] split = template.split(":"); 
+        if (split.length == 0) {
             return null;
         }
-
+      
         MemSimpleDesc desc = new MemSimpleDesc();
         desc.ip = split[0];
-        desc.port = Integer.parseInt(split[1]);
+        if (split.length >= 2) {
+            desc.port = Integer.parseInt(split[1]);
+        } else {
+            desc.port = JcManager.DEFAULT_IPPORT;
+        }
 
         if (split.length >= 3) {
             desc.secret = split[2];
