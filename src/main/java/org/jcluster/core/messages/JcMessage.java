@@ -77,4 +77,11 @@ public class JcMessage implements Serializable {
         return lock;
     }
 
+    @Override
+    public String toString() {
+        return "JcMessage{" + "requestId=" + requestId + ", methodSignature=" + methodSignature + ", className=" + className + ", response=" + response + '}';
+    }
+    
+    
+
 }

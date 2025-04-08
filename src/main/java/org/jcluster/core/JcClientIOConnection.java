@@ -7,8 +7,6 @@ package org.jcluster.core;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.jcluster.core.bean.JcConnectionListener;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
@@ -60,11 +58,11 @@ public class JcClientIOConnection extends JcClientConnection {
         this.startSelf();
     }
 
-    public static JcClientIOConnection createFormIncomingConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
-        return createFormIncomingConnection(scb, handShakeReq, null);
+    public static JcClientIOConnection createFromIncomingConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
+        return createFromIncomingConnection(scb, handShakeReq, null);
     }
 
-    public static JcClientIOConnection createFormIncomingConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq, JcConnectionListener onConnectCb) throws Exception {
+    public static JcClientIOConnection createFromIncomingConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq, JcConnectionListener onConnectCb) throws Exception {
         JcClientIOConnection jcIO = new JcClientIOConnection(scb, handShakeReq);
         jcIO.onConnectListener = onConnectCb;
         return jcIO;
@@ -142,6 +140,9 @@ public class JcClientIOConnection extends JcClientConnection {
 
         JcHandhsakeFrame joinReq = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
         joinReq.setFrameType(JcHandhsakeFrame.TYPE_REQ_IO_JOIN);
+        
+//        JcConnectionTypeEnum type = mngCon.remoteAppDesc.isIsolated() ? JcConnectionTypeEnum.OUTBOUND : JcConnectionTypeEnum.INBOUND;
+        
         joinReq.setRequestedConnType(this.getType() == JcConnectionTypeEnum.OUTBOUND ? JcConnectionTypeEnum.INBOUND : JcConnectionTypeEnum.OUTBOUND);
         joinReq.setData(mngCon.getRemoteConnectionId());
         writeAndFlushToOOS(joinReq);

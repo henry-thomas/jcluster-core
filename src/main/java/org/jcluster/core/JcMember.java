@@ -6,43 +6,25 @@ package org.jcluster.core;
 
 import ch.qos.logback.classic.Level;
 import java.io.IOException;
-import java.net.DatagramSocket;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.messages.JcDistMsg;
 import ch.qos.logback.classic.Logger;
 import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import static java.lang.System.currentTimeMillis;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.jcluster.core.bean.FilterDescBean;
-import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
 import org.jcluster.core.exception.JcRuntimeException;
 import org.jcluster.core.exception.cluster.JcIOException;
-import org.jcluster.core.exception.fragmentation.JcFragmentationException;
 import org.jcluster.core.messages.JcDistMsgType;
 import org.jcluster.core.messages.JcMessage;
-import org.jcluster.core.messages.JcMsgFragment;
-import org.jcluster.core.messages.JcMsgFragmentData;
-import org.jcluster.core.messages.JcMsgFrgResendReq;
-import org.jcluster.core.messages.JcMsgResponse;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.MethodExecMetric;
@@ -360,13 +342,23 @@ public class JcMember {
         if (actualCount >= 1) {
             return;
         }
-        try {
-            JcClientIOConnection.createNewConnection(managedConnection, JcConnectionTypeEnum.OUTBOUND, (con) -> {
-                outboundList.add(con);
-            });
-        } catch (Exception e) {
-            LOG.warn(null, e);
+        //isolated
+        if (core.selfDesc.isIsolated()) {
+            JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.CREATE_IO);
+            jcDistMsg.setSrcDesc(core.selfDesc);
+            jcDistMsg.setData(JcConnectionTypeEnum.OUTBOUND);
+
+            sendManagedMessage(jcDistMsg);
+        } else {
+            try {
+                JcClientIOConnection.createNewConnection(managedConnection, JcConnectionTypeEnum.OUTBOUND, (con) -> {
+                    outboundList.add(con);
+                });
+            } catch (Exception e) {
+                LOG.warn(null, e);
+            }
         }
+
     }
 
     public void validate() {

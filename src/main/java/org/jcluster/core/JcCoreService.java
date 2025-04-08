@@ -208,7 +208,9 @@ public final class JcCoreService {
                     selfDesc.getTopicList().addAll((Collection<String>) topics);
                 }
                 if (config.containsKey("selfIpAddress")) {
+                    
                     selfDesc.setIpAddress((String) config.get("selfIpAddress"));
+                    
                 } else {
                     throw new JcRuntimeException("Missing property for [selfIpAddress]");
                 }
