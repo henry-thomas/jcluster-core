@@ -43,6 +43,7 @@ public class JcManager {
     private static final Properties startupProp = new Properties();
 
     private static final JcManager INSTANCE = new JcManager();
+    public static final int DEFAULT_IPPORT = 8201;
 
     private JcManager() {
     }
@@ -224,17 +225,16 @@ public class JcManager {
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
         config.put("selfIpAddress", readProp("JC_HOSTNAME"));
 
-        config.put("udpListenPort", getConfigUdpListenerPorts("JC_UDPLISTENER_PORTS", "4445-4448"));
-        config.put("tcpListenPort", getConfigUdpListenerPorts("JC_TCPLISTENER_PORTS", "2201"));
+        config.put("tcpListenPort", getConfigIpPort("JC_TCPLISTENER_PORTS", String.valueOf(DEFAULT_IPPORT)));
 
         String primMemberStr = readProp("JC_PRIMARY_MEMBER_ADDRESS");
         if (primMemberStr != null) {
             List<String> list = new ArrayList<>();
             String[] split = primMemberStr.split(",");
             for (String primMembSpl : split) {
-                if (!primMembSpl.contains(":")) {
-                    throw new JcRuntimeException("Primary member addres must container port. found: [" + primMembSpl + "] expected: ###.###.###.###:####");
-                }
+//                if (!primMembSpl.contains(":")) {
+//                    throw new JcRuntimeException("Primary member addres must container port. found: [" + primMembSpl + "] expected: ###.###.###.###:####");
+//                }
                 list.add(primMembSpl);
             }
 
@@ -269,7 +269,7 @@ public class JcManager {
         return config;
     }
 
-    private static List<Integer> getConfigUdpListenerPorts(String portRangeKey, String defaultValue) {
+    private static List<Integer> getConfigIpPort(String portRangeKey, String defaultValue) {
         List<Integer> list = new ArrayList<>();
         String strPort = readProp(portRangeKey, defaultValue);
         if (strPort != null) {
