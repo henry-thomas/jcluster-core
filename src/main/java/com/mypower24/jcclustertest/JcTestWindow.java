@@ -452,7 +452,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         }
         dtm.getDataVector().clear();
         for (JcMember m : memberList) {
-            dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTopicList(), m.getDesc().getInstanceId()});
+            dtm.addRow(new Object[]{m.getDesc().getTitle(), m.getDesc().getAppName(), m.getDesc().getTopicList(), m.getDesc().getInstanceId()});
         }
 //        lblAddress.setText(JcCoreService.getInstance().getSelfDesc().getIpStrPortStr());
         lblAppName.setText(JcCoreService.getInstance().getSelfDesc().getAppName());
@@ -1555,7 +1555,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
             },
             new String [] {
-                "Member ID", "App Name", "Topics", "Instance ID"
+                "Title", "App Name", "Topics", "Instance ID"
             }
         ) {
             Class[] types = new Class [] {
