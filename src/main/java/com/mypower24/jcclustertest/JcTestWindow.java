@@ -11,6 +11,8 @@ import com.mypower24.jcclustertest.customComp.JLogInterface;
 import com.mypower24.jcclustertest.customComp.LogTextArea;
 import com.mypower24.jcclustertest.remote.BroadcastIFace;
 import com.mypower24.jcclustertest.remote.BroadcastImpl;
+import com.mypower24.jcclustertest.tableModel.GenericBeanTableModel;
+import com.mypower24.jcclustertest.tableModel.JTableModelDescription;
 import java.awt.GridLayout;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
@@ -52,6 +54,10 @@ public class JcTestWindow extends javax.swing.JFrame {
     BroadcastIFace bcIFace = JcManager.generateProxy(BroadcastIFace.class);
 
     private final Set<JcMember> memberList = new HashSet<>();
+
+//       GenericBeanTableModel<JcAppDescriptor> memberList = new GenericBeanTableModel<JcAppDescriptor>(new JTableModelDescription("App name", "appName"),
+//            new JTableModelDescription("Title", "title")) {
+//    };
     private JcMember selectedMember = null;
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
@@ -101,7 +107,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
     protected final void updateTitle(String title) {
         boolean isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().
-    getInputArguments().toString().indexOf("jdwp") >= 0;;
+                getInputArguments().toString().indexOf("jdwp") >= 0;;
 
         if (isDebug) {
             this.setTitle("[DEBUG] " + title);
@@ -436,7 +442,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             dtm = (DefaultTableModel) tblMembers.getModel();
             dtm.getDataVector().clear();
             for (JcMember m : memberList) {
-                dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTopicList(), m.getDesc().getInstanceId()});
+                dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTitle()});
             }
         });
     }
@@ -452,11 +458,11 @@ public class JcTestWindow extends javax.swing.JFrame {
         }
         dtm.getDataVector().clear();
         for (JcMember m : memberList) {
-            dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTopicList(), m.getDesc().getInstanceId()});
+             dtm.addRow(new Object[]{m.getId(), m.getDesc().getAppName(), m.getDesc().getTitle()});
         }
-//        lblAddress.setText(JcCoreService.getInstance().getSelfDesc().getIpStrPortStr());
-        lblAppName.setText(JcCoreService.getInstance().getSelfDesc().getAppName());
-        instanceId.setText(JcCoreService.getInstance().getSelfDesc().getInstanceId());
+        lblAppName.setText(JcCoreService.getSelfDesc().getAppName());
+        selfTitle.setText(JcCoreService.getSelfDesc().getTitle());
+        instanceId.setText(JcCoreService.getSelfDesc().getInstanceId());
     }
 
     /**
@@ -622,6 +628,8 @@ public class JcTestWindow extends javax.swing.JFrame {
         jLabel8 = new javax.swing.JLabel();
         lblTcpListenAddr = new javax.swing.JLabel();
         lblInstanceId = new javax.swing.JLabel();
+        selfTitle = new javax.swing.JLabel();
+        jLabel15 = new javax.swing.JLabel();
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
         jMenu2 = new javax.swing.JMenu();
@@ -1555,14 +1563,14 @@ public class JcTestWindow extends javax.swing.JFrame {
 
             },
             new String [] {
-                "Member ID", "App Name", "Topics", "Instance ID"
+                "Member ID", "App Name", "Title"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.Object.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
             boolean[] canEdit = new boolean [] {
-                false, false, false, false
+                false, false, false
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -1664,6 +1672,10 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
+        selfTitle.setText("       ");
+
+        jLabel15.setText("Title:");
+
         javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
         jPanel8.setLayout(jPanel8Layout);
         jPanel8Layout.setHorizontalGroup(
@@ -1671,17 +1683,19 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel8Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jPanel22, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(jPanel8Layout.createSequentialGroup()
                         .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addComponent(jLabel11)
                             .addComponent(jLabel9)
-                            .addComponent(jLabel10))
+                            .addComponent(jLabel10)
+                            .addComponent(jLabel15))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(selfTitle, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(lblAddress, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(instanceId, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(lblAppName, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addComponent(jPanel22, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                            .addComponent(lblAppName, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
                 .addContainerGap())
         );
         jPanel8Layout.setVerticalGroup(
@@ -1699,6 +1713,10 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel11)
                     .addComponent(instanceId))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel15)
+                    .addComponent(selfTitle))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jPanel22, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -1765,9 +1783,9 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addContainerGap()
-                        .addComponent(jPanel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jPanel8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 436, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(jScrollPane1))
                     .addComponent(jTabbedPane1))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1939,6 +1957,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel12;
     private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel14;
+    private javax.swing.JLabel jLabel15;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
@@ -2000,6 +2019,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JLabel lblTcpListenAddr;
     private javax.swing.JTextArea logContainer;
     private javax.swing.JButton removeFilterValue1;
+    private javax.swing.JLabel selfTitle;
     private javax.swing.JTable tblFilterValues;
     private javax.swing.JTable tblFilters;
     private javax.swing.JTable tblInboundMethodExec;
