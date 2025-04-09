@@ -203,6 +203,9 @@ public final class JcCoreService {
                 if (config.containsKey("appName")) {
                     selfDesc.setAppName((String) config.get("appName"));
                 }
+                if (config.containsKey("title")) {
+                    selfDesc.setTitle((String) config.get("title"));
+                }
                 Object topics = config.get("topics");
                 if (topics != null) {
                     selfDesc.getTopicList().addAll((Collection<String>) topics);

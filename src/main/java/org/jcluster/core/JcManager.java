@@ -228,6 +228,7 @@ public class JcManager {
         }
 
         config.put("appName", readProp("JC_APP_NAME", "unknown"));
+        config.put("title", readProp("JC_TITLE", ""));
 
         String hostName = readProp("JC_HOSTNAME");
         if (hostName == null || hostName.isEmpty()) {
