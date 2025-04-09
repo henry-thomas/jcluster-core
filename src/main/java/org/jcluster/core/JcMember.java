@@ -343,7 +343,7 @@ public class JcMember {
             return;
         }
         //isolated
-        if (core.selfDesc.isIsolated()) {
+        if (core.selfDesc.isIsolated() || managedConnection.getRemoteAppDesc().getIpAddress().trim().isEmpty()) {
             JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.CREATE_IO);
             jcDistMsg.setSrcDesc(core.selfDesc);
             jcDistMsg.setData(JcConnectionTypeEnum.OUTBOUND);
