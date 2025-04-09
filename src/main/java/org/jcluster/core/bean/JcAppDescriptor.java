@@ -27,7 +27,8 @@ public class JcAppDescriptor implements Serializable {
     private int ipPort;
     boolean isolated = true;
     private byte[] publicKey;
-//    private int ipPortListenUDP;//this is list
+    private String title;
+    private final long startTimestamp = System.currentTimeMillis();
 
     public JcAppDescriptor() {
         this.instanceId = RandomStringUtils.random(16, true, true);
@@ -110,5 +111,19 @@ public class JcAppDescriptor implements Serializable {
     public void setAppName(String appName) {
         this.appName = appName;
     }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public long getStartTimestamp() {
+        return startTimestamp;
+    }
+
+
 
 }
