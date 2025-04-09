@@ -198,7 +198,11 @@ public class JcManager {
             }
         }
 
-        String prop = argMap.get("appName");
+        String prop = argMap.get("title");
+        if (prop != null) {
+            startupProp.put("JC_TITLE", prop);
+        }
+        prop = argMap.get("appName");
         if (prop != null) {
             startupProp.put("JC_APP_NAME", prop);
         }
