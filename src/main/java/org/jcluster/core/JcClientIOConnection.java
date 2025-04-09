@@ -99,7 +99,8 @@ public class JcClientIOConnection extends JcClientConnection {
             closeReason = "IOConnection Exception: " + ex.getMessage();
         }
 
-        LOG.warn("Connection shutdown Readon {}   Con:{}", closeReason, this);
+        LOG.warn("Connection shutdown Reason: [{}] Con: {}", closeReason, this);
+
         if (getMember() != null) {
             getMember().removeConnection(this, "IOConnection Exception: " + closeReason);
         }
@@ -140,9 +141,8 @@ public class JcClientIOConnection extends JcClientConnection {
 
         JcHandhsakeFrame joinReq = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
         joinReq.setFrameType(JcHandhsakeFrame.TYPE_REQ_IO_JOIN);
-        
+
 //        JcConnectionTypeEnum type = mngCon.remoteAppDesc.isIsolated() ? JcConnectionTypeEnum.OUTBOUND : JcConnectionTypeEnum.INBOUND;
-        
         joinReq.setRequestedConnType(this.getType() == JcConnectionTypeEnum.OUTBOUND ? JcConnectionTypeEnum.INBOUND : JcConnectionTypeEnum.OUTBOUND);
         joinReq.setData(mngCon.getRemoteConnectionId());
         writeAndFlushToOOS(joinReq);
@@ -164,6 +164,11 @@ public class JcClientIOConnection extends JcClientConnection {
     @Override
     public boolean isServer() {
         return server;
+    }
+
+    @Override
+    public String toString() {
+        return "IOCon{[" + getConnId() + "]-" + (server ? 'S' : 'C') + "- RemDesc:[" + getRemoteAppDesc() + " MngCon:[" + mngCon + "]} ";
     }
 
 }

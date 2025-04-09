@@ -257,6 +257,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
         // Variables declaration - do not modify                     
 
         prop.saveParam("appName", appName.getText());
+        prop.saveParam("title", title.getText());
         prop.saveParam("primaryMember", primaryMember.getText());
         prop.saveParam("txtSelfIp", txtSelfIp.getText());
         prop.saveParam("tcpPort", tcpPort.getText());
