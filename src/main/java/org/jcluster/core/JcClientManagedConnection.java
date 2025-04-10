@@ -87,6 +87,7 @@ public class JcClientManagedConnection extends JcClientConnection {
     private boolean mustClose = false;
     private static int mngConnCounter = 100;
     private int counterId = 0;
+    private int ioClientFailCounter = 0;
 
     private JcClientManagedConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         super(JcConnectionTypeEnum.MANAGED);
@@ -524,4 +525,18 @@ public class JcClientManagedConnection extends JcClientConnection {
         return mustClose;
     }
 
+    protected void incrementIoClientErr(){
+        ioClientFailCounter++;
+    }
+    protected void resetIoClientErr(){
+        ioClientFailCounter++;
+    }
+
+    public int getIoClientFailCounter() {
+        return ioClientFailCounter;
+    }
+
+   
+    
+    
 }
