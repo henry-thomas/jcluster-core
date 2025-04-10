@@ -29,4 +29,6 @@ public interface AppMetricMonitorInterface {
     public Map<String, String> getVisibleMembers(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 
     public void clearAllMetrics(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
+    
+    public String callRemote(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String remoteInstanceId);
 }

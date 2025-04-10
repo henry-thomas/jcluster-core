@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.ejb.Stateless;
 import org.jcluster.core.JcCoreService;
+import org.jcluster.core.JcManager;
 
 /**
  *
@@ -25,6 +26,12 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     @Override
     public String testReq(String instanceId) {
         return "Hello from me: " + JcCoreService.getInstance().getSelfDesc().getInstanceId();
+    }
+
+    @Override
+    public String callRemote(String instanceId, String remoteInstanceId) {
+        AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
+        return "Connection OK: " + metricsMonitor.testReq(remoteInstanceId);
     }
 
     @Override
