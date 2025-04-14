@@ -6,6 +6,7 @@ package org.jcluster.core.monitor;
 
 import java.util.Map;
 import java.util.Set;
+import org.jcluster.core.RemMembFilter;
 import org.jcluster.lib.annotation.JcFilter;
 import org.jcluster.lib.annotation.JcRemote;
 
@@ -25,6 +26,10 @@ public interface AppMetricMonitorInterface {
     public Map<String, Integer> getFilterList(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 
     public Set<Object> getFilterValues(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String filterName);
+    
+    public Map<String, Set<String>> getSubscAppFilterMap(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
+    
+    public Map<String, RemMembFilter> getMemFilterMap(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String memId);
 
     public Map<String, String> getVisibleMembers(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 

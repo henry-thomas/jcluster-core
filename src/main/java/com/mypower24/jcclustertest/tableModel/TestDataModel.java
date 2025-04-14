@@ -13,7 +13,7 @@ import org.jcluster.core.bean.JcAppDescriptor;
 public class TestDataModel extends javax.swing.JFrame {
 
     JTableModelJcAppDesc remMemList = new JTableModelJcAppDesc();
-    GenericBeanTableModel<JcAppDescriptor> anonimousClass = new GenericBeanTableModel<JcAppDescriptor>(new JTableModelDescription("App name", "appName"),
+    GenericBeanTableModel<JcAppDescriptor> anonimousClassList = new GenericBeanTableModel<JcAppDescriptor>(new JTableModelDescription("App name", "appName"),
             new JTableModelDescription("Title", "title")) {
     };
 
@@ -28,8 +28,8 @@ public class TestDataModel extends javax.swing.JFrame {
         remMemList.add(new JcAppDescriptor());
         
         
-        anonimousClass.add(new JcAppDescriptor());
-        anonimousClass.add(new JcAppDescriptor());
+        anonimousClassList.add(new JcAppDescriptor());
+        anonimousClassList.add(new JcAppDescriptor());
     }
 
     /**
@@ -51,7 +51,7 @@ public class TestDataModel extends javax.swing.JFrame {
         jTable1.setModel(remMemList);
         jScrollPane1.setViewportView(jTable1);
 
-        jTable2.setModel(anonimousClass);
+        jTable2.setModel(anonimousClassList);
         jScrollPane2.setViewportView(jTable2);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());

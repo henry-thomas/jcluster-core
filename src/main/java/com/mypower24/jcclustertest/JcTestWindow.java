@@ -31,6 +31,7 @@ import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcManager;
 import org.jcluster.core.JcMember;
 import org.jcluster.core.MemberEvent;
+import org.jcluster.core.RemMembFilter;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.JcConnMetrics;
@@ -49,15 +50,19 @@ public class JcTestWindow extends javax.swing.JFrame {
      * Creates new form JcTestWindow
      */
     private volatile boolean running = false;
-    AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
+    protected AppMetricMonitorInterface metricsMonitor = JcManager.generateProxy(AppMetricMonitorInterface.class);
     FilterTestIFace filterTestIFace = JcManager.generateProxy(FilterTestIFace.class);
     BroadcastIFace bcIFace = JcManager.generateProxy(BroadcastIFace.class);
+
+    private final VisibleMemPanel visMemPanel = new VisibleMemPanel(this);
 
     private final Set<JcMember> memberList = new HashSet<>();
 
 //       GenericBeanTableModel<JcAppDescriptor> memberList = new GenericBeanTableModel<JcAppDescriptor>(new JTableModelDescription("App name", "appName"),
 //            new JTableModelDescription("Title", "title")) {
 //    };
+   
+
     private JcMember selectedMember = null;
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
@@ -88,7 +93,6 @@ public class JcTestWindow extends javax.swing.JFrame {
         tblMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblVisibleMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tblVisibleMembers1.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         running = true;
         Thread t = new Thread(() -> {
@@ -182,18 +186,6 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         selectedMetricsMember = tblVisibleMembers.getValueAt(rowIdx, 1).toString();
         updateMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
-    }
-
-    private void onSelectedRemoteMemberChange() {
-        int rowIdx = tblVisibleMembers1.getSelectedRow();
-
-        if (rowIdx == -1) {
-            lblCallDesc.setText("Please select remote member");
-            return;
-        }
-
-        selectedRemoteMember = tblVisibleMembers1.getValueAt(rowIdx, 1).toString();
-        lblCallDesc.setText(selectedMember.getId() + "->" + selectedRemoteMember);
     }
 
     private void updateMetrics(JcMetrics metrics) {
@@ -337,6 +329,8 @@ public class JcTestWindow extends javax.swing.JFrame {
             log.info("Selected member is null: {}", memId);
             return;
         }
+        
+        visMemPanel.setSelectedMember(selectedMember);
 
         JcAppDescriptor desc = selectedMember.getDesc();
         lblInstanceId.setText(desc.getInstanceId());
@@ -441,18 +435,15 @@ public class JcTestWindow extends javax.swing.JFrame {
     private void updateVisibleMembersTable() {
 
         Map<String, String> visibleMembers = metricsMonitor.getVisibleMembers(selectedMember.getDesc().getInstanceId());
-
+        visMemPanel.updateVisibleMembersTable(visibleMembers);
         SwingUtilities.invokeLater(() -> {
             DefaultTableModel dtm = (DefaultTableModel) tblVisibleMembers.getModel();
-            DefaultTableModel dtm1 = (DefaultTableModel) tblVisibleMembers1.getModel();
 
             dtm.getDataVector().clear();
-            dtm1.getDataVector().clear();
             for (Map.Entry<String, String> entry : visibleMembers.entrySet()) {
                 String id = entry.getKey();
                 String appName = entry.getValue();
 
-                dtm1.addRow(new Object[]{appName, id});
                 dtm.addRow(new Object[]{appName, id});
             }
 
@@ -629,10 +620,6 @@ public class JcTestWindow extends javax.swing.JFrame {
         tblInboundMethodExecTotal = new javax.swing.JTable();
         execTestPanel = new javax.swing.JPanel();
         jPanel24 = new javax.swing.JPanel();
-        jScrollPane15 = new javax.swing.JScrollPane();
-        tblVisibleMembers1 = new javax.swing.JTable();
-        btnRemoteMemTest = new javax.swing.JButton();
-        lblCallDesc = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblMembers = new javax.swing.JTable();
         jPanel5 = new javax.swing.JPanel();
@@ -994,7 +981,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                         .addComponent(chckBxenableTopicBc)
                         .addGap(0, 0, Short.MAX_VALUE))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel23Layout.createSequentialGroup()
-                        .addGap(0, 256, Short.MAX_VALUE)
+                        .addGap(0, 265, Short.MAX_VALUE)
                         .addComponent(jLabel14)))
                 .addContainerGap())
         );
@@ -1144,7 +1131,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel14Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel14Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 451, Short.MAX_VALUE)
+                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 460, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel14Layout.setVerticalGroup(
@@ -1214,7 +1201,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel9.setLayout(jPanel9Layout);
         jPanel9Layout.setHorizontalGroup(
             jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 463, Short.MAX_VALUE)
+            .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 472, Short.MAX_VALUE)
         );
         jPanel9Layout.setVerticalGroup(
             jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1260,7 +1247,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel10.setLayout(jPanel10Layout);
         jPanel10Layout.setHorizontalGroup(
             jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 463, Short.MAX_VALUE)
+            .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 472, Short.MAX_VALUE)
         );
         jPanel10Layout.setVerticalGroup(
             jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1274,7 +1261,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel12Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 473, Short.MAX_VALUE)
+                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 482, Short.MAX_VALUE)
                     .addComponent(jPanel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         jPanel12Layout.setVerticalGroup(
@@ -1369,7 +1356,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel17Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel17Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 445, Short.MAX_VALUE)
+                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 454, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel17Layout.setVerticalGroup(
@@ -1453,7 +1440,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel20Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel20Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 445, Short.MAX_VALUE)
+                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 454, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel20Layout.setVerticalGroup(
@@ -1517,7 +1504,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel18Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel18Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 467, Short.MAX_VALUE)
+                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 476, Short.MAX_VALUE)
                     .addComponent(jPanel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         jPanel18Layout.setVerticalGroup(
@@ -1567,7 +1554,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         execTestPanel.setLayout(execTestPanelLayout);
         execTestPanelLayout.setHorizontalGroup(
             execTestPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 485, Short.MAX_VALUE)
+            .addGap(0, 494, Short.MAX_VALUE)
         );
         execTestPanelLayout.setVerticalGroup(
             execTestPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1578,75 +1565,21 @@ public class JcTestWindow extends javax.swing.JFrame {
         execTestPanel.setLayout(new GridLayout(0, 1, GAP, GAP));
         execTestPanel.setBorder(new EmptyBorder(GAP, GAP, GAP, GAP));execTestPanel.add(new ExecutionTestPanle(this));
 
-        tblVisibleMembers1.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null},
-                {null, null},
-                {null, null},
-                {null, null}
-            },
-            new String [] {
-                "App Name", "Instance ID"
-            }
-        ) {
-            Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class
-            };
-            boolean[] canEdit = new boolean [] {
-                false, false
-            };
-
-            public Class getColumnClass(int columnIndex) {
-                return types [columnIndex];
-            }
-
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit [columnIndex];
-            }
-        });
-        tblVisibleMembers1.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                tblVisibleMembers1MouseReleased(evt);
-            }
-        });
-        jScrollPane15.setViewportView(tblVisibleMembers1);
-
-        btnRemoteMemTest.setText("Test Connection");
-        btnRemoteMemTest.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnRemoteMemTestActionPerformed(evt);
-            }
-        });
-
-        lblCallDesc.setText("selMember -> remoteSelMember");
-
         javax.swing.GroupLayout jPanel24Layout = new javax.swing.GroupLayout(jPanel24);
         jPanel24.setLayout(jPanel24Layout);
         jPanel24Layout.setHorizontalGroup(
             jPanel24Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel24Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane15, javax.swing.GroupLayout.DEFAULT_SIZE, 479, Short.MAX_VALUE))
-            .addGroup(jPanel24Layout.createSequentialGroup()
-                .addGap(14, 14, 14)
-                .addGroup(jPanel24Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(btnRemoteMemTest)
-                    .addComponent(lblCallDesc))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGap(0, 494, Short.MAX_VALUE)
         );
         jPanel24Layout.setVerticalGroup(
             jPanel24Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel24Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jScrollPane15, javax.swing.GroupLayout.PREFERRED_SIZE, 235, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(lblCallDesc)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnRemoteMemTest)
-                .addContainerGap(440, Short.MAX_VALUE))
+            .addGap(0, 744, Short.MAX_VALUE)
         );
 
         jTabbedPane1.addTab("Visible Members", jPanel24);
+        jPanel24.setLayout(new GridLayout(0, 1, GAP, GAP));
+        jPanel24.setBorder(new EmptyBorder(GAP, GAP, GAP, GAP));
+        jPanel24.add(visMemPanel);
 
         jTabbedPane1.setSelectedIndex(3);
 
@@ -1748,7 +1681,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(jPanel22Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(lblTcpListenAddr)
                     .addComponent(lblInstanceId))
-                .addContainerGap(245, Short.MAX_VALUE))
+                .addContainerGap(236, Short.MAX_VALUE))
         );
         jPanel22Layout.setVerticalGroup(
             jPanel22Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1862,7 +1795,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 438, Short.MAX_VALUE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 429, Short.MAX_VALUE)
                             .addComponent(jPanel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jTabbedPane1)
@@ -1986,19 +1919,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         JcManager.addFilter(BroadcastIFace.SUBSCRIBED_APP_FILTER, selectedMember.getDesc().getInstanceId());
     }//GEN-LAST:event_btnAddMemTopicActionPerformed
 
-    private void tblVisibleMembers1MouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblVisibleMembers1MouseReleased
-        onSelectedRemoteMemberChange();
-    }//GEN-LAST:event_tblVisibleMembers1MouseReleased
-
-    private void btnRemoteMemTestActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRemoteMemTestActionPerformed
-         try {
-            info(metricsMonitor.callRemote(selectedMember.getId(), selectedRemoteMember));
-        } catch (Exception e) {
-            info(e.getMessage());
-        }
-    }//GEN-LAST:event_btnRemoteMemTestActionPerformed
-
-    private void info(String msg) {
+    protected void info(String msg) {
         JOptionPane.showMessageDialog(this, msg);
     }
 
@@ -2043,7 +1964,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JButton btnAddMemTopic;
     private javax.swing.JButton btnClearMetrics;
     private javax.swing.JButton btnRefreshFilters;
-    private javax.swing.JButton btnRemoteMemTest;
     private javax.swing.JButton btnRemoveMemTopic;
     private javax.swing.JButton btnTestFilterNumver;
     private javax.swing.JButton btnTestFilterString;
@@ -2105,7 +2025,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane12;
     private javax.swing.JScrollPane jScrollPane13;
     private javax.swing.JScrollPane jScrollPane14;
-    private javax.swing.JScrollPane jScrollPane15;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
@@ -2122,7 +2041,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private org.jcluster.core.bean.JcAppDescriptor jcAppDescriptor1;
     private javax.swing.JLabel lblAddress;
     private javax.swing.JLabel lblAppName;
-    private javax.swing.JLabel lblCallDesc;
     private javax.swing.JLabel lblInstanceId;
     private javax.swing.JLabel lblTcpListenAddr;
     private javax.swing.JTextArea logContainer;
@@ -2140,7 +2058,6 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JTable tblOutbountMetrics;
     private javax.swing.JTable tblOutbountMetricsTotal;
     private javax.swing.JTable tblVisibleMembers;
-    private javax.swing.JTable tblVisibleMembers1;
     private javax.swing.JTextField testFilterARFIterName;
     private javax.swing.JTextField testFilterARFIterVal;
     private javax.swing.JSpinner testFilterARFIteration;

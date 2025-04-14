@@ -102,7 +102,7 @@
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="0" attributes="0">
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="jScrollPane1" pref="438" max="32767" attributes="0"/>
+                          <Component id="jScrollPane1" pref="429" max="32767" attributes="0"/>
                           <Component id="jPanel8" max="32767" attributes="0"/>
                       </Group>
                       <EmptySpace min="-2" max="-2" attributes="0"/>
@@ -608,7 +608,7 @@
                                   <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                               </Group>
                               <Group type="102" alignment="1" attributes="0">
-                                  <EmptySpace min="0" pref="256" max="32767" attributes="0"/>
+                                  <EmptySpace min="0" pref="265" max="32767" attributes="0"/>
                                   <Component id="jLabel14" min="-2" max="-2" attributes="0"/>
                               </Group>
                           </Group>
@@ -895,7 +895,7 @@
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" attributes="0">
                                           <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="jScrollPane9" alignment="0" pref="451" max="32767" attributes="0"/>
+                                          <Component id="jScrollPane9" alignment="0" pref="460" max="32767" attributes="0"/>
                                           <EmptySpace max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -952,7 +952,7 @@
                                   <Group type="102" attributes="0">
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="jPanel9" pref="473" max="32767" attributes="0"/>
+                                          <Component id="jPanel9" pref="482" max="32767" attributes="0"/>
                                           <Component id="jPanel10" alignment="0" max="32767" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -985,7 +985,7 @@
                               <Layout>
                                 <DimensionLayout dim="0">
                                   <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="jScrollPane10" alignment="0" pref="463" max="32767" attributes="0"/>
+                                      <Component id="jScrollPane10" alignment="0" pref="472" max="32767" attributes="0"/>
                                   </Group>
                                 </DimensionLayout>
                                 <DimensionLayout dim="1">
@@ -1054,7 +1054,7 @@
                               <Layout>
                                 <DimensionLayout dim="0">
                                   <Group type="103" groupAlignment="0" attributes="0">
-                                      <Component id="jScrollPane8" alignment="0" pref="463" max="32767" attributes="0"/>
+                                      <Component id="jScrollPane8" alignment="0" pref="472" max="32767" attributes="0"/>
                                   </Group>
                                 </DimensionLayout>
                                 <DimensionLayout dim="1">
@@ -1254,7 +1254,7 @@
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" alignment="0" attributes="0">
                                           <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="jScrollPane12" alignment="0" pref="445" max="32767" attributes="0"/>
+                                          <Component id="jScrollPane12" alignment="0" pref="454" max="32767" attributes="0"/>
                                           <EmptySpace max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -1318,7 +1318,7 @@
                                   <Group type="102" attributes="0">
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Group type="103" groupAlignment="0" attributes="0">
-                                          <Component id="jPanel20" pref="467" max="32767" attributes="0"/>
+                                          <Component id="jPanel20" pref="476" max="32767" attributes="0"/>
                                           <Component id="jPanel19" alignment="0" max="32767" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -1353,7 +1353,7 @@
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" alignment="0" attributes="0">
                                           <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="jScrollPane14" pref="445" max="32767" attributes="0"/>
+                                          <Component id="jScrollPane14" pref="454" max="32767" attributes="0"/>
                                           <EmptySpace max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
@@ -1467,7 +1467,7 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <EmptySpace min="0" pref="485" max="32767" attributes="0"/>
+                  <EmptySpace min="0" pref="494" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
             <DimensionLayout dim="1">
@@ -1478,6 +1478,9 @@
           </Layout>
         </Container>
         <Container class="javax.swing.JPanel" name="jPanel24">
+          <AuxValues>
+            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jPanel24.setLayout(new GridLayout(0, 1, GAP, GAP));&#xa;jPanel24.setBorder(new EmptyBorder(GAP, GAP, GAP, GAP));&#xa;jPanel24.add(visMemPanel);"/>
+          </AuxValues>
           <Constraints>
             <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
               <JTabbedPaneConstraints tabName="Visible Members">
@@ -1489,71 +1492,15 @@
           <Layout>
             <DimensionLayout dim="0">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="0" attributes="0">
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="jScrollPane15" pref="479" max="32767" attributes="0"/>
-                  </Group>
-                  <Group type="102" alignment="0" attributes="0">
-                      <EmptySpace min="-2" pref="14" max="-2" attributes="0"/>
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="btnRemoteMemTest" min="-2" max="-2" attributes="0"/>
-                          <Component id="lblCallDesc" min="-2" max="-2" attributes="0"/>
-                      </Group>
-                      <EmptySpace max="32767" attributes="0"/>
-                  </Group>
+                  <EmptySpace min="0" pref="494" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
             <DimensionLayout dim="1">
               <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="0" attributes="0">
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="jScrollPane15" min="-2" pref="235" max="-2" attributes="0"/>
-                      <EmptySpace type="separate" max="-2" attributes="0"/>
-                      <Component id="lblCallDesc" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="btnRemoteMemTest" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace pref="440" max="32767" attributes="0"/>
-                  </Group>
+                  <EmptySpace min="0" pref="744" max="32767" attributes="0"/>
               </Group>
             </DimensionLayout>
           </Layout>
-          <SubComponents>
-            <Container class="javax.swing.JScrollPane" name="jScrollPane15">
-              <AuxValues>
-                <AuxValue name="autoScrollPane" type="java.lang.Boolean" value="true"/>
-              </AuxValues>
-
-              <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
-              <SubComponents>
-                <Component class="javax.swing.JTable" name="tblVisibleMembers1">
-                  <Properties>
-                    <Property name="model" type="javax.swing.table.TableModel" editor="org.netbeans.modules.form.editors2.TableModelEditor">
-                      <Table columnCount="2" rowCount="4">
-                        <Column editable="false" title="App Name" type="java.lang.String"/>
-                        <Column editable="false" title="Instance ID" type="java.lang.String"/>
-                      </Table>
-                    </Property>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="tblVisibleMembers1MouseReleased"/>
-                  </Events>
-                </Component>
-              </SubComponents>
-            </Container>
-            <Component class="javax.swing.JButton" name="btnRemoteMemTest">
-              <Properties>
-                <Property name="text" type="java.lang.String" value="Test Connection"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnRemoteMemTestActionPerformed"/>
-              </Events>
-            </Component>
-            <Component class="javax.swing.JLabel" name="lblCallDesc">
-              <Properties>
-                <Property name="text" type="java.lang.String" value="selMember -&gt; remoteSelMember"/>
-              </Properties>
-            </Component>
-          </SubComponents>
         </Container>
       </SubComponents>
     </Container>
@@ -1778,7 +1725,7 @@
                           <Component id="lblTcpListenAddr" min="-2" max="-2" attributes="0"/>
                           <Component id="lblInstanceId" min="-2" max="-2" attributes="0"/>
                       </Group>
-                      <EmptySpace pref="245" max="32767" attributes="0"/>
+                      <EmptySpace pref="236" max="32767" attributes="0"/>
                   </Group>
               </Group>
             </DimensionLayout>

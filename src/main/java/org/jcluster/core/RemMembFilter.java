@@ -6,9 +6,9 @@ package org.jcluster.core;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
 import org.jcluster.core.messages.PublishMsg;
@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author platar86
  */
-public class RemMembFilter {
+public class RemMembFilter  implements Serializable{
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(RemMembFilter.class);
 

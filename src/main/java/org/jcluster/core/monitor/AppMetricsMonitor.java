@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import javax.ejb.Stateless;
 import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcManager;
+import org.jcluster.core.RemMembFilter;
 
 /**
  *
@@ -54,6 +55,16 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     @Override
     public void clearAllMetrics(String instanceId) {
         JcCoreService.getInstance().getAllMetrics().clearAllMetrics();
+    }
+
+    @Override
+    public Map<String, Set<String>> getSubscAppFilterMap(String instanceId) {
+        return JcCoreService.getInstance().getSubscAppFilterMap();
+    }
+
+    @Override
+    public Map<String, RemMembFilter> getMemFilterMap(String instanceId, String memId) {
+        return JcCoreService.getMemberMap().get(memId).getFilterMap();
     }
 
 }

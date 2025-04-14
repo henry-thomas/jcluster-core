@@ -81,7 +81,22 @@ public abstract class GenericBeanTableModel<T> extends AbstractTableModel {
         fireTableRowsInserted(row, row);
     }
 
+    public void add(List<T> itemList) {
+        for (T item : itemList) {
+            items.add(item);
+            int row = items.indexOf(item);
+            fireTableRowsInserted(row, row);
+        }
+    }
+
+    public void clear() {
+        int size = items.size();
+        items.clear();
+            fireTableRowsDeleted(0, size);
+    }
+
     public void remove(T item) {
+
         if (items.contains(item)) {
             int row = items.indexOf(item);
             items.remove(row);

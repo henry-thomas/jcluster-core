@@ -896,4 +896,10 @@ public final class JcCoreService {
         serverEndpoint.server.isBound();
     }
 
+    public Map<String, Set<String>> getSubscAppFilterMap() {
+        return subscAppFilterMap;
+    }
+    
+    
+
 }

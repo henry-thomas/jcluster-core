@@ -500,4 +500,8 @@ public class JcMember {
         return active;
     }
 
+    public Map<String, RemMembFilter> getFilterMap() {
+        return filterMap;
+    }
+
 }
