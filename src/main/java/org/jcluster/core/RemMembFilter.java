@@ -11,6 +11,7 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
+import org.jcluster.core.messages.JcDistMsg;
 import org.jcluster.core.messages.PublishMsg;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +26,7 @@ public class RemMembFilter implements Serializable {
     private long trIdxMisses = 0;
     private long trIdx = 0;
     private long lastMissTimestamp = 0;
+    private long lastReceiveTimestamp = 0;
     private final Set<Object> valueSet = new HashSet<>();
 
     private final Queue<PublishMsg> bufferMessages = new ArrayDeque<>();
@@ -37,6 +39,22 @@ public class RemMembFilter implements Serializable {
         this.filterName = filterName;
 //        this.mem = mem;
         LOG.setLevel(Level.ALL);
+    }
+
+    public void onSubscribeStateResp(PublishMsg pm) {
+        long missing = pm.getTransCount() - trIdx;
+
+        trIdxMisses += missing;
+
+        LOG.info("Received Sub State Response: " + this);
+    }
+
+    public boolean isLastReceivedExp() {
+        return System.currentTimeMillis() - lastReceiveTimestamp > 5000;
+    }
+
+    public void resetLastReceived() {
+        lastReceiveTimestamp = System.currentTimeMillis();
     }
 
     public boolean containsFilterValue(Object val) {
@@ -53,6 +71,7 @@ public class RemMembFilter implements Serializable {
 
     public synchronized void onFilterPublishMsg(PublishMsg pm) {
         boolean mustVerifyIndex;
+        lastReceiveTimestamp = System.currentTimeMillis();
         if (inReset && (pm.getOperationType() == PublishMsg.OPER_TYPE_ADD || pm.getOperationType() == PublishMsg.OPER_TYPE_REMOVE)) {
             bufferMessages.add(pm);
             LOG.info("Filter [{}] received in Reset state. Add to buffer totalSize:{} ", filterName, bufferMessages.size());

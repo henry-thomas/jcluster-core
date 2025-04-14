@@ -372,6 +372,50 @@ public class JcMember {
         sendManagedMessage(jcDistMsg);
     }
 
+    private void validateSubscription() {
+        for (Map.Entry<String, RemMembFilter> entry : filterMap.entrySet()) {
+            String fName = entry.getKey();
+            RemMembFilter filter = entry.getValue();
+
+            if (filter.isLastReceivedExp()) {
+                JcDistMsg msg = new JcDistMsg(JcDistMsgType.SUBSCRIBE_STATE_REQ);
+                msg.setSrcDesc(JcCoreService.getSelfDesc());
+                msg.setData(filter.getFilterName());
+                sendManagedMessage(msg);
+                filter.resetLastReceived();
+            }
+
+        }
+    }
+
+    public void onSubscribeStateResp(JcDistMsg msg) {
+        PublishMsg pm = (PublishMsg) msg.getData();
+        String fName = pm.getFilterName();
+        RemMembFilter rmf= filterMap.get(fName);
+        rmf.onSubscribeStateResp(pm);
+    }
+
+    public void onSubscribeStateReq(JcDistMsg msg) {
+        if (msg.getData() != null) {
+            String fName = msg.getData().toString();
+            FilterDescBean selfFilterValues = JcCoreService.getInstance().getSelfFilterValues(fName);
+            if (selfFilterValues == null) {
+                LOG.warn("selfFilterValues is null for filter: " + fName);
+                return;
+            }
+
+            long transCount = selfFilterValues.getTransCount();
+            JcDistMsg resp = new JcDistMsg(JcDistMsgType.SUBSCRIBE_STATE_RESP);
+            msg.setSrcDesc(JcCoreService.getSelfDesc());
+            PublishMsg pm = new PublishMsg();
+            pm.setFilterName(fName);
+            pm.setTransCount(transCount);
+
+            msg.setData(pm);
+
+        }
+    }
+
     public void validate() {
         managedConnection.validate();
 

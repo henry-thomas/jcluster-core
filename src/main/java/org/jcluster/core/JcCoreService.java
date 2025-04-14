@@ -880,6 +880,10 @@ public final class JcCoreService {
         }
     }
 
+    public FilterDescBean getSelfFilterValues(String fName) {
+        return selfFilterValueMap.get(fName);
+    }
+    
     public Collection<FilterDescBean> getSelfFilterValues() {
         return selfFilterValueMap.values();
     }

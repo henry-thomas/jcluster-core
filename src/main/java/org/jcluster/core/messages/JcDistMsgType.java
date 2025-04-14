@@ -20,6 +20,8 @@ public enum JcDistMsgType {
     AUTH_REQ,
     AUTH_RESP,
     CREATE_IO,
+    SUBSCRIBE_STATE_REQ,
+    SUBSCRIBE_STATE_RESP,
 //    FRG_DATA,//
 //    FRG_ACK,//
 //    FRG_RESEND,//

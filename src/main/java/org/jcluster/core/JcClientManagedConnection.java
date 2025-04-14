@@ -230,6 +230,12 @@ public class JcClientManagedConnection extends JcClientConnection {
                                     }
                                     mustClose = true;
                                     break;
+                                case SUBSCRIBE_STATE_REQ:
+                                    member.onSubscribeStateReq(msg);
+                                    break;
+                                case SUBSCRIBE_STATE_RESP:
+                                    member.onSubscribeStateResp(msg);
+                                    break;
                                 default:
                                     LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
                             }
@@ -525,10 +531,11 @@ public class JcClientManagedConnection extends JcClientConnection {
         return mustClose;
     }
 
-    protected void incrementIoClientErr(){
+    protected void incrementIoClientErr() {
         ioClientFailCounter++;
     }
-    protected void resetIoClientErr(){
+
+    protected void resetIoClientErr() {
         ioClientFailCounter++;
     }
 
@@ -536,7 +543,4 @@ public class JcClientManagedConnection extends JcClientConnection {
         return ioClientFailCounter;
     }
 
-   
-    
-    
 }
