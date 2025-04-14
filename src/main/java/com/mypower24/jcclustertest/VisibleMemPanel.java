@@ -28,7 +28,8 @@ public class VisibleMemPanel extends javax.swing.JPanel {
     JcMember selectedMember;
     Map<String, RemMembFilter> fMap;
 
-    GenericBeanTableModel<RemMembFilter> filterNamesListModel = new GenericBeanTableModel<>(new JTableModelDescription("Filter Name", "filterName")) {
+    GenericBeanTableModel<RemMembFilter> filterNamesListModel = new GenericBeanTableModel<>(new JTableModelDescription("Filter Name", "filterName"),
+            new JTableModelDescription("Known Missing", "trIdxMisses"), new JTableModelDescription("Latest Trx", "trIdx")) {
         private static final long serialVersionUID = 1L;
     };
 

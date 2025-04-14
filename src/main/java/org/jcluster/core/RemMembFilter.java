@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author platar86
  */
-public class RemMembFilter  implements Serializable{
+public class RemMembFilter implements Serializable {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(RemMembFilter.class);
 
@@ -151,6 +151,14 @@ public class RemMembFilter  implements Serializable{
 
     public Set<Object> getValueSet() {
         return valueSet;
+    }
+
+    public long getTrIdxMisses() {
+        return trIdxMisses;
+    }
+
+    public long getTrIdx() {
+        return trIdx;
     }
 
 }
