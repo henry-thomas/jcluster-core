@@ -343,22 +343,33 @@ public class JcMember {
             return;
         }
         //isolated
-        if (core.selfDesc.isIsolated() || managedConnection.getRemoteAppDesc().getIpAddress().trim().isEmpty()) {
-            JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.CREATE_IO);
-            jcDistMsg.setSrcDesc(core.selfDesc);
-            jcDistMsg.setData(JcConnectionTypeEnum.OUTBOUND);
-
-            sendManagedMessage(jcDistMsg);
+        if (core.selfDesc.isIsolated()
+                || managedConnection.getRemoteAppDesc().getIpAddress().trim().isEmpty()
+                || managedConnection.getIoClientFailCounter() > 5) {
+            managedConnection.resetIoClientErr();
+            createReversedIoConnection();
         } else {
             try {
-                JcClientIOConnection.createNewConnection(managedConnection, JcConnectionTypeEnum.OUTBOUND, (con) -> {
-                    outboundList.add(con);
-                });
+                if (managedConnection.getIoClientFailCounter() > 5) {
+
+                } else {
+                    JcClientIOConnection.createNewConnection(managedConnection, JcConnectionTypeEnum.OUTBOUND, (con) -> {
+                        outboundList.add(con);
+                    });
+                }
             } catch (Exception e) {
                 LOG.warn(null, e);
             }
         }
 
+    }
+
+    private void createReversedIoConnection() {
+        JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.CREATE_IO);
+        jcDistMsg.setSrcDesc(core.selfDesc);
+        jcDistMsg.setData(JcConnectionTypeEnum.OUTBOUND);
+
+        sendManagedMessage(jcDistMsg);
     }
 
     public void validate() {

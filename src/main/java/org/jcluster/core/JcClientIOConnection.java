@@ -80,14 +80,15 @@ public class JcClientIOConnection extends JcClientConnection {
 
     @Override
     public void run() {
-
+        boolean handshakeComplete = false;
         try {
             if (server) {
                 onIncomingHandshake();
             } else {
                 startNewConnection();
+                mngCon.resetIoClientErr();          //described in exception
             }
-
+            handshakeComplete = true;
             remoteAppDesc = mngCon.remoteAppDesc;
             setMember(mngCon.getMember());
             getMember().addConnection(this);
@@ -96,6 +97,12 @@ public class JcClientIOConnection extends JcClientConnection {
             super.startConnectionProccessor();
 
         } catch (Exception ex) {
+            if (!server && !handshakeComplete) {
+                //there is probably connection issue, in this case after few 
+                //fails we can ask mngConnection to create one reversed IO conneciton 
+                //by incrementing counter in mng connection
+                mngCon.incrementIoClientErr();
+            }
             closeReason = "IOConnection Exception: " + ex.getMessage();
         }
 
@@ -123,6 +130,7 @@ public class JcClientIOConnection extends JcClientConnection {
             handshakeResponse.setData("Cna not find managed connection with ID: [" + mngConId + "]");
             writeAndFlushToOOS(handshakeResponse);
         }
+
         mngCon = memberByMngConId.getManagedConnection();
         //
         //Send resp with public key 
