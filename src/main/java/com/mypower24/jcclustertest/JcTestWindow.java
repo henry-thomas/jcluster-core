@@ -61,12 +61,9 @@ public class JcTestWindow extends javax.swing.JFrame {
 //       GenericBeanTableModel<JcAppDescriptor> memberList = new GenericBeanTableModel<JcAppDescriptor>(new JTableModelDescription("App name", "appName"),
 //            new JTableModelDescription("Title", "title")) {
 //    };
-   
-
-    private JcMember selectedMember = null;
+    protected JcMember selectedMember = null;
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
-    private String selectedRemoteMember = null;
 
     private final ConnectionDialog connDlg;
 
@@ -329,8 +326,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             log.info("Selected member is null: {}", memId);
             return;
         }
-        
-        visMemPanel.setSelectedMember(selectedMember);
+
 
         JcAppDescriptor desc = selectedMember.getDesc();
         lblInstanceId.setText(desc.getInstanceId());
@@ -434,17 +430,18 @@ public class JcTestWindow extends javax.swing.JFrame {
 
     private void updateVisibleMembersTable() {
 
-        Map<String, String> visibleMembers = metricsMonitor.getVisibleMembers(selectedMember.getDesc().getInstanceId());
+        Map<String, JcAppDescriptor> visibleMembers = metricsMonitor.getVisibleMembers(selectedMember.getDesc().getInstanceId());
         visMemPanel.updateVisibleMembersTable(visibleMembers);
         SwingUtilities.invokeLater(() -> {
             DefaultTableModel dtm = (DefaultTableModel) tblVisibleMembers.getModel();
 
             dtm.getDataVector().clear();
-            for (Map.Entry<String, String> entry : visibleMembers.entrySet()) {
+            for (Map.Entry<String, JcAppDescriptor> entry : visibleMembers.entrySet()) {
                 String id = entry.getKey();
-                String appName = entry.getValue();
+                String appName = entry.getValue().getAppName();
+                String title = entry.getValue().getTitle();
 
-                dtm.addRow(new Object[]{appName, id});
+                dtm.addRow(new Object[]{appName, id, title});
             }
 
 //            dtm = (DefaultTableModel) tblMembers.getModel();
@@ -620,6 +617,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         tblInboundMethodExecTotal = new javax.swing.JTable();
         execTestPanel = new javax.swing.JPanel();
         jPanel24 = new javax.swing.JPanel();
+        jPanel25 = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblMembers = new javax.swing.JTable();
         jPanel5 = new javax.swing.JPanel();
@@ -1581,6 +1579,19 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel24.setBorder(new EmptyBorder(GAP, GAP, GAP, GAP));
         jPanel24.add(visMemPanel);
 
+        javax.swing.GroupLayout jPanel25Layout = new javax.swing.GroupLayout(jPanel25);
+        jPanel25.setLayout(jPanel25Layout);
+        jPanel25Layout.setHorizontalGroup(
+            jPanel25Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 494, Short.MAX_VALUE)
+        );
+        jPanel25Layout.setVerticalGroup(
+            jPanel25Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 744, Short.MAX_VALUE)
+        );
+
+        jTabbedPane1.addTab("Logging", jPanel25);
+
         jTabbedPane1.setSelectedIndex(3);
 
         tblMembers.setModel(new javax.swing.table.DefaultTableModel(
@@ -2012,6 +2023,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel22;
     private javax.swing.JPanel jPanel23;
     private javax.swing.JPanel jPanel24;
+    private javax.swing.JPanel jPanel25;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;

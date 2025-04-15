@@ -398,4 +398,6 @@ public class JcManager {
     public static List<JcMemFilterMetric> getMemFilterValuesCount(String app, String fName) {
         return JcCoreService.getInstance().getMemFilterValuesCount(app, fName);
     }
+    
+    
 }
