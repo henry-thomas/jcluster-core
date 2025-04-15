@@ -69,7 +69,7 @@ public abstract class JcClientConnection implements Runnable {
     //when connection get accepted at server
     public JcClientConnection(JcConnectionTypeEnum connType) throws IOException {
         this.connType = connType;
-        LOG.setLevel(Level.ALL);
+//        LOG.setLevel(Level.ALL);
     }
 
     public JcMember getMember() {

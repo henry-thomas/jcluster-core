@@ -74,7 +74,7 @@ public class JcMember {
         id = desc.getInstanceId();
     }
 
-    void verifyFilterIntegrity() {
+    protected void verifyFilterIntegrity() {
         filterMap.values().forEach((filter) -> {
             if (!filter.checkIntegrity()) {
                 filter.onSubsciptionRequest();
@@ -374,7 +374,6 @@ public class JcMember {
 
     private void validateSubscription() {
         for (Map.Entry<String, RemMembFilter> entry : filterMap.entrySet()) {
-            String fName = entry.getKey();
             RemMembFilter filter = entry.getValue();
 
             if (filter.isLastReceivedExp()) {
@@ -382,7 +381,6 @@ public class JcMember {
                 msg.setSrcDesc(JcCoreService.getSelfDesc());
                 msg.setData(filter.getFilterName());
                 sendManagedMessage(msg);
-                filter.resetLastReceived();
             }
 
         }
@@ -391,8 +389,8 @@ public class JcMember {
     public void onSubscribeStateResp(JcDistMsg msg) {
         PublishMsg pm = (PublishMsg) msg.getData();
         String fName = pm.getFilterName();
-        RemMembFilter rmf= filterMap.get(fName);
-        rmf.onSubscribeStateResp(pm);
+        RemMembFilter rmf = filterMap.get(fName);
+        rmf.onFilterPublishMsg(pm);
     }
 
     public void onSubscribeStateReq(JcDistMsg msg) {
@@ -404,15 +402,16 @@ public class JcMember {
                 return;
             }
 
-            long transCount = selfFilterValues.getTransCount();
             JcDistMsg resp = new JcDistMsg(JcDistMsgType.SUBSCRIBE_STATE_RESP);
             msg.setSrcDesc(JcCoreService.getSelfDesc());
-            PublishMsg pm = new PublishMsg();
-            pm.setFilterName(fName);
-            pm.setTransCount(transCount);
 
-            msg.setData(pm);
-            sendManagedMessage(msg);
+            PublishMsg pm = new PublishMsg();
+            pm.setOperationType(PublishMsg.OPER_TYPE_SUBSCR_STAT_RESP);
+            pm.setFilterName(fName);
+            pm.setTransCount(selfFilterValues.getTransCount());
+
+            resp.setData(pm);
+            sendManagedMessage(resp);
         }
     }
 

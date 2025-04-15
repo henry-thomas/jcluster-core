@@ -19,6 +19,7 @@ public class PublishMsg implements Serializable {
     public static final int OPER_TYPE_REMOVE = 2;
     public static final int OPER_TYPE_ADDBULK = 3;
     public static final int OPER_TYPE_REMOVEBULK = 4;
+    public static final int OPER_TYPE_SUBSCR_STAT_RESP = 5;
     public static final int OPER_TYPE_INVALID_FNAME = -1;
 
     private String filterName;

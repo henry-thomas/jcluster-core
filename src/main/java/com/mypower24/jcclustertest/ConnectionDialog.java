@@ -33,6 +33,20 @@ public class ConnectionDialog extends javax.swing.JFrame {
 
     }
 
+    protected static void connectNoUi() throws Exception {
+        SystemPropManager prop = SystemPropManager.getINSTANCE();
+        Map<String, Object> config = new HashMap<>();
+
+        config.put("primaryMembers", getList(prop.loadParamAsString("primaryMember")));
+        config.put("appName", prop.loadParamAsString("appName"));
+        config.put("title", prop.loadParamAsString("title"));
+        config.put("selfIpAddress", prop.loadParamAsString("txtSelfIp"));
+        config.put("tcpListenPort", getPortList(prop.loadParamAsString("tcpPort")));
+
+        config.put("start", "");
+        JcCoreService.getInstance().start(config);
+    }
+
     protected void connect() {
         Map<String, Object> config = new HashMap<>();
 
@@ -54,7 +68,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
         this.setVisible(false);
     }
 
-    private ArrayList<Integer> getPortList(String txt) {
+    private static ArrayList<Integer> getPortList(String txt) {
         ArrayList<Integer> strList = new ArrayList<>();
 
         String[] split = txt.split(",");
@@ -78,7 +92,7 @@ public class ConnectionDialog extends javax.swing.JFrame {
         return strList;
     }
 
-    private ArrayList<String> getList(String txt) {
+    private static ArrayList<String> getList(String txt) {
         String[] split = txt.split(",");
         ArrayList<String> strList = new ArrayList<>();
 
