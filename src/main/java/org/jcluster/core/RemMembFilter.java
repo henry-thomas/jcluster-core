@@ -9,10 +9,11 @@ import ch.qos.logback.classic.Logger;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
-import org.jcluster.core.messages.JcDistMsg;
 import org.jcluster.core.messages.PublishMsg;
+import org.jcluster.core.test.JcTestIFace;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -23,6 +24,7 @@ public class RemMembFilter implements Serializable {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(RemMembFilter.class);
 
+    private boolean staticFilter = false; // this is for hardcoded filter names
     private long trIdxMisses = 0;
     private long trIdx = 0;
     private long lastMissTimestamp = 0;
@@ -36,25 +38,19 @@ public class RemMembFilter implements Serializable {
     private boolean inReset = false; //wait for bulk insert to remove in reset, if msg arrive buffer it
 
     public RemMembFilter(String filterName) {
+
+        staticFilter = Objects.equals(filterName, JcTestIFace.JC_INSTANCE_FILTER);
+
         this.filterName = filterName;
 //        this.mem = mem;
         LOG.setLevel(Level.ALL);
     }
 
-    public void onSubscribeStateResp(PublishMsg pm) {
-        long missing = pm.getTransCount() - trIdx;
-
-        trIdxMisses += missing;
-
-        LOG.info("Received Sub State Response: " + this);
-    }
-
     public boolean isLastReceivedExp() {
+        if (staticFilter) { // this is for hardcoded filter names
+            return false;
+        }
         return System.currentTimeMillis() - lastReceiveTimestamp > 5000;
-    }
-
-    public void resetLastReceived() {
-        lastReceiveTimestamp = System.currentTimeMillis();
     }
 
     public boolean containsFilterValue(Object val) {
@@ -69,9 +65,25 @@ public class RemMembFilter implements Serializable {
         return valueSet.remove(value);
     }
 
+    private void onSubscribeStateResp(long receivedTrxCount) {
+        long missing = receivedTrxCount - trIdx;
+
+        trIdxMisses += missing;
+
+        if (missing != 0) {
+            LOG.trace("Received Sub State Response  new Misses: " + trIdxMisses);
+        }
+    }
+
     public synchronized void onFilterPublishMsg(PublishMsg pm) {
         boolean mustVerifyIndex;
         lastReceiveTimestamp = System.currentTimeMillis();
+
+        if (pm.getOperationType() == PublishMsg.OPER_TYPE_SUBSCR_STAT_RESP) {
+            onSubscribeStateResp(pm.getTransCount());
+            return;
+        }
+
         if (inReset && (pm.getOperationType() == PublishMsg.OPER_TYPE_ADD || pm.getOperationType() == PublishMsg.OPER_TYPE_REMOVE)) {
             bufferMessages.add(pm);
             LOG.info("Filter [{}] received in Reset state. Add to buffer totalSize:{} ", filterName, bufferMessages.size());

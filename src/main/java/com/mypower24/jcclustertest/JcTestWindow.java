@@ -61,8 +61,6 @@ public class JcTestWindow extends javax.swing.JFrame {
 //       GenericBeanTableModel<JcAppDescriptor> memberList = new GenericBeanTableModel<JcAppDescriptor>(new JTableModelDescription("App name", "appName"),
 //            new JTableModelDescription("Title", "title")) {
 //    };
-   
-
     private JcMember selectedMember = null;
     private String selectedFilter = null;
     private String selectedMetricsMember = null;
@@ -111,11 +109,15 @@ public class JcTestWindow extends javax.swing.JFrame {
         initBcThread();
     }
 
-    protected final void updateTitle(String title) {
+    protected static boolean isDebug() {
         boolean isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean().
-                getInputArguments().toString().indexOf("jdwp") >= 0;;
+                getInputArguments().toString().indexOf("jdwp") >= 0;
+        return isDebug;
+    }
 
-        if (isDebug) {
+    protected final void updateTitle(String title) {
+
+        if (isDebug()) {
             this.setTitle("[DEBUG] " + title);
             this.setLocation(200, 200);
         } else {
@@ -329,7 +331,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             log.info("Selected member is null: {}", memId);
             return;
         }
-        
+
         visMemPanel.setSelectedMember(selectedMember);
 
         JcAppDescriptor desc = selectedMember.getDesc();
@@ -1926,7 +1928,15 @@ public class JcTestWindow extends javax.swing.JFrame {
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) {
+    public static void main(String args[]) throws Exception {
+        for (String arg : args) {
+            if (arg.equals("uiInDebugOnly")) {
+                if (!isDebug()) {
+                    ConnectionDialog.connectNoUi();
+                    return;
+                }
+            }
+        }
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
         /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
@@ -1940,6 +1950,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         }
         //</editor-fold>
         //</editor-fold>
+
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {

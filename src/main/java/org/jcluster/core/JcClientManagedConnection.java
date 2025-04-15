@@ -89,6 +89,8 @@ public class JcClientManagedConnection extends JcClientConnection {
     private int counterId = 0;
     private int ioClientFailCounter = 0;
 
+    private long lastDataReceived = 0;
+
     private JcClientManagedConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         super(JcConnectionTypeEnum.MANAGED);
         this.setSocket(scb);
@@ -171,10 +173,13 @@ public class JcClientManagedConnection extends JcClientConnection {
                     (isServer() ? "S" : "C"),
                     System.currentTimeMillis() - startTimestamp);
 
+            lastDataTimestamp = System.currentTimeMillis();
             startManagedReader();
         } catch (Exception ex) {
             closeReason = "ManagedConnection Exception: " + ex.getMessage();
         } finally {
+            running = false;
+
             if (remoteAppDesc != null) {
 
                 removeConn();
@@ -188,6 +193,12 @@ public class JcClientManagedConnection extends JcClientConnection {
                 //this is attempt to connecto to prim member probably
 
             }
+            if (socket != null) {
+                try {
+                    socket.close();
+                } catch (IOException ex) {
+                }
+            }
         }
     }
 
@@ -200,8 +211,9 @@ public class JcClientManagedConnection extends JcClientConnection {
                         JcDistMsg msg = (JcDistMsg) request;
                         if (member == null) {
                             LOG.trace("Member not set yet for Managed connection {}", this);
+                            continue;
                         }
-
+                        lastDataTimestamp = System.currentTimeMillis();
                         try {
                             switch (msg.getType()) {
                                 case PING:
@@ -232,11 +244,11 @@ public class JcClientManagedConnection extends JcClientConnection {
                                     break;
                                 case SUBSCRIBE_STATE_REQ:
                                     member.onSubscribeStateReq(msg);
-                                    LOG.warn("SUBSCRIBE_STATE_REQ: [{}]", remoteAppDesc);
+                                    LOG.trace("SUBSCRIBE_STATE_REQ: [{}]", remoteAppDesc);
                                     break;
                                 case SUBSCRIBE_STATE_RESP:
                                     member.onSubscribeStateResp(msg);
-                                    LOG.warn("SUBSCRIBE_STATE_RESP: [{}]", remoteAppDesc);
+                                    LOG.trace("SUBSCRIBE_STATE_RESP: [{}]", remoteAppDesc);
                                     break;
                                 default:
                                     LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
@@ -247,14 +259,7 @@ public class JcClientManagedConnection extends JcClientConnection {
                     } else {
                         LOG.warn("Invalid msg type received in managed connection found: {} expected JcDistMsg", request.getClass());
                     }
-
                 }
-//            } catch (IOException ex) {
-//                LOG.warn(connId + " Destroying JcClientConnection because: " + ex.getMessage(), ex);
-//
-//                destroy("Input stream IO Exception: " + ex.getMessage());
-//                member.getMetrics().getInbound().incErrCount();
-
             } catch (ClassNotFoundException ex) {
                 //can not send response with failure, because we can not extract the message ID 
 //                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
@@ -265,6 +270,12 @@ public class JcClientManagedConnection extends JcClientConnection {
     }
 
     protected void validate() {
+
+        if (System.currentTimeMillis() - lastDataTimestamp > 30_000) {
+            mustClose = true;
+            LOG.info("Manage connection timeout! {}", remoteAppDesc);
+        }
+
         if (mustClose && isRunning()) {
             if (closeReason == null) {
                 closeReason = "Managed connection has been mark for removal";
