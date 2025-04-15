@@ -4,6 +4,7 @@
  */
 package org.jcluster.core;
 
+import ch.qos.logback.classic.Logger;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -11,6 +12,7 @@ import org.jcluster.core.bean.JcConnectionListener;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
 import org.jcluster.core.exception.JcRuntimeException;
+import org.slf4j.LoggerFactory;
 
 /*
             IO Con
@@ -40,6 +42,7 @@ public class JcClientIOConnection extends JcClientConnection {
     private final boolean server;
     private JcClientManagedConnection mngCon = null;
     private JcHandhsakeFrame incominHandshake = null;
+    private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientIOConnection.class);
 
     private JcClientIOConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         super(handShakeReq.getRequestedConnType());

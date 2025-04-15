@@ -39,7 +39,7 @@ public abstract class JcClientConnection implements Runnable {
 
     private static int connCounter = 0;
 
-    protected static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientConnection.class);
+    private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientConnection.class);
 
     protected JcAppDescriptor remoteAppDesc;
     protected JcConnectionListener onConnectListener = null;
@@ -285,7 +285,7 @@ public abstract class JcClientConnection implements Runnable {
         running = false;
         try {
             if (socket != null) {
-                LOG.error("Socket closed at: {} on thread {}  Reason", System.currentTimeMillis(), Thread.currentThread().getName(), reason);
+                LOG.error("Socket closed at: {} on thread {}  Reason {}", System.currentTimeMillis(), Thread.currentThread().getName(), reason);
                 socket.close();
             }
         } catch (IOException e) {
