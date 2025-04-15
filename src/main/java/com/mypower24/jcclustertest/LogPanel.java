@@ -10,7 +10,9 @@ import com.mypower24.jcclustertest.tableModel.LoggerDescBean;
 import com.mypower24.jcclustertest.tableModel.GenericBeanTableModel;
 import com.mypower24.jcclustertest.tableModel.JTableModelDescription;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.swing.ListSelectionModel;
 
 /**
@@ -74,8 +76,11 @@ public class LogPanel extends javax.swing.JPanel {
                 Integer val = entry.getValue();
                 loggerMap.put(key, new LoggerDescBean(key, val));
             }
-
-            loggersModel.add(LoggerDescBean.fromMap(loggers));
+            List<LoggerDescBean> collect = LoggerDescBean
+                    .fromMap(loggers)
+                    .stream()
+                    .sorted((l1, l2) -> l1.getName().compareTo(l2.getName())).collect(Collectors.toList());
+            loggersModel.add(collect);
         } catch (Exception e) {
             window.info(e.getMessage());
         }
@@ -148,7 +153,7 @@ public class LogPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_tblLoggersMouseReleased
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        window.metricsMonitor.setLogLevel(window.selectedMember.getId(), selectedLogger.getName(), (Level.toLevel((String)cmbxLevel.getSelectedItem()).levelInt));     
+        window.metricsMonitor.setLogLevel(window.selectedMember.getId(), selectedLogger.getName(), (Level.toLevel((String) cmbxLevel.getSelectedItem()).levelInt));
         updateLoggerTable();
     }//GEN-LAST:event_jButton1ActionPerformed
 
