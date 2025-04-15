@@ -56,14 +56,8 @@ public class LogPanel extends javax.swing.JPanel {
     }
 
     public void updateLoggerTable() {
-//        int rowIdx = tblLoggers.getSelectedRow();
-//
         loggersModel.clear();
-//        if (rowIdx == -1) {
-//            return;
-//        }
 
-//        selectedLogger = (LoggerDescBean) tblLoggers.getValueAt(rowIdx, 1);
         try {
 
             Map<String, Integer> loggers = window.metricsMonitor.getLoggers(window.selectedMember.getId());
