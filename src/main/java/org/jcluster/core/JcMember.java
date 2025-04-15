@@ -412,13 +412,14 @@ public class JcMember {
             pm.setTransCount(transCount);
 
             msg.setData(pm);
-
+            sendManagedMessage(msg);
         }
     }
 
     public void validate() {
         managedConnection.validate();
 
+        validateSubscription();
         validateTimeout();
         validateInboundConnectionCount();
         validateOutboundConnectionCount();

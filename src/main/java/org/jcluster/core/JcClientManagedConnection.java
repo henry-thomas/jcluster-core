@@ -232,9 +232,11 @@ public class JcClientManagedConnection extends JcClientConnection {
                                     break;
                                 case SUBSCRIBE_STATE_REQ:
                                     member.onSubscribeStateReq(msg);
+                                    LOG.warn("SUBSCRIBE_STATE_REQ: [{}]", remoteAppDesc);
                                     break;
                                 case SUBSCRIBE_STATE_RESP:
                                     member.onSubscribeStateResp(msg);
+                                    LOG.warn("SUBSCRIBE_STATE_RESP: [{}]", remoteAppDesc);
                                     break;
                                 default:
                                     LOG.error("Receive unknown UDP msg type: [{}]", msg.getType());
