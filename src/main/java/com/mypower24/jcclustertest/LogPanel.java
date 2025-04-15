@@ -5,16 +5,12 @@
 package com.mypower24.jcclustertest;
 
 import com.mypower24.jcclustertest.customComp.LogTextArea;
+import com.mypower24.jcclustertest.tableModel.LoggerDescBean;
 import com.mypower24.jcclustertest.tableModel.GenericBeanTableModel;
 import com.mypower24.jcclustertest.tableModel.JTableModelDescription;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingUtilities;
-import javax.swing.table.DefaultTableModel;
-import org.jcluster.core.JcMember;
-import org.jcluster.core.RemMembFilter;
 
 /**
  *
@@ -22,16 +18,16 @@ import org.jcluster.core.RemMembFilter;
  */
 public class LogPanel extends javax.swing.JPanel {
 
+    private static final long serialVersionUID = -2625218744240415637L;
+
     LogTextArea log;
     JcTestWindow window;
-    String selectedRemoteMember;
-    JcMember selectedMember;
-    Map<String, RemMembFilter> fMap;
+    LoggerDescBean selectedLogger;
+    Map<String, LoggerDescBean> loggerMap = new HashMap<>();
 
-    GenericBeanTableModel<RemMembFilter> filterNamesListModel = new GenericBeanTableModel<>(
-            new JTableModelDescription("Filter Name", "filterName"),
-            new JTableModelDescription("Known Missing", "trIdxMisses"),
-            new JTableModelDescription("Latest Trx", "trIdx")) {
+    GenericBeanTableModel<LoggerDescBean> loggersModel = new GenericBeanTableModel<>(
+            new JTableModelDescription("Logger", "name"),
+            new JTableModelDescription("Level", "levelStr")) {
         private static final long serialVersionUID = 1L;
     };
 
@@ -43,46 +39,45 @@ public class LogPanel extends javax.swing.JPanel {
     public LogPanel(JcTestWindow w) {
         initComponents();
         this.window = w;
-        tblMemFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tblVisibleMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tblLoggers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
 
-    public void onSelectedRemoteMemberChange() {
-        int rowIdx = tblVisibleMembers.getSelectedRow();
-
-        filterNamesListModel.clear();
+    public void onSelectedLoggerChange() {
+        int rowIdx = tblLoggers.getSelectedRow();
         if (rowIdx == -1) {
-            lblCallDesc.setText("Please select remote member");
             return;
         }
-        txtFilterValues.setText("");
+        String lName = (String) tblLoggers.getValueAt(rowIdx, 0);
+        selectedLogger = loggerMap.get(lName);
+        cmbxLevel.setSelectedItem(selectedLogger.getLevelStr());
+    }
 
-        selectedRemoteMember = tblVisibleMembers.getValueAt(rowIdx, 1).toString();
-        lblCallDesc.setText(selectedMember.getId() + "->" + selectedRemoteMember);
+    public void updateLoggerTable() {
+//        int rowIdx = tblLoggers.getSelectedRow();
+//
+        loggersModel.clear();
+//        if (rowIdx == -1) {
+//            return;
+//        }
+
+//        selectedLogger = (LoggerDescBean) tblLoggers.getValueAt(rowIdx, 1);
         try {
 
-            fMap = window.metricsMonitor.getMemFilterMap(window.selectedMember.getId(), selectedRemoteMember);
-            if (fMap == null) {
+            Map<String, Integer> loggers = window.metricsMonitor.getLoggers(window.selectedMember.getId());
+            if (loggers == null) {
                 return;
             }
-            filterNamesListModel.add(new ArrayList<>(fMap.values()));
+            loggerMap.clear();
+            for (Map.Entry<String, Integer> entry : loggers.entrySet()) {
+                String key = entry.getKey();
+                Integer val = entry.getValue();
+                loggerMap.put(key, new LoggerDescBean(key, val));
+            }
+
+            loggersModel.add(LoggerDescBean.fromMap(loggers));
         } catch (Exception e) {
             window.info(e.getMessage());
         }
-    }
-
-    public void updateVisibleMembersTable(Map<String, String> visibleMembers) {
-        SwingUtilities.invokeLater(() -> {
-            DefaultTableModel dtm = (DefaultTableModel) tblVisibleMembers.getModel();
-
-            dtm.getDataVector().clear();
-            for (Map.Entry<String, String> entry : visibleMembers.entrySet()) {
-                String id = entry.getKey();
-                String appName = entry.getValue();
-
-                dtm.addRow(new Object[]{appName, id});
-            }
-        });
     }
 
     /**
@@ -94,159 +89,73 @@ public class LogPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jScrollPane15 = new javax.swing.JScrollPane();
-        tblMemFilters = new javax.swing.JTable();
-        btnRemoteMemTest = new javax.swing.JButton();
-        lblCallDesc = new javax.swing.JLabel();
-        jScrollPane17 = new javax.swing.JScrollPane();
-        tblVisibleMembers = new javax.swing.JTable();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        txtFilterValues = new javax.swing.JTextArea();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        tblLoggers = new javax.swing.JTable();
+        cmbxLevel = new javax.swing.JComboBox<>();
+        jButton1 = new javax.swing.JButton();
 
         setMinimumSize(new java.awt.Dimension(500, 500));
         setName(""); // NOI18N
 
-        tblMemFilters.setModel(filterNamesListModel);
-        tblMemFilters.addMouseListener(new java.awt.event.MouseAdapter() {
+        tblLoggers.setModel(loggersModel);
+        tblLoggers.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseReleased(java.awt.event.MouseEvent evt) {
-                tblMemFiltersMouseReleased(evt);
+                tblLoggersMouseReleased(evt);
             }
         });
-        jScrollPane15.setViewportView(tblMemFilters);
+        jScrollPane3.setViewportView(tblLoggers);
 
-        btnRemoteMemTest.setText("Test Connection");
-        btnRemoteMemTest.addActionListener(new java.awt.event.ActionListener() {
+        cmbxLevel.setModel(new javax.swing.DefaultComboBoxModel<>(LoggerDescBean.getAllLevelsStr()));
+
+        jButton1.setText("Set Level");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnRemoteMemTestActionPerformed(evt);
+                jButton1ActionPerformed(evt);
             }
         });
-
-        lblCallDesc.setText("selMember -> remoteSelMember");
-
-        tblVisibleMembers.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null},
-                {null, null},
-                {null, null},
-                {null, null}
-            },
-            new String [] {
-                "App Name", "Instance ID"
-            }
-        ) {
-            Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class
-            };
-            boolean[] canEdit = new boolean [] {
-                false, false
-            };
-
-            public Class getColumnClass(int columnIndex) {
-                return types [columnIndex];
-            }
-
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit [columnIndex];
-            }
-        });
-        tblVisibleMembers.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseReleased(java.awt.event.MouseEvent evt) {
-                tblVisibleMembersMouseReleased(evt);
-            }
-        });
-        jScrollPane17.setViewportView(tblVisibleMembers);
-
-        txtFilterValues.setColumns(20);
-        txtFilterValues.setRows(5);
-        jScrollPane1.setViewportView(txtFilterValues);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(jScrollPane17, javax.swing.GroupLayout.DEFAULT_SIZE, 488, Short.MAX_VALUE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(14, 14, 14)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(btnRemoteMemTest)
-                            .addComponent(lblCallDesc))
-                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 488, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(jScrollPane15)
-                            .addComponent(jScrollPane1))))
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(jButton1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(cmbxLevel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(12, 12, 12)
-                .addComponent(jScrollPane17, javax.swing.GroupLayout.PREFERRED_SIZE, 235, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap()
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 243, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(lblCallDesc)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnRemoteMemTest)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane15, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 129, Short.MAX_VALUE)
-                .addContainerGap())
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(cmbxLevel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jButton1))
+                .addContainerGap(276, Short.MAX_VALUE))
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    private void tblMemFiltersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblMemFiltersMouseReleased
-        int rowIdx = tblMemFilters.getSelectedRow();
+    private void tblLoggersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblLoggersMouseReleased
+        onSelectedLoggerChange();
+    }//GEN-LAST:event_tblLoggersMouseReleased
 
-        if (rowIdx == -1) {
-//            lblCallDesc.setText("Please select remote member");
-            return;
-        }
-
-        String selFilter = tblMemFilters.getValueAt(rowIdx, 0).toString();
-
-        txtFilterValues.setText("");
-        StringBuilder sb = new StringBuilder();
-
-        if (fMap == null) {
-            return;
-        }
-
-        RemMembFilter remFilter = fMap.get(selFilter);
-        Set<Object> values = remFilter.getValueSet();
-        for (Object value : values) {
-            sb.append(value.toString()).append("\n");
-        }
-
-        txtFilterValues.setText(sb.toString());
-
-    }//GEN-LAST:event_tblMemFiltersMouseReleased
-
-    private void btnRemoteMemTestActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRemoteMemTestActionPerformed
-        try {
-            window.info(window.metricsMonitor.callRemote(selectedMember.getDesc().getInstanceId(), selectedRemoteMember));
-        } catch (Exception e) {
-            window.info(e.getMessage());
-        }
-    }//GEN-LAST:event_btnRemoteMemTestActionPerformed
-
-    private void tblVisibleMembersMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblVisibleMembersMouseReleased
-        onSelectedRemoteMemberChange();
-    }//GEN-LAST:event_tblVisibleMembersMouseReleased
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        window.metricsMonitor.setLogLevel(window.selectedMember.getId(), selectedLogger.getName(), selectedLogger.getLevelInt());     
+        updateLoggerTable();
+    }//GEN-LAST:event_jButton1ActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnRemoteMemTest;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane15;
-    private javax.swing.JScrollPane jScrollPane17;
-    private javax.swing.JLabel lblCallDesc;
-    private javax.swing.JTable tblMemFilters;
-    private javax.swing.JTable tblVisibleMembers;
-    private javax.swing.JTextArea txtFilterValues;
+    private javax.swing.JComboBox<String> cmbxLevel;
+    private javax.swing.JButton jButton1;
+    private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JTable tblLoggers;
     // End of variables declaration//GEN-END:variables
 }
