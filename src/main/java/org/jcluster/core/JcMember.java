@@ -64,7 +64,7 @@ public class JcMember {
     private boolean conRequested = true;
 
     public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
-        LOG.setLevel(Level.ALL);
+//        LOG.setLevel(Level.ALL);
         this.desc = managedClientCon.getRemoteAppDesc();
         this.managedConnection = managedClientCon;
         this.core = core;

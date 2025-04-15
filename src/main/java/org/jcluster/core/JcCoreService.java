@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -118,7 +117,7 @@ public final class JcCoreService {
     private KeyPair keyPair;
 
     private JcCoreService() {
-        LOG.setLevel(ch.qos.logback.classic.Level.ALL);
+//        LOG.setLevel(ch.qos.logback.classic.Level.WA);
 
         KeyPairGenerator generator;
         KeyPair p = null;

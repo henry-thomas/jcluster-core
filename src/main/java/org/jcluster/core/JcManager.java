@@ -101,7 +101,7 @@ public class JcManager {
         if (pm.isBroadcast()) {
             int broadcastSend = broadcastSend(pm, args);
             if (broadcastSend == 0) {
-                LOG.warn("No cluster instance available for Broadcast@: " + pm);
+                LOG.trace("No cluster instance available for Broadcast@: " + pm);
 //                throw new JcClusterNotFoundException("No cluster instance available for Broadcast@: " + pm);
             }
             return broadcastSend;

@@ -134,11 +134,9 @@ public abstract class JcClientConnection implements Runnable {
 
 //            long duration = System.currentTimeMillis() - start;
 //            long durationMsg = request.getResponse().getTimeStamp() - request.getTimeStamp();
-
 //            if (Math.abs(duration - durationMsg) > 5) {
 //                LOG.warn("Message synchronization time is out wait duration: {}, message duration: {}, request: {}", duration, durationMsg, request);
 //            }
-
 //            System.out.println("Sending from: " + Thread.currentThread().getName());
 //            LOG.log(Level.FINE, "ReqResp Map Size for: {} is [{}]", new Object[]{getConnId(),member.getMetrics().getReqRespMapSize()});
             if (request.getResponse() == null) {
@@ -239,11 +237,10 @@ public abstract class JcClientConnection implements Runnable {
 ////                        LOG.warn(null, ex);
 ////                    }
                 } catch (ClassNotFoundException ex) {
+                    //this is standard 
                 LOG.warn(connId, ex);
             }
-
         }
-
     }
 
     private void startInboundReader() throws IOException {
