@@ -4,6 +4,7 @@
  */
 package com.mypower24.jcclustertest;
 
+import ch.qos.logback.classic.Level;
 import com.mypower24.jcclustertest.customComp.LogTextArea;
 import com.mypower24.jcclustertest.tableModel.LoggerDescBean;
 import com.mypower24.jcclustertest.tableModel.GenericBeanTableModel;
@@ -147,7 +148,7 @@ public class LogPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_tblLoggersMouseReleased
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        window.metricsMonitor.setLogLevel(window.selectedMember.getId(), selectedLogger.getName(), selectedLogger.getLevelInt());     
+        window.metricsMonitor.setLogLevel(window.selectedMember.getId(), selectedLogger.getName(), (Level.toLevel((String)cmbxLevel.getSelectedItem()).levelInt));     
         updateLoggerTable();
     }//GEN-LAST:event_jButton1ActionPerformed
 
