@@ -103,7 +103,7 @@ public class JcMember {
         }
         RemMembFilter remFilter = filterMap.get(filterName);
         if (remFilter == null) {
-            remFilter = new RemMembFilter(filterName);
+            remFilter = new RemMembFilter(filterName, desc);
             filterMap.put(filterName, remFilter);
         }
         return remFilter;

@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.messages.PublishMsg;
 import org.jcluster.core.test.JcTestIFace;
 import org.slf4j.LoggerFactory;
@@ -34,11 +35,12 @@ public class RemMembFilter implements Serializable {
     private final Queue<PublishMsg> bufferMessages = new ArrayDeque<>();
 
     private final String filterName;
+    private final JcAppDescriptor appDesc;
 
     private boolean inReset = false; //wait for bulk insert to remove in reset, if msg arrive buffer it
 
-    public RemMembFilter(String filterName) {
-
+    public RemMembFilter(String filterName, JcAppDescriptor appDesc) {
+        this.appDesc = appDesc;
         staticFilter = Objects.equals(filterName, JcTestIFace.JC_INSTANCE_FILTER);
 
         this.filterName = filterName;
@@ -71,7 +73,10 @@ public class RemMembFilter implements Serializable {
         trIdxMisses += missing;
 
         if (missing != 0) {
-            LOG.trace("Received Sub State Response  new Misses: {}, filter: {}", trIdxMisses, filterName);
+            if (lastMissTimestamp == 0) {
+                lastMissTimestamp = System.currentTimeMillis();
+            }
+            LOG.trace("Filter [{}@{}] Received Sub State Response  new Misses: {}", filterName, appDesc.getTitle(), trIdxMisses);
         }
     }
 
@@ -86,7 +91,7 @@ public class RemMembFilter implements Serializable {
 
         if (inReset && (pm.getOperationType() == PublishMsg.OPER_TYPE_ADD || pm.getOperationType() == PublishMsg.OPER_TYPE_REMOVE)) {
             bufferMessages.add(pm);
-            LOG.info("Filter [{}] received in Reset state. Add to buffer totalSize:{} ", filterName, bufferMessages.size());
+            LOG.info("Filter [{}@{}] received in Reset state. Add to buffer totalSize:{} ", filterName, appDesc.getTitle(), bufferMessages.size());
             return;
         }
 
@@ -117,11 +122,11 @@ public class RemMembFilter implements Serializable {
                 lastMissTimestamp = 0;
 
                 mustVerifyIndex = false;
-                LOG.trace("Filter [{}] Add Bulk values  trIdx[{}]  Size: {}", filterName, trIdx, valueSet.size());
+                LOG.trace("Filter [{}@{}] Add Bulk values  trIdx[{}]  Size: {}", filterName, appDesc.getTitle(), trIdx, valueSet.size());
                 break;
             }
             default: {
-                LOG.warn("Invalid filter subsc operation: {}, filterName: {}", pm.getOperationType(), filterName);
+                LOG.warn("Filter [{}@{}]  Invalid filter subsc operation: {}, filterName: {}", filterName, appDesc.getTitle(), pm.getOperationType(), filterName);
                 return;
             }
         }
@@ -167,13 +172,13 @@ public class RemMembFilter implements Serializable {
         if (lastMissTimestamp != 0) {
             long timeUnconsistant = System.currentTimeMillis() - lastMissTimestamp;
             if (timeUnconsistant > 10000) {
-                LOG.warn("Filter [{}] inconsistent [{} : {}]  since: {} ms Forcing resubscribe", filterName, trIdx, trIdxMisses, timeUnconsistant);
+                LOG.warn("Filter [{}@{}] inconsistent [{} : {}]  since: {} ms Forcing resubscribe", filterName, appDesc.getTitle(), trIdx, trIdxMisses, timeUnconsistant);
                 return false;
             } else {
-                LOG.info("Filter [{}] inconsistent  [{} : {}]  since: {} ms  Size: {}", filterName, trIdx, trIdxMisses, timeUnconsistant, valueSet.size());
+                LOG.info("Filter [{}@{}] inconsistent  [{} : {}]  since: {} ms  Size: {}", filterName, appDesc.getTitle(), trIdx, trIdxMisses, timeUnconsistant, valueSet.size());
             }
         } else {
-            LOG.trace("Filter [{}] correct integrity  [{} : {}]  Size: {}", filterName, trIdx, trIdxMisses, valueSet.size());
+            LOG.trace("Filter [{}@{}] correct integrity  [{} : {}]  Size: {}", filterName, appDesc.getTitle(), trIdx, trIdxMisses, valueSet.size());
         }
         return true;
     }
