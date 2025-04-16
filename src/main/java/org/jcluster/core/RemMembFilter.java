@@ -137,7 +137,9 @@ public class RemMembFilter implements Serializable {
             trIdxMisses += missing;
 
             if (trIdxMisses != 0) {
-                lastMissTimestamp = System.currentTimeMillis();
+                if (lastMissTimestamp == 0) {
+                    lastMissTimestamp = System.currentTimeMillis();
+                }
             } else {
                 lastMissTimestamp = 0;
             }
