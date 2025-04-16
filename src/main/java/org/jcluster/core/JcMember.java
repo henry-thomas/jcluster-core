@@ -156,11 +156,11 @@ public class JcMember {
                     conn = mcn;
                     continue;
                 }
-                if(conn.getLastDataTimestamp() > mcn.getLastDataTimestamp()){
+                if (conn.getLastDataTimestamp() > mcn.getLastDataTimestamp()) {
                     conn = mcn;
                 }
             }
-            if(conn == null){
+            if (conn == null) {
                 LOG.warn("sendPing no managed connection available");
                 return;
             }
@@ -407,7 +407,7 @@ public class JcMember {
                 msg.setData(filter.getFilterName());
                 sendManagedMessage(msg);
             }
-
+            filter.checkIntegrity();
         }
     }
 
