@@ -326,20 +326,22 @@ public final class JcCoreService {
 
         }
         try {
-            List<String> ipStrList = (List<String>) msg.getData();
+            List<String> memIdList = (List<String>) msg.getData();
 
-            if (!ipStrList.contains(selfDesc.getInstanceId())) {
-                ipStrList.add(selfDesc.getInstanceId());
+            if (!memIdList.contains(selfDesc.getInstanceId())) {
+                memIdList.add(selfDesc.getInstanceId());
             }
 
+            LOG.trace("On PING msg: {}", memIdList);
             int ttl = msg.getTtl();
             for (Map.Entry<String, JcMember> entry : memberMap.entrySet()) {
                 String memId = entry.getKey();
                 JcMember m = entry.getValue();
 
                 //forward to ones we don't have in our list
-                if (!ipStrList.contains(memId)) {
+                if (!memIdList.contains(memId)) {
                     if (!memId.equals(selfDesc.getInstanceId())) {
+                        LOG.debug("Forward PING Msg. MemID: {}, List: {}", memId, memIdList);
                         m.sendManagedMessage(msg);
                         msg.setTtl(ttl);
                     } else {
@@ -561,6 +563,7 @@ public final class JcCoreService {
             JcMember mem = entry.getValue();
 
             mem.sendPing(ping);
+            ping.setTtl(JcDistMsg.TTL_DEFAULT);
 // 
             if (mem.isOnDemandConnection() || subscAppFilterMap.containsKey(mem.getDesc().getAppName())
                     || !Collections.disjoint(mem.getDesc().getTopicList(), subscTopicFilterMap.keySet())) {

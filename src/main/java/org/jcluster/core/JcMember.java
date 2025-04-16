@@ -150,7 +150,22 @@ public class JcMember {
 
     protected void sendPing(JcDistMsg ping) {
         try {
+            JcClientManagedConnection conn = null;
+            for (JcClientManagedConnection mcn : managedConnectionList) {
+                if (conn == null) {
+                    conn = mcn;
+                    continue;
+                }
+                if(conn.getLastDataTimestamp() > mcn.getLastDataTimestamp()){
+                    conn = mcn;
+                }
+            }
+            if(conn == null){
+                LOG.warn("sendPing no managed connection available");
+                return;
+            }
             sendManagedMessage(ping);
+            LOG.trace("Sent PING msg MEMBER: {} MSG: {}", this, ping);
         } catch (Throwable e) {
             LOG.warn(null, e);
         }

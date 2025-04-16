@@ -220,6 +220,7 @@ public class JcClientManagedConnection extends JcClientConnection {
                             continue;
                         }
                         lastDataTimestamp = System.currentTimeMillis();
+                        LOG.trace("Managed Msg Rec: {}", msg);
                         try {
                             switch (msg.getType()) {
                                 case PING:

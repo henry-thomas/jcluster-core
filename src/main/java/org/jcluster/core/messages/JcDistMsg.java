@@ -15,6 +15,7 @@ import org.jcluster.core.bean.JcAppDescriptor;
 public class JcDistMsg implements Serializable {
 
     private final JcDistMsgType type;
+    public static final int TTL_DEFAULT = 5;
 
     private final String msgId;
     private int ttl;
