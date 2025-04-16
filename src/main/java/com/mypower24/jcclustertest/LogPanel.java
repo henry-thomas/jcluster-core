@@ -15,17 +15,17 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import org.jcluster.core.JcMember;
 import org.jcluster.core.RemMembFilter;
-import org.jcluster.core.bean.JcAppDescriptor;
 
 /**
  *
  * @author henry
  */
-public class VisibleMemPanel extends javax.swing.JPanel {
+public class LogPanel extends javax.swing.JPanel {
 
     LogTextArea log;
     JcTestWindow window;
     String selectedRemoteMember;
+    JcMember selectedMember;
     Map<String, RemMembFilter> fMap;
 
     GenericBeanTableModel<RemMembFilter> filterNamesListModel = new GenericBeanTableModel<>(
@@ -40,7 +40,7 @@ public class VisibleMemPanel extends javax.swing.JPanel {
      *
      * @param w
      */
-    public VisibleMemPanel(JcTestWindow w) {
+    public LogPanel(JcTestWindow w) {
         initComponents();
         this.window = w;
         tblMemFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -58,7 +58,7 @@ public class VisibleMemPanel extends javax.swing.JPanel {
         txtFilterValues.setText("");
 
         selectedRemoteMember = tblVisibleMembers.getValueAt(rowIdx, 1).toString();
-        lblCallDesc.setText(window.selectedMember.getId() + "->" + selectedRemoteMember);
+        lblCallDesc.setText(selectedMember.getId() + "->" + selectedRemoteMember);
         try {
 
             fMap = window.metricsMonitor.getMemFilterMap(window.selectedMember.getId(), selectedRemoteMember);
@@ -71,13 +71,16 @@ public class VisibleMemPanel extends javax.swing.JPanel {
         }
     }
 
-    public void updateVisibleMembersTable(Map<String, JcAppDescriptor> visibleMembers) {
+    public void updateVisibleMembersTable(Map<String, String> visibleMembers) {
         SwingUtilities.invokeLater(() -> {
             DefaultTableModel dtm = (DefaultTableModel) tblVisibleMembers.getModel();
 
             dtm.getDataVector().clear();
-            for (Map.Entry<String, JcAppDescriptor> entry : visibleMembers.entrySet()) {
-                dtm.addRow(new Object[]{entry.getValue().getAppName(), entry.getKey(), entry.getValue().getTitle()});
+            for (Map.Entry<String, String> entry : visibleMembers.entrySet()) {
+                String id = entry.getKey();
+                String appName = entry.getValue();
+
+                dtm.addRow(new Object[]{appName, id});
             }
         });
     }
@@ -122,20 +125,20 @@ public class VisibleMemPanel extends javax.swing.JPanel {
 
         tblVisibleMembers.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null},
-                {null, null, null},
-                {null, null, null},
-                {null, null, null}
+                {null, null},
+                {null, null},
+                {null, null},
+                {null, null}
             },
             new String [] {
-                "App Name", "Instance ID", "Title"
+                "App Name", "Instance ID"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class
             };
             boolean[] canEdit = new boolean [] {
-                false, false, false
+                false, false
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -225,7 +228,7 @@ public class VisibleMemPanel extends javax.swing.JPanel {
 
     private void btnRemoteMemTestActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRemoteMemTestActionPerformed
         try {
-            window.info(window.metricsMonitor.callRemote(window.selectedMember.getDesc().getInstanceId(), selectedRemoteMember));
+            window.info(window.metricsMonitor.callRemote(selectedMember.getDesc().getInstanceId(), selectedRemoteMember));
         } catch (Exception e) {
             window.info(e.getMessage());
         }

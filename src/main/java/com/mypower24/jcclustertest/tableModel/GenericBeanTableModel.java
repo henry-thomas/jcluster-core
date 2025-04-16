@@ -4,12 +4,13 @@
  */
 package com.mypower24.jcclustertest.tableModel;
 
+import ch.qos.logback.classic.Logger;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.table.AbstractTableModel;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -20,6 +21,7 @@ public abstract class GenericBeanTableModel<T> extends AbstractTableModel {
 
     private List<T> items;
     private List<JTableModelDescription> dataDesc = new ArrayList<>();
+    protected Logger LOG = (Logger) LoggerFactory.getLogger(this.getClass().getName());
 
     public GenericBeanTableModel(JTableModelDescription... model) {
         this(new ArrayList<>(), model);
@@ -34,9 +36,14 @@ public abstract class GenericBeanTableModel<T> extends AbstractTableModel {
     }
 
     private void initGetters() {
-        Class<? extends Object> genericClass = getGenericClass();
-        for (JTableModelDescription desc : dataDesc) {
-            desc.initGetter(genericClass);
+        try {
+
+            Class<? extends Object> genericClass = getGenericClass();
+            for (JTableModelDescription desc : dataDesc) {
+                desc.initGetter(genericClass);
+            }
+        } catch (Exception e) {
+            LOG.warn(null, e);
         }
     }
 
@@ -75,6 +82,10 @@ public abstract class GenericBeanTableModel<T> extends AbstractTableModel {
         return desc.getValue(item);
     }
 
+    public T getListItem(int idx) {
+        return items.get(idx);
+    }
+
     public void add(T item) {
         items.add(item);
         int row = items.indexOf(item);
@@ -92,7 +103,7 @@ public abstract class GenericBeanTableModel<T> extends AbstractTableModel {
     public void clear() {
         int size = items.size();
         items.clear();
-            fireTableRowsDeleted(0, size);
+        fireTableRowsDeleted(0, size);
     }
 
     public void remove(T item) {
@@ -102,6 +113,24 @@ public abstract class GenericBeanTableModel<T> extends AbstractTableModel {
             items.remove(row);
             fireTableRowsDeleted(row, row);
         }
+    }
+
+    public void createRowFilter() {
+
+//        //RowFilter has two formal type parameters that allow you to create a RowFilter for a specific model. For example, the following assumes a specific model that is wrapping objects of type Person. Only Persons with an age over 20 will be shown:
+//        RowFilter<T, String> ageFilter = new RowFilter<T, String>() {
+//            public boolean include(Entry<? extends T, ? extends String> entry) {
+//                T personModel = entry.getModel();
+//                Person person = personModel.getPerson(entry.getIdentifier());
+//              
+//                // Age is <= 20, don't show it.
+//                return false;
+//            }
+//        };
+//      
+//        TableRowSorter<T> sorter = new TableRowSorter<T>(this);
+//        sorter.setRowFilter(ageFilter);
+
     }
 
 }

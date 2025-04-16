@@ -4,6 +4,11 @@
  */
 package org.jcluster.core.monitor;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -11,6 +16,8 @@ import javax.ejb.Stateless;
 import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcManager;
 import org.jcluster.core.RemMembFilter;
+import org.jcluster.core.bean.JcAppDescriptor;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -18,6 +25,8 @@ import org.jcluster.core.RemMembFilter;
  */
 @Stateless
 public class AppMetricsMonitor implements AppMetricMonitorInterface {
+
+    private static final ch.qos.logback.classic.Logger LOG = (Logger) LoggerFactory.getLogger(AppMetricsMonitor.class);
 
     @Override
     public JcMetrics getMetrics(String instanceId) {
@@ -48,8 +57,8 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     }
 
     @Override
-    public Map<String, String> getVisibleMembers(String instanceId) {
-        return JcCoreService.getMemberMap().values().stream().collect(Collectors.toMap((u) -> u.getId(), (t) -> t.getDesc().getAppName()));
+    public Map<String, JcAppDescriptor> getVisibleMembers(String instanceId) {
+        return JcCoreService.getMemberMap().values().stream().collect(Collectors.toMap((u) -> u.getId(), (t) -> t.getDesc()));
     }
 
     @Override
@@ -65,6 +74,22 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     @Override
     public Map<String, RemMembFilter> getMemFilterMap(String instanceId, String memId) {
         return JcCoreService.getMemberMap().get(memId).getFilterMap();
+    }
+
+    @Override
+    public Map<String, Integer> getLoggers() {
+        Map<String, Integer> loggerMap = new HashMap<>();
+        List<Logger> loggerList = LOG.getLoggerContext().getLoggerList();
+        for (Logger logger : loggerList) {
+            loggerMap.put(logger.getName(), logger.getLevel().levelInt);
+        }
+        return loggerMap;
+    }
+
+    @Override
+    public void setLogLevel(String instanceId, String name, Integer level) {
+        LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+        lc.getLogger(name).setLevel(Level.toLevel(level));
     }
 
 }
