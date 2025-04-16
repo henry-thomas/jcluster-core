@@ -71,7 +71,7 @@ public class RemMembFilter implements Serializable {
         trIdxMisses += missing;
 
         if (missing != 0) {
-            LOG.trace("Received Sub State Response  new Misses: " + trIdxMisses);
+            LOG.trace("Received Sub State Response  new Misses: {}, filter: {}", trIdxMisses, filterName);
         }
     }
 
@@ -121,7 +121,7 @@ public class RemMembFilter implements Serializable {
                 break;
             }
             default: {
-                LOG.warn("Invalid filter subsc operation: " + pm.getOperationType());
+                LOG.warn("Invalid filter subsc operation: {}, filterName: {}", pm.getOperationType(), filterName);
                 return;
             }
         }
@@ -173,7 +173,7 @@ public class RemMembFilter implements Serializable {
                 LOG.info("Filter [{}] inconsistent  [{} : {}]  since: {} ms  Size: {}", filterName, trIdx, trIdxMisses, timeUnconsistant, valueSet.size());
             }
         } else {
-//            LOG.trace("Filter [{}] correct integrity  [{} : {}]  Size: {}", filterName, trIdx, trIdxMisses, valueSet.size());
+            LOG.trace("Filter [{}] correct integrity  [{} : {}]  Size: {}", filterName, trIdx, trIdxMisses, valueSet.size());
         }
         return true;
     }

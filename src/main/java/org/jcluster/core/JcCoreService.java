@@ -494,11 +494,6 @@ public final class JcCoreService {
             mem.sendManagedMessage(jcDistMsg);
             requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
         }
-
-        if (toSubscribe.isEmpty()) {
-            mem.verifyFilterIntegrity();
-        }
-
     }
 
     private void checkMemberSubscribtion() {

@@ -79,9 +79,9 @@ public class JcMember {
         id = desc.getInstanceId();
     }
 
-    protected void verifyFilterIntegrity() {
+    private void verifyFilterIntegrity() {
         filterMap.values().forEach((filter) -> {
-            if (!filter.checkIntegrity()) {
+            if (!filter.getFilterName().equals(AppMetricMonitorInterface.JC_INSTANCE_FILTER) && !filter.checkIntegrity()) {
                 filter.onSubsciptionRequest();
 
                 JcDistMsg jcDistMsg = new JcDistMsg(JcDistMsgType.SUBSCRIBE);
@@ -401,14 +401,18 @@ public class JcMember {
         for (Map.Entry<String, RemMembFilter> entry : filterMap.entrySet()) {
             RemMembFilter filter = entry.getValue();
 
+            if (filter.getFilterName().equals(AppMetricMonitorInterface.JC_INSTANCE_FILTER)) {
+                continue;
+            }
+
             if (filter.isLastReceivedExp()) {
                 JcDistMsg msg = new JcDistMsg(JcDistMsgType.SUBSCRIBE_STATE_REQ);
                 msg.setSrcDesc(JcCoreService.getSelfDesc());
                 msg.setData(filter.getFilterName());
                 sendManagedMessage(msg);
             }
-            filter.checkIntegrity();
         }
+
     }
 
     public void onSubscribeStateResp(JcDistMsg msg) {
@@ -449,6 +453,7 @@ public class JcMember {
 //        managedConnection.validate();
 
         validateSubscription();
+        verifyFilterIntegrity();
         validateTimeout();
         validateInboundConnectionCount();
         validateOutboundConnectionCount();
