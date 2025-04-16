@@ -56,6 +56,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     BroadcastIFace bcIFace = JcManager.generateProxy(BroadcastIFace.class);
 
     private final VisibleMemPanel visMemPanel = new VisibleMemPanel(this);
+    private final LogPanel logPanel = new LogPanel(this);
 
     private final Set<JcMember> memberList = new HashSet<>();
 
@@ -341,6 +342,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 //        lblUdpListenAddr.setText(desc.getIpAddress() + ":" + desc.getIpPortListenUDP());
         updateFilters();
         updateVisibleMembersTable();
+        logPanel.updateLoggerTable();
         updateTotalMetrics(metricsMonitor.getMetrics(selectedMember.getDesc().getInstanceId()));
     }
 
@@ -1603,6 +1605,9 @@ public class JcTestWindow extends javax.swing.JFrame {
         );
 
         jTabbedPane1.addTab("Logging", jPanel25);
+        jPanel25.setLayout(new GridLayout(0, 1, GAP, GAP));
+        jPanel25.setBorder(new EmptyBorder(GAP, GAP, GAP, GAP));
+        jPanel25.add(logPanel);
 
         jTabbedPane1.setSelectedIndex(3);
 

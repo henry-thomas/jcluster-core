@@ -26,6 +26,7 @@ import org.jcluster.core.exception.cluster.JcIOException;
 import org.jcluster.core.messages.JcDistMsgType;
 import org.jcluster.core.messages.JcMessage;
 import org.jcluster.core.messages.PublishMsg;
+import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.MethodExecMetric;
 import org.jcluster.core.proxy.JcProxyMethod;
@@ -398,7 +399,9 @@ public class JcMember {
             String fName = msg.getData().toString();
             FilterDescBean selfFilterValues = JcCoreService.getInstance().getSelfFilterValues(fName);
             if (selfFilterValues == null) {
-                LOG.warn("selfFilterValues is null for filter: " + fName);
+                if (!fName.equals(AppMetricMonitorInterface.JC_INSTANCE_FILTER)) {
+                    LOG.warn("selfFilterValues is null for filter: " + fName);
+                }
                 return;
             }
 

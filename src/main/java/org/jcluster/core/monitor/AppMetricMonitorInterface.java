@@ -38,8 +38,8 @@ public interface AppMetricMonitorInterface {
 
     public String callRemote(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String remoteInstanceId);
 
-    public void setLogLevel(String instanceId, String name, Integer level);
+    public void setLogLevel(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId, String name, Integer level);
 
-    public Map<String, Integer> getLoggers();
+    public Map<String, Integer> getLoggers(@JcFilter(filterName = JC_INSTANCE_FILTER) String instanceId);
 
 }

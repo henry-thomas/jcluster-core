@@ -4,6 +4,8 @@
  */
 package org.jcluster.core;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -16,11 +18,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.crypto.Cipher;
-import static org.jcluster.core.JcClientConnection.LOG;
-import org.jcluster.core.bean.JcConnectionListener;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -32,6 +30,7 @@ import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE;
 import static org.jcluster.core.messages.JcDistMsgType.SUBSCRIBE_RESP;
 import org.jcluster.core.monitor.JcMemberMetrics;
 import org.jcluster.core.monitor.JcMetrics;
+import org.slf4j.LoggerFactory;
 
 /*
             Managed Con
@@ -73,6 +72,7 @@ Client = connection has been initiaed
  */
 public class JcClientManagedConnection extends JcClientConnection {
 
+     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientManagedConnection.class);
     private static final HashMap<String, List<JcClientManagedConnection>> remInstMngConMap = new HashMap<>();
     private final boolean server;
 
@@ -184,7 +184,7 @@ public class JcClientManagedConnection extends JcClientConnection {
 
                 removeConn();
 
-                LOG.warn("Connection shutdown", closeReason);
+                LOG.warn("Connection shutdown {}", closeReason);
                 if (getMember() != null) {
                     getMember().onManagedConClose(closeReason);
                 }
@@ -273,21 +273,22 @@ public class JcClientManagedConnection extends JcClientConnection {
 
         if (System.currentTimeMillis() - lastDataTimestamp > 30_000) {
             mustClose = true;
+            closeReason = "Manage connection timeout. Last seen: " + (System.currentTimeMillis() - lastDataTimestamp);
             LOG.info("Manage connection timeout! {}", remoteAppDesc);
         }
 
         if (mustClose && isRunning()) {
             if (closeReason == null) {
                 closeReason = "Managed connection has been mark for removal";
+            }
 
-                JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
-                msg.setSrcDesc(core.selfDesc);
-                msg.setData(closeReason);
-                try {
-                    writeAndFlushToOOS(msg);
-                } catch (IOException ex) {
-                    Logger.getLogger(JcClientManagedConnection.class.getName()).log(Level.SEVERE, null, ex);
-                }
+            JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
+            msg.setSrcDesc(core.selfDesc);
+            msg.setData(closeReason);
+            try {
+                writeAndFlushToOOS(msg);
+            } catch (IOException ex) {
+                LOG.warn(null, ex);
             }
             super.destroy(closeReason);
             //this will force the run method to execute finally block

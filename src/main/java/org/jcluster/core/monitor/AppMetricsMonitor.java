@@ -77,11 +77,15 @@ public class AppMetricsMonitor implements AppMetricMonitorInterface {
     }
 
     @Override
-    public Map<String, Integer> getLoggers() {
+    public Map<String, Integer> getLoggers(String instanceId) {
         Map<String, Integer> loggerMap = new HashMap<>();
-        List<Logger> loggerList = LOG.getLoggerContext().getLoggerList();
+        LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+        List<Logger> loggerList = lc.getLoggerList();
+        
         for (Logger logger : loggerList) {
-            loggerMap.put(logger.getName(), logger.getLevel().levelInt);
+            if (logger.getEffectiveLevel() != null) {
+                loggerMap.put(logger.getName(), logger.getEffectiveLevel().levelInt);
+            }
         }
         return loggerMap;
     }

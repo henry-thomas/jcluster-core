@@ -23,6 +23,8 @@ import org.jcluster.core.bean.JcAppDescriptor;
  */
 public class VisibleMemPanel extends javax.swing.JPanel {
 
+    private static final long serialVersionUID = 1034385555414705870L;
+
     LogTextArea log;
     JcTestWindow window;
     String selectedRemoteMember;
