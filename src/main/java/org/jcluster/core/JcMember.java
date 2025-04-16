@@ -49,7 +49,9 @@ public class JcMember {
     private final JcAppDescriptor desc;
     private final String id;
     private final JcCoreService core;
-    private final JcClientManagedConnection managedConnection;
+//    private final JcClientManagedConnection managedConnection;
+
+    private final RingConcurentList<JcClientManagedConnection> managedConnectionList = new RingConcurentList<>();
 
     //this is for verification and keep track if we are subscribe or not to a filter 
     //at this specific member
@@ -66,9 +68,11 @@ public class JcMember {
 
     public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
 //        LOG.setLevel(Level.ALL);
-        this.desc = managedClientCon.getRemoteAppDesc();
-        this.managedConnection = managedClientCon;
         this.core = core;
+
+        this.desc = managedClientCon.getRemoteAppDesc();
+//        this.managedConnection = managedClientCon;
+        managedConnectionList.add(managedClientCon);
         this.metrics = metrics;
         lastSeen = System.currentTimeMillis();
         //after metrics are set 
@@ -153,6 +157,10 @@ public class JcMember {
     }
 
     protected void sendManagedMessage(JcDistMsg msg) {
+        sendManagedMessage(msg, managedConnectionList.getNext());
+    }
+
+    protected void sendManagedMessage(JcDistMsg msg, JcClientManagedConnection managedConnection) {
         if (msg.hasTTLExpire()) {
             return;
         }
@@ -344,6 +352,7 @@ public class JcMember {
             return;
         }
         //isolated
+        JcClientManagedConnection managedConnection = managedConnectionList.getNext();
         if (core.selfDesc.isIsolated()
                 || managedConnection.getRemoteAppDesc().getIpAddress().trim().isEmpty()
                 || managedConnection.getIoClientFailCounter() > 5) {
@@ -419,7 +428,10 @@ public class JcMember {
     }
 
     public void validate() {
-        managedConnection.validate();
+        for (JcClientManagedConnection mc : managedConnectionList) {
+            mc.validate();
+        }
+//        managedConnection.validate();
 
         validateSubscription();
         validateTimeout();
@@ -428,8 +440,22 @@ public class JcMember {
 
     }
 
-    protected void onManagedConClose(String reason) {
-        if (!active) {
+    public boolean hasMngConWithId(String mngConId) {
+        for (JcClientManagedConnection mc : managedConnectionList) {
+            if (mc.getConnId().equals(mngConId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected void onManagedConClose(String reason, JcClientManagedConnection mc) {
+        boolean remove = managedConnectionList.remove(mc);
+        if (!remove) {
+            //debug here   
+            LOG.trace("Can not remove connection in manage connection list! {}", mc);
+        }
+        if (!active || !managedConnectionList.isEmpty()) {
             return;
         }
         try {
@@ -539,7 +565,8 @@ public class JcMember {
     }
 
     protected JcClientManagedConnection getManagedConnection() {
-        return managedConnection;
+//        return managedConnection;
+        return managedConnectionList.getNext();
     }
 
     public boolean isOnDemandConnection() {
@@ -560,6 +587,28 @@ public class JcMember {
 
     public Map<String, RemMembFilter> getFilterMap() {
         return filterMap;
+    }
+
+    public void onShutdown() {
+        for (JcClientManagedConnection mc : managedConnectionList) {
+
+            try {
+
+                JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
+                msg.setSrcDesc(core.selfDesc);
+                msg.setData("Shutdown");
+                sendManagedMessage(msg, mc);
+            } catch (Exception e) {
+            }
+        }
+
+        for (JcClientConnection cc : outboundList) {
+            cc.destroy("Server shutdown");
+        }
+        for (JcClientConnection cc : inboundList) {
+            cc.destroy("Server shutdown");
+        }
+
     }
 
 }

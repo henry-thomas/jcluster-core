@@ -18,6 +18,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import javax.crypto.Cipher;
 import org.jcluster.core.bean.JcHandhsakeFrame;
 import org.jcluster.core.bean.SerializedConnectionBean;
@@ -72,7 +73,7 @@ Client = connection has been initiaed
  */
 public class JcClientManagedConnection extends JcClientConnection {
 
-     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientManagedConnection.class);
+    private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientManagedConnection.class);
     private static final HashMap<String, List<JcClientManagedConnection>> remInstMngConMap = new HashMap<>();
     private final boolean server;
 
@@ -137,12 +138,16 @@ public class JcClientManagedConnection extends JcClientConnection {
 
     private void registerJcMemberWithCon() {
         JcMetrics allMetrics = core.getAllMetrics();
-        JcMemberMetrics memMetric = allMetrics.getOrCreateMemMetric(remoteAppDesc.getInstanceId());
+        String instanceId = remoteAppDesc.getInstanceId();
+        JcMemberMetrics memMetric = allMetrics.getOrCreateMemMetric(instanceId);
 
-        JcMember m = new JcMember(this, core, memMetric);
+        JcMember m = core.getMember(instanceId);
+        if (m == null) {
+            m = new JcMember(this, core, memMetric);
+            core.onMemberAdd(m);
+        }
         setMember(m);
 
-        core.onMemberAdd(m);
     }
 
     @Override
@@ -186,7 +191,8 @@ public class JcClientManagedConnection extends JcClientConnection {
 
                 LOG.warn("Connection shutdown {}", closeReason);
                 if (getMember() != null) {
-                    getMember().onManagedConClose(closeReason);
+                    
+                    getMember().onManagedConClose(closeReason, this);
                 }
             } else {
                 //if this is null, this is not established connection attempt. Do nothing here
@@ -300,14 +306,14 @@ public class JcClientManagedConnection extends JcClientConnection {
     }
 
     private void removeConn() {
-        if (remoteAppDesc == null) {
-            return;
-        }
-        String remInstanceId = remoteAppDesc.getInstanceId();
-        synchronized (remInstMngConMap) {
-            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
-            list.remove(this);
-        }
+//        if (remoteAppDesc == null) {
+//            return;
+//        }
+//        String remInstanceId = remoteAppDesc.getInstanceId();
+//        synchronized (remInstMngConMap) {
+//            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
+//            list.remove(this);
+//        }
     }
 
     protected static JcMember getMemberById(String remInstanceId) {
@@ -323,38 +329,40 @@ public class JcClientManagedConnection extends JcClientConnection {
     }
 
     private boolean validateConnAndAdd() {
-        String remInstanceId = remoteAppDesc.getInstanceId();
-        synchronized (remInstMngConMap) {
-            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
-            if (list == null) {
-                list = new ArrayList<>();
-                remInstMngConMap.put(remInstanceId, list);
-                list.add(this);
-                return true;
-            }
 
-            for (JcClientManagedConnection mngCon : list) {
-                if (mngCon.server == server) {
-                    LOG.info("Droping Concurent connection detected. " + this);
-                    return false;
-                }
-                if ((isHigherPriority() && server) || (!isHigherPriority() && !server)) {
-                    LOG.info("Droping Concurent connection detected. " + this);
-                    return false;
-                }
-                mngCon.mustClose = true;
-                mngCon.closeReason = "Concurent connecteion established " + this;
-                try {
-                    mngCon.socket.close();
-                } catch (Exception ex) {
-                    LOG.error(null, ex);
-                }
-            }
-            if (!list.isEmpty()) {
-                LOG.info("Multiple connection in list. ");
-            }
-            list.add(this);
-        }
+//
+//        String remInstanceId = remoteAppDesc.getInstanceId();
+//        synchronized (remInstMngConMap) {
+//            List<JcClientManagedConnection> list = remInstMngConMap.get(remInstanceId);
+//            if (list == null) {
+//                list = new ArrayList<>();
+//                remInstMngConMap.put(remInstanceId, list);
+//                list.add(this);
+//                return true;
+//            }
+//
+//            for (JcClientManagedConnection mngCon : list) {
+//                if (mngCon.server == server) {
+//                    LOG.info("Droping Concurent connection detected. " + this);
+//                    return false;
+//                }
+//                if ((isHigherPriority() && server) || (!isHigherPriority() && !server)) {
+//                    LOG.info("Droping Concurent connection detected. " + this);
+//                    return false;
+//                }
+//                mngCon.mustClose = true;
+//                mngCon.closeReason = "Concurent connecteion established " + this;
+//                try {
+//                    mngCon.socket.close();
+//                } catch (Exception ex) {
+//                    LOG.error(null, ex);
+//                }
+//            }
+//            if (!list.isEmpty()) {
+//                LOG.info("Multiple connection in list. ");
+//            }
+//            list.add(this);
+//        }
         return true;
     }
 
@@ -556,5 +564,29 @@ public class JcClientManagedConnection extends JcClientConnection {
     public int getIoClientFailCounter() {
         return ioClientFailCounter;
     }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 53 * hash + Objects.hashCode(this.getConnId());
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final JcClientManagedConnection other = (JcClientManagedConnection) obj;
+        return Objects.equals(this.getConnId(), other.getConnId());
+    }
+
+ 
 
 }

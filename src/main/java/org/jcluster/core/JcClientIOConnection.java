@@ -130,7 +130,7 @@ public class JcClientIOConnection extends JcClientConnection {
         if (memberByMngConId == null) {
             JcHandhsakeFrame handshakeResponse = new JcHandhsakeFrame(JcCoreService.getSelfDesc());
             handshakeResponse.setFrameType(JcHandhsakeFrame.TYPE_RESP_IO_JOIN_FAIL);
-            handshakeResponse.setData("Cna not find managed connection with ID: [" + mngConId + "]");
+            handshakeResponse.setData("Can not find managed connection with ID: [" + mngConId + "]");
             writeAndFlushToOOS(handshakeResponse);
         }
 

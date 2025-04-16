@@ -302,6 +302,8 @@ public abstract class JcClientConnection implements Runnable {
     public JcAppDescriptor getRemoteAppDesc() {
         return remoteAppDesc;
     }
+    
+    
 
     public String getConnId() {
         return connId;

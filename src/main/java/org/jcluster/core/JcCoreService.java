@@ -155,13 +155,11 @@ public final class JcCoreService {
                 LOG.error("JCLUSTER -- Shutdown... APPNAME: [{0}] InstanceID: [{1}]", new Object[]{selfDesc.getAppName(), selfDesc.getInstanceId()});
                 running = false;
                 memberMap.forEach((t, member) -> {
-                    JcDistMsg msg = new JcDistMsg(JcDistMsgType.LEAVE);
-                    msg.setSrcDesc(selfDesc);
-                    msg.setData("Shutdown");
-                    member.sendManagedMessage(msg);
-
-                    onMemberRemove(member, "JC CORE Shutdown ");
-
+                    try {
+                        member.onShutdown();
+                        onMemberRemove(member, "JC CORE Shutdown ");
+                    } catch (Exception e) {
+                    }
                 });
 
                 if (serverEndpoint != null) {
@@ -210,9 +208,9 @@ public final class JcCoreService {
                     selfDesc.getTopicList().addAll((Collection<String>) topics);
                 }
                 if (config.containsKey("selfIpAddress")) {
-                    
+
                     selfDesc.setIpAddress((String) config.get("selfIpAddress"));
-                    
+
                 } else {
                     throw new JcRuntimeException("Missing property for [selfIpAddress]");
                 }
@@ -293,7 +291,7 @@ public final class JcCoreService {
     protected JcMember getMemberByMngConId(String mngConId) {
         return memberMap.values()
                 .stream()
-                .filter((t) -> t.getManagedConnection().getConnId().equals(mngConId))
+                .filter((t) -> t.hasMngConWithId(mngConId))
                 .findFirst()
                 .orElse(null);
     }
@@ -447,10 +445,10 @@ public final class JcCoreService {
             });
         }
 
-        JcMember replacementMember = JcClientManagedConnection.getMemberById(mem.getId());
-        if (replacementMember != null) {
-            onMemberAdd(replacementMember);
-        }
+//        JcMember replacementMember = JcClientManagedConnection.getMemberById(mem.getId());
+//        if (replacementMember != null) {
+//            onMemberAdd(replacementMember);
+//        }
     }
 
     private void updateMemberSubscription(JcMember mem) {
@@ -882,7 +880,7 @@ public final class JcCoreService {
     public FilterDescBean getSelfFilterValues(String fName) {
         return selfFilterValueMap.get(fName);
     }
-    
+
     public Collection<FilterDescBean> getSelfFilterValues() {
         return selfFilterValueMap.values();
     }
@@ -902,7 +900,5 @@ public final class JcCoreService {
     public Map<String, Set<String>> getSubscAppFilterMap() {
         return subscAppFilterMap;
     }
-    
-    
 
 }
