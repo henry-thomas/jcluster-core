@@ -26,7 +26,7 @@ public class VisibleMemPanel extends javax.swing.JPanel {
     private static final long serialVersionUID = 1034385555414705870L;
 
     LogTextArea log;
-    JcTestWindow window;
+    MissionControlMainWindow window;
     String selectedRemoteMember;
     Map<String, RemMembFilter> fMap;
 
@@ -42,7 +42,7 @@ public class VisibleMemPanel extends javax.swing.JPanel {
      *
      * @param w
      */
-    public VisibleMemPanel(JcTestWindow w) {
+    public VisibleMemPanel(MissionControlMainWindow w) {
         initComponents();
         this.window = w;
         tblMemFilters.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);

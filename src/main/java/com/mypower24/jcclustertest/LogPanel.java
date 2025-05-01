@@ -24,7 +24,7 @@ public class LogPanel extends javax.swing.JPanel {
     private static final long serialVersionUID = -2625218744240415637L;
 
     LogTextArea log;
-    JcTestWindow window;
+    MissionControlMainWindow window;
     LoggerDescBean selectedLogger;
     Map<String, LoggerDescBean> loggerMap = new HashMap<>();
 
@@ -39,7 +39,7 @@ public class LogPanel extends javax.swing.JPanel {
      *
      * @param w
      */
-    public LogPanel(JcTestWindow w) {
+    public LogPanel(MissionControlMainWindow w) {
         initComponents();
         this.window = w;
         tblLoggers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);

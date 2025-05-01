@@ -169,7 +169,6 @@ public class JcClientIOConnection extends JcClientConnection {
             }
             throw new JcRuntimeException("Invalid handshake frame type expected: [" + JcHandhsakeFrame.TYPE_RESP_IO_JOIN_SUCC + "] found [" + resp.getFrameType() + "] ConType: " + isServer());
         }
-
     }
 
     @Override

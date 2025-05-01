@@ -66,6 +66,10 @@ public class JcMember {
     private boolean onDemandConnection = true;
     private boolean conRequested = true;
 
+    private int maxOutbandConnections = 2;
+    private int outbandConnectionTimeout = 5000;
+    private int maxOutbandParallelRequest = 30;
+
     public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
 //        LOG.setLevel(Level.ALL);
         this.core = core;
@@ -356,18 +360,21 @@ public class JcMember {
         if (desc == null) {
             return;
         }
-        if (onDemandConnection && !conRequested) {
-            return;
-        }
         if (!outboundRequired) {
             return;
         }
-        int actualCount = outboundList.size();
-        if (actualCount >= 1) {
+        if (!conRequested) {
             return;
         }
+        if (outboundList.size() >= maxOutbandConnections) {  //hardcoded max conn = 3  each connection can do 30 parallel requests max of 90 parallel
+            return;
+        }
+        conRequested = false; //clear the flag
         //isolated
         JcClientManagedConnection managedConnection = managedConnectionList.getNext();
+        if (managedConnection == null) {
+            LOG.warn("Null managed connectioon");
+        }
         if (core.selfDesc.isIsolated()
                 || managedConnection.getRemoteAppDesc().getIpAddress().trim().isEmpty()
                 || managedConnection.getIoClientFailCounter() > 5) {
@@ -446,6 +453,26 @@ public class JcMember {
         }
     }
 
+    private void validateOutboundConnectionState() {
+        List<JcClientConnection> toKill = null;
+        for (JcClientConnection io : outboundList) {
+            if (io.getParallelExecutionCount() > maxOutbandParallelRequest) {
+                if (System.currentTimeMillis() - io.getLastIODataSend() > 5000) {
+                    if (toKill == null) {
+                        toKill = new ArrayList<>();
+                    }
+                    toKill.add(io);
+                }
+            }
+        }
+        if (toKill != null) {
+            for (JcClientConnection io : toKill) {
+                LOG.warn("Killing connection probably stuck state! Last request was {}ms ago and Request Queue is: > {}", (System.currentTimeMillis() - outbandConnectionTimeout), maxOutbandParallelRequest);
+                io.destroy("Max parallel request reaached with timeout expired!");
+            }
+        }
+    }
+
     public void validate() {
         for (JcClientManagedConnection mc : managedConnectionList) {
             mc.validate();
@@ -457,7 +484,7 @@ public class JcMember {
         validateTimeout();
         validateInboundConnectionCount();
         validateOutboundConnectionCount();
-
+        validateOutboundConnectionState();
     }
 
     public boolean hasMngConWithId(String mngConId) {
@@ -549,17 +576,31 @@ public class JcMember {
         return !outboundList.isEmpty();
     }
 
-    public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
-        JcClientConnection conn = outboundList.getNext();
+    private JcClientConnection getNextConnForSend() throws JcIOException {
+        JcClientConnection conn = null;
+        for (int i = 0; i < outboundList.size(); i++) {
+            conn = outboundList.getNext();
+            if (conn.getParallelExecutionCount() > maxOutbandParallelRequest) {
+                continue;
+            }
+            return conn;
+        }
+
+        conRequested = true;
         if (conn == null) {
-            conRequested = true;
             throw new JcIOException("No outbound connections for: " + this.toString());
         }
+        throw new JcIOException("No AVAILABLE outbound connection for: " + this.toString());
+    }
+
+    public Object send(JcProxyMethod proxyMethod, Object[] args) throws JcIOException {
+        JcClientConnection conn = getNextConnForSend();
 
         Map<String, MethodExecMetric> execMetricMap = metrics.getOutbound().getMethodExecMap();
         String[] split = proxyMethod.getClassName().split("\\.");
         String className = split[split.length - 1];
         MethodExecMetric execMetric = execMetricMap.get(className + "." + proxyMethod.getMethodSignature());
+
         if (execMetric == null) {
             execMetric = new MethodExecMetric();
             execMetricMap.put(className + "." + proxyMethod.getMethodSignature(), execMetric);

@@ -21,12 +21,12 @@ public class ExecutionTestPanle extends javax.swing.JPanel {
 
     JcTestIFace testIFace = JcManager.generateProxy(JcTestIFace.class);
     LogTextArea log;
-    private final JcTestWindow jcTestWindow;
+    private final MissionControlMainWindow jcTestWindow;
 
     /**
      * Creates new form ExecutionTestPanle
      */
-    public ExecutionTestPanle(JcTestWindow w) {
+    public ExecutionTestPanle(MissionControlMainWindow w) {
         initComponents();
         log = (LogTextArea) jTextArea1;
         jcTestWindow = w;

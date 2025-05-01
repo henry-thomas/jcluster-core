@@ -4,7 +4,6 @@
  */
 package org.jcluster.core;
 
-import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -15,7 +14,6 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -75,6 +73,9 @@ public class JcClientManagedConnection extends JcClientConnection {
 
     private static final Logger LOG = (Logger) LoggerFactory.getLogger(JcClientManagedConnection.class);
     private static final HashMap<String, List<JcClientManagedConnection>> remInstMngConMap = new HashMap<>();
+    private static JcClientManagedConnection clientConnectionInProgress = null;
+    private static final Object CLIENT_CON_LOCK = new Object();
+
     private final boolean server;
 
     private String ipAddress;
@@ -161,8 +162,18 @@ public class JcClientManagedConnection extends JcClientConnection {
         );
     }
 
+    private void validateExistingClientConnection() {
+        synchronized (CLIENT_CON_LOCK) {
+            if (clientConnectionInProgress != null) {
+                clientConnectionInProgress.destroy("Parallel establishment of client managed connection. Killing old connection!");
+            }
+            clientConnectionInProgress = this;
+        }
+    }
+
     @Override
     public void run() {
+        validateExistingClientConnection();
         try {
             if (server) {
                 onIncomingHandshake();
@@ -179,6 +190,7 @@ public class JcClientManagedConnection extends JcClientConnection {
                     System.currentTimeMillis() - startTimestamp);
 
             lastDataTimestamp = System.currentTimeMillis();
+
             startManagedReader();
         } catch (Exception ex) {
             closeReason = "ManagedConnection Exception: " + ex.getMessage();
@@ -191,7 +203,7 @@ public class JcClientManagedConnection extends JcClientConnection {
 
                 LOG.warn("Connection shutdown {}", closeReason);
                 if (getMember() != null) {
-                    
+
                     getMember().onManagedConClose(closeReason, this);
                 }
             } else {
@@ -209,6 +221,10 @@ public class JcClientManagedConnection extends JcClientConnection {
     }
 
     private void startManagedReader() throws IOException {
+        synchronized (CLIENT_CON_LOCK) {
+            clientConnectionInProgress = null;
+        }
+
         while (running) {
             try {
                 if (socket.isConnected()) {
@@ -587,7 +603,5 @@ public class JcClientManagedConnection extends JcClientConnection {
         final JcClientManagedConnection other = (JcClientManagedConnection) obj;
         return Objects.equals(this.getConnId(), other.getConnId());
     }
-
- 
 
 }

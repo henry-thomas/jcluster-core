@@ -25,9 +25,9 @@ public class ConnectionDialog extends javax.swing.JFrame {
      * Creates new form ConnectionDialog
      */
     SystemPropManager prop = SystemPropManager.getINSTANCE();
-    private final JcTestWindow mainWindow;
+    private final MissionControlMainWindow mainWindow;
 
-    public ConnectionDialog(JcTestWindow mainWindow) {
+    public ConnectionDialog(MissionControlMainWindow mainWindow) {
         this.mainWindow = mainWindow;
         initComponents();
 

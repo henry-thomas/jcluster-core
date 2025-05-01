@@ -12,10 +12,8 @@ import com.mypower24.jcclustertest.customComp.LogTextArea;
 import com.mypower24.jcclustertest.remote.BroadcastIFace;
 import com.mypower24.jcclustertest.remote.BroadcastImpl;
 import com.mypower24.jcclustertest.tableModel.GenericBeanTableModel;
-import com.mypower24.jcclustertest.tableModel.JTableModelDescription;
 import com.mypower24.jcclustertest.tableModel.JTableModelJcMember;
 import java.awt.GridLayout;
-import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,7 +30,6 @@ import org.jcluster.core.JcCoreService;
 import org.jcluster.core.JcManager;
 import org.jcluster.core.JcMember;
 import org.jcluster.core.MemberEvent;
-import org.jcluster.core.RemMembFilter;
 import org.jcluster.core.bean.JcAppDescriptor;
 import org.jcluster.core.monitor.AppMetricMonitorInterface;
 import org.jcluster.core.monitor.JcConnMetrics;
@@ -45,7 +42,7 @@ import org.jcluster.core.exception.JcException;
  *
  * @author henry
  */
-public class JcTestWindow extends javax.swing.JFrame {
+public class MissionControlMainWindow extends javax.swing.JFrame {
 
     /**
      * Creates new form JcTestWindow
@@ -76,7 +73,7 @@ public class JcTestWindow extends javax.swing.JFrame {
     private final JLogInterface log;
     private static final int GAP = 5;
 
-    public JcTestWindow() {
+    public MissionControlMainWindow() {
         initComponents();
         connDlg = new ConnectionDialog(this);
         updateTitle("JC-Core disabled.");
@@ -88,7 +85,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         try {
             JcManager.registerLocalClassImplementation(BroadcastImpl.class);
         } catch (JcException ex) {
-            Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(MissionControlMainWindow.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         tblMembers.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -103,7 +100,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(MissionControlMainWindow.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -154,7 +151,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                 try {
                     Thread.sleep((Integer) inputBcDelay.getValue());
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(MissionControlMainWindow.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -669,6 +666,7 @@ public class JcTestWindow extends javax.swing.JFrame {
 
         jTabbedPane1.setTabLayoutPolicy(javax.swing.JTabbedPane.SCROLL_TAB_LAYOUT);
         jTabbedPane1.setTabPlacement(javax.swing.JTabbedPane.LEFT);
+        jTabbedPane1.setMinimumSize(new java.awt.Dimension(0, 0));
 
         tblFilters.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -1143,7 +1141,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel14Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel14Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 371, Short.MAX_VALUE)
+                .addComponent(jScrollPane9, javax.swing.GroupLayout.DEFAULT_SIZE, 385, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel14Layout.setVerticalGroup(
@@ -1213,7 +1211,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel9.setLayout(jPanel9Layout);
         jPanel9Layout.setHorizontalGroup(
             jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 383, Short.MAX_VALUE)
+            .addComponent(jScrollPane10, javax.swing.GroupLayout.DEFAULT_SIZE, 397, Short.MAX_VALUE)
         );
         jPanel9Layout.setVerticalGroup(
             jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1259,7 +1257,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel10.setLayout(jPanel10Layout);
         jPanel10Layout.setHorizontalGroup(
             jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 383, Short.MAX_VALUE)
+            .addComponent(jScrollPane8, javax.swing.GroupLayout.DEFAULT_SIZE, 397, Short.MAX_VALUE)
         );
         jPanel10Layout.setVerticalGroup(
             jPanel10Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1273,7 +1271,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel12Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel12Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 393, Short.MAX_VALUE)
+                    .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, 407, Short.MAX_VALUE)
                     .addComponent(jPanel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         jPanel12Layout.setVerticalGroup(
@@ -1368,7 +1366,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel17Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel17Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 365, Short.MAX_VALUE)
+                .addComponent(jScrollPane12, javax.swing.GroupLayout.DEFAULT_SIZE, 379, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel17Layout.setVerticalGroup(
@@ -1452,7 +1450,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             jPanel20Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel20Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 365, Short.MAX_VALUE)
+                .addComponent(jScrollPane14, javax.swing.GroupLayout.DEFAULT_SIZE, 379, Short.MAX_VALUE)
                 .addContainerGap())
         );
         jPanel20Layout.setVerticalGroup(
@@ -1516,7 +1514,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             .addGroup(jPanel18Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel18Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 387, Short.MAX_VALUE)
+                    .addComponent(jPanel20, javax.swing.GroupLayout.DEFAULT_SIZE, 401, Short.MAX_VALUE)
                     .addComponent(jPanel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         jPanel18Layout.setVerticalGroup(
@@ -1566,7 +1564,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         execTestPanel.setLayout(execTestPanelLayout);
         execTestPanelLayout.setHorizontalGroup(
             execTestPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 405, Short.MAX_VALUE)
+            .addGap(0, 419, Short.MAX_VALUE)
         );
         execTestPanelLayout.setVerticalGroup(
             execTestPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1581,7 +1579,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel24.setLayout(jPanel24Layout);
         jPanel24Layout.setHorizontalGroup(
             jPanel24Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 405, Short.MAX_VALUE)
+            .addGap(0, 419, Short.MAX_VALUE)
         );
         jPanel24Layout.setVerticalGroup(
             jPanel24Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1597,7 +1595,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         jPanel25.setLayout(jPanel25Layout);
         jPanel25Layout.setHorizontalGroup(
             jPanel25Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 405, Short.MAX_VALUE)
+            .addGap(0, 419, Short.MAX_VALUE)
         );
         jPanel25Layout.setVerticalGroup(
             jPanel25Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1822,14 +1820,14 @@ public class JcTestWindow extends javax.swing.JFrame {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jScrollPane15, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 424, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                         .addComponent(jPanel8, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 424, Short.MAX_VALUE)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jTabbedPane1)
+                .addComponent(jTabbedPane1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
             .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
@@ -1844,7 +1842,7 @@ public class JcTestWindow extends javax.swing.JFrame {
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jScrollPane15, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 572, Short.MAX_VALUE))
+                    .addComponent(jTabbedPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 572, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -1865,7 +1863,7 @@ public class JcTestWindow extends javax.swing.JFrame {
             }
             SwingUtilities.updateComponentTreeUI(this);
         } catch (UnsupportedLookAndFeelException ex) {
-            Logger.getLogger(JcTestWindow.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(MissionControlMainWindow.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_darkModeRadioActionPerformed
 
@@ -1977,8 +1975,10 @@ public class JcTestWindow extends javax.swing.JFrame {
         try {
             javax.swing.UIManager.setLookAndFeel(new FlatDarculaLaf());
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(JcTestWindow.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(MissionControlMainWindow.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
+        //</editor-fold>
         //</editor-fold>
         //</editor-fold>
 
@@ -1986,7 +1986,7 @@ public class JcTestWindow extends javax.swing.JFrame {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                JcTestWindow jcTestWindow = new JcTestWindow();
+                MissionControlMainWindow jcTestWindow = new MissionControlMainWindow();
                 jcTestWindow.setVisible(true);
 
             }
