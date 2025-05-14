@@ -34,7 +34,7 @@ public class JcServerEndpoint implements Runnable {
     public JcServerEndpoint(ThreadFactory threadFactory, List<Integer> tcpListenPorts) {
         this.threadFactory = threadFactory;
         this.tcpListenPorts = tcpListenPorts;
-        LOG.setLevel(Level.ALL);
+//        LOG.setLevel(Level.ALL);
     }
 
     @Override

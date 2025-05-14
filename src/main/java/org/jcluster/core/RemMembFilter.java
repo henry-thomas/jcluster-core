@@ -45,7 +45,6 @@ public class RemMembFilter implements Serializable {
 
         this.filterName = filterName;
 //        this.mem = mem;
-        LOG.setLevel(Level.ALL);
     }
 
     public boolean isLastReceivedExp() {
