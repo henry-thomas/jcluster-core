@@ -276,12 +276,17 @@ public abstract class JcClientConnection implements Runnable {
                         writeAndFlushToOOS(response);
                     } else {
                         try {
-                            JcCoreService.getInstance().getExecutorService()
-                                    .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+                            
+                            getMember().submitWork(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+//                            JcCoreService.getInstance().getExecutorService()
+//                                    .submit(new JcInboundMethodExecutor(request, this, JcCoreService.getInstance().isEnterprise()));
+                            
+                            
                         } catch (RejectedExecutionException e) {
                             JcMsgResponse response = JcMsgResponse.createResponseMsg(request, e);
                             writeAndFlushToOOS(response);
                             LOG.error(null, e);
+                            
                         }
                     }
 
