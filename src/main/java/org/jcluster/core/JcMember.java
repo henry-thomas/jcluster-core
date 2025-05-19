@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
 import org.jcluster.core.bean.FilterDescBean;
 import org.jcluster.core.bean.jcCollections.RingConcurentList;
 import org.jcluster.core.exception.JcRuntimeException;
@@ -67,8 +68,11 @@ public class JcMember {
     private boolean conRequested = true;
 
     private int maxOutbandConnections = 2;
-    private int outbandConnectionTimeout = 5000;
+    private int outbandConnectionTimeout = 10000;
     private int maxOutbandParallelRequest = 30;
+
+    private int maxInboundWorker = 50;
+    private volatile int currentInboundWorker = 30;
 
     public JcMember(JcClientManagedConnection managedClientCon, JcCoreService core, JcMemberMetrics metrics) {
 //        LOG.setLevel(Level.ALL);
@@ -99,6 +103,20 @@ public class JcMember {
                 core.requestMsgMap.put(jcDistMsg.getMsgId(), jcDistMsg);
             }
         });
+    }
+
+    protected void onSubmitWorkComplete() {
+        currentInboundWorker--;
+    }
+
+    protected void submitWork(JcInboundMethodExecutor work) {
+
+        if (currentInboundWorker >= maxInboundWorker) {
+            throw new RejectedExecutionException("Input runnable task run request drop. Queue is full! ");
+        }
+        currentInboundWorker++;
+
+        JcCoreService.getInstance().getExecutorService().submit(work);
     }
 
     public RemMembFilter getOrCreateFilterTarget(String filterName) {

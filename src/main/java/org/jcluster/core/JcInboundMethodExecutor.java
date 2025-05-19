@@ -50,7 +50,6 @@ public class JcInboundMethodExecutor implements Runnable {
         String jndiName;
         try {
 
-            
             jndiName = request.getJndiName();
             Object service;
 
@@ -83,13 +82,22 @@ public class JcInboundMethodExecutor implements Runnable {
 
         } catch (NamingException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
             LOG.error(null, ex);
-            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
-            sendResponse(response);
+            try {
+                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
+                sendResponse(response);
+            } catch (Exception e) {
+                LOG.error(null, e);
+            }
         } catch (Exception ex) {
             LOG.error(null, ex);
-            JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
-            sendResponse(response);
+            try {
+                JcMsgResponse response = JcMsgResponse.createResponseMsg(request, ex.getCause());
+                sendResponse(response);
+            } catch (Exception e) {
+                LOG.error(null, e);
+            }
         }
+        clientConn.getMember().onSubmitWorkComplete();
     }
 
     private void onPingRequest() {

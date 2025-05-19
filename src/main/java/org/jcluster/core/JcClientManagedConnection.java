@@ -92,6 +92,8 @@ public class JcClientManagedConnection extends JcClientConnection {
     private int ioClientFailCounter = 0;
 
     private long lastDataReceived = 0;
+    
+    
 
     private JcClientManagedConnection(SerializedConnectionBean scb, JcHandhsakeFrame handShakeReq) throws Exception {
         super(JcConnectionTypeEnum.MANAGED);
