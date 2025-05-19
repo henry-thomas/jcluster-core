@@ -4,7 +4,6 @@
  */
 package org.jcluster.core;
 
-import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import java.io.IOException;
 import java.net.InetSocketAddress;
