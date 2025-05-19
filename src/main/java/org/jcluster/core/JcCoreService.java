@@ -232,7 +232,7 @@ public final class JcCoreService {
                 if (mes != null) {
                     executorService = mes;
                 } else {
-                    executorService = new ThreadPoolExecutor(10, 100, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+                    executorService = new ThreadPoolExecutor(10, 300, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
                 }
 
                 ManagedThreadFactory tf = (ManagedThreadFactory) config.get("threadFactory");
