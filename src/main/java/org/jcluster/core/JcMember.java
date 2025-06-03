@@ -690,4 +690,9 @@ public class JcMember {
 
     }
 
+    @Override
+    public String toString() {
+        return "JcMember{" + "appName=" + desc.getAppName() + ", Title=" + desc.getTitle() + ", InstanceId=" + desc.getInstanceId() + "} " + "";
+    }
+
 }
